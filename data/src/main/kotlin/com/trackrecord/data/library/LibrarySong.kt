@@ -5,6 +5,7 @@ import com.trackrecord.data.db.MbCacheEntity
 import com.trackrecord.data.db.SongEntity
 import com.trackrecord.data.db.SongOverrideEntity
 import com.trackrecord.data.db.SongSource
+import com.trackrecord.data.db.searchedByName
 import com.trackrecord.data.musicbrainz.MusicBrainzLookup
 import com.trackrecord.data.playlists.BuiltInPlaylists
 import com.trackrecord.engine.year.ResolvedYear
@@ -34,14 +35,29 @@ data class LibrarySong(
 
     /**
      * How MusicBrainz checked this song (feedback round 30); a fingerprint check includes the name search.
-     * A streamed song is never fingerprinted, so it counts as checked by name (D-276).
+     * A streamed song is never fingerprinted, so it counts as checked by name (D-276). A result without the
+     * name search counts as not verified: it may hold a remaster's year (feedback round 47).
      */
     val verification: Verification
         get() = when {
-            lookup == null -> Verification.NONE
+            lookup == null || needsNameCheck -> Verification.NONE
             lookup.fingerprintChecked && song.source == SongSource.LOCAL -> Verification.FINGERPRINT
             else -> Verification.NAME
         }
+
+    /**
+     * Left for "Verify by name": never looked up, or never searched by artist and title, which alone finds the
+     * original release (feedback round 47).
+     */
+    val needsNameCheck: Boolean get() = lookup == null || lookup.lookupVersion < MusicBrainzLookup.LOOKUP_VERSION || !lookup.searchedByName
+
+    /**
+     * Left for "Verify by fingerprint": a local file not fingerprinted yet. A streamed song has no file; its
+     * check there (ISRC and name, D-276) is the one "Verify by name" makes, so it is left only while that is
+     * (feedback round 47: a fingerprint run after a name run checked 3000 streamed songs again).
+     */
+    val needsFingerprintCheck: Boolean
+        get() = if (song.source == SongSource.LOCAL) lookup?.fingerprintChecked != true else needsNameCheck
 
     /** Enters game pools: has a usable year, isn't excluded and its folder is reachable. */
     val playable: Boolean get() = resolved.year != null && !excluded && folderAvailable

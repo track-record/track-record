@@ -438,7 +438,7 @@ class GameController(
                     when (result) {
                         is LookupResult.Match -> addFoundSong(song)
                         LookupResult.NoMatch -> Unit
-                        LookupResult.Skipped -> offline = true
+                        LookupResult.Skipped, LookupResult.Offline, is LookupResult.Unavailable -> offline = true
                     }
                 }
                 if (offline) return@launch // offline or lookups off: try again next game

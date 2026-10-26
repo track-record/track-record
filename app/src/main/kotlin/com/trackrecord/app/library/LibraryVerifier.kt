@@ -5,6 +5,7 @@ import com.trackrecord.data.db.SongSource
 import com.trackrecord.data.library.LibraryRepository
 import com.trackrecord.data.musicbrainz.CoverArtService
 import com.trackrecord.data.musicbrainz.LookupResult
+import com.trackrecord.data.musicbrainz.LookupService
 import com.trackrecord.data.musicbrainz.MusicBrainzLookup
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,10 @@ sealed interface VerifyState {
         val failed: Int = 0,
         val newYears: Int = 0,
         val earlier: Int = 0,
+        /** The service that kept refusing and stopped the run (feedback round 47), or null. */
+        val unavailable: LookupService? = null,
+        /** Stopped because the phone is offline; [skipped] alone: lookups are switched off (feedback round 47). */
+        val offline: Boolean = false,
     ) : VerifyState
 }
 
@@ -102,6 +107,8 @@ class LibraryVerifier(
         var matched = 0
         var failed = 0
         var fingerprinted = 0
+        var unavailable: LookupService? = null
+        var offline = false
         val before = library.resolvedYears()
         val toFingerprint = if (task == BulkTask.FINGERPRINT_ALL) songs.count { it.source == SongSource.LOCAL } else 0
         _state.value = VerifyState.Running(task, 0, songs.size, 0, toFingerprint = toFingerprint)
@@ -122,6 +129,14 @@ class LibraryVerifier(
                 }
                 LookupResult.NoMatch -> Unit
                 LookupResult.Skipped -> failed++
+                LookupResult.Offline -> {
+                    failed++
+                    offline = true
+                }
+                is LookupResult.Unavailable -> {
+                    failed++
+                    unavailable = result.service
+                }
             }
             _state.value = VerifyState.Running(task, done, songs.size, matched, fingerprinted, toFingerprint)
         }
@@ -133,6 +148,8 @@ class LibraryVerifier(
             failed = failed,
             newYears = ids.count { before[it] == null && after[it] != null },
             earlier = ids.count { id -> val b = before[id]; val a = after[id]; b != null && a != null && a < b },
+            unavailable = unavailable,
+            offline = offline,
         )
     }
 

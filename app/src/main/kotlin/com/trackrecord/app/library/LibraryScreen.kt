@@ -68,6 +68,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.trackrecord.app.R
 import com.trackrecord.app.appContainer
+import com.trackrecord.app.contactEmailInUse
 import com.trackrecord.app.ui.components.BottomBarSurface
 import com.trackrecord.app.ui.components.Button
 import com.trackrecord.app.ui.components.Card
@@ -80,6 +81,7 @@ import com.trackrecord.data.library.LibrarySong
 import com.trackrecord.data.library.LibraryStats
 import com.trackrecord.data.library.ScanState
 import com.trackrecord.data.musicbrainz.AcoustIdKeyStatus
+import com.trackrecord.data.musicbrainz.LookupService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -513,9 +515,11 @@ private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel
  */
 @Composable
 private fun LookupSummary(state: VerifyState.Finished) {
-    // Nothing could be checked at all: say why it may have stopped.
-    if (state.total > 0 && state.failed == state.total) {
-        Text(stringResource(R.string.verify_skipped))
+    // A service kept refusing even at the slowest pace: say so first (feedback round 47).
+    state.unavailable?.let { Text(serviceUnavailableText(it), color = MaterialTheme.colorScheme.error) }
+    // Nothing could be checked at all: say why (feedback round 47: the reason is known, no list of guesses).
+    if (state.unavailable == null && state.total > 0 && state.failed == state.total) {
+        Text(if (state.offline) stringResource(R.string.lookup_offline) else lookupsOffText(), color = MaterialTheme.colorScheme.error)
         return
     }
     Text(pluralStringResource(R.plurals.summary_checked, state.total, state.total), style = MaterialTheme.typography.titleSmall)
@@ -527,6 +531,24 @@ private fun LookupSummary(state: VerifyState.Finished) {
     if (lines.isEmpty()) Text(stringResource(R.string.summary_no_changes))
     for (line in lines) Text("• $line")
 }
+
+/**
+ * Why lookups don't run: switched off in Settings, or (only in a build without a built-in contact address, where
+ * Settings asks for one) no contact email.
+ */
+@Composable
+fun lookupsOffText(): String {
+    val settings by LocalContext.current.appContainer.settings.appSettings.collectAsStateWithLifecycle(initialValue = null)
+    val s = settings
+    return stringResource(if (s != null && s.musicBrainzEnabled && s.contactEmailInUse.isBlank()) R.string.lookup_no_contact else R.string.lookup_off)
+}
+
+/** MusicBrainz or AcoustID turned requests away, also at the slowest pace: try again later (feedback round 47). */
+@Composable
+fun serviceUnavailableText(service: LookupService): String = stringResource(
+    R.string.service_unavailable,
+    stringResource(if (service == LookupService.ACOUSTID) R.string.service_acoustid else R.string.service_musicbrainz),
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

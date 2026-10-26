@@ -180,7 +180,9 @@ private fun LookupSection(state: LookupUi, keyStatus: AcoustIdKeyStatus, onLookU
             style = MaterialTheme.typography.bodyMedium,
         )
         LookupUi.NoMatch -> Text(stringResource(R.string.lookup_no_match), style = MaterialTheme.typography.bodyMedium)
-        LookupUi.Unavailable -> Text(stringResource(R.string.lookup_unavailable), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        LookupUi.Off -> Text(lookupsOffText(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        LookupUi.Offline -> Text(stringResource(R.string.lookup_offline), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+        is LookupUi.Refused -> Text(serviceUnavailableText(state.service), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         LookupUi.Idle -> Unit
     }
     OutlinedButton(onClick = onLookUp, enabled = state != LookupUi.Running) { Text(stringResource(R.string.lookup_button)) }

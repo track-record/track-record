@@ -128,7 +128,6 @@
     <string name="verify_fingerprint_all_hint">Verification by fingerprint is a more extensive verification, which may take a while for a large library. It also includes a verification by name. Streamed songs can\'t be fingerprinted; they are verified by name.</string>
     <string name="acoustid_rejected_warning">AcoustID rejected the API key, so songs are matched by artist and title only. Check the key in Settings.</string>
     <string name="verify_progress">Checked %1$d of %2$d · %3$d matched</string>
-    <string name="verify_skipped">Stopped: MusicBrainz is off, offline, or no contact email is set in Settings.</string>
     <string name="find_missing_start">Check missing years</string>
     <string name="find_missing_progress">Looked up %1$d of %2$d songs without a year · %3$d found</string>
     <plurals name="find_missing_no_artist">
@@ -140,7 +139,12 @@
     <string name="lookup_running_fingerprint">Fingerprinting the audio, asking AcoustID and MusicBrainz…</string>
     <string name="song_via_fingerprint">Matched by audio fingerprint (AcoustID)</string>
     <string name="lookup_no_match">No matching recording found on MusicBrainz.</string>
-    <string name="lookup_unavailable">MusicBrainz is off, offline, or no contact email is set in Settings.</string>
+    <string name="service_unavailable">%1$s seems to be unavailable at the moment: it kept turning requests away, even at the slowest pace. Please try again later.</string>
+    <string name="service_musicbrainz">MusicBrainz</string>
+    <string name="service_acoustid">AcoustID</string>
+    <string name="lookup_off">MusicBrainz lookups are switched off in Settings.</string>
+    <string name="lookup_no_contact">MusicBrainz lookups need a contact email: enter one in Settings.</string>
+    <string name="lookup_offline">No internet connection. Try again when the phone is online.</string>
 
     <!-- Playlists -->
     <string name="playlists_title">Playlists</string>

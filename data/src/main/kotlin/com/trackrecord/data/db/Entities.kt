@@ -133,7 +133,19 @@ data class MbCacheEntity(
      * couldn't be decoded; for a streamed song, its ISRC and name were checked (D-276).
      */
     @ColumnInfo(name = "fingerprint_checked", defaultValue = "0") val fingerprintChecked: Boolean = false,
+    /**
+     * The search by artist and title ran (feedback round 47). Only it finds the original release: ids, ISRCs
+     * and fingerprints name one recording, which may be a remaster. Results from before always ran it
+     * unless the ids agreed with the tags, so they count as not searched.
+     */
+    @ColumnInfo(name = "name_searched", defaultValue = "0") val nameSearched: Boolean = false,
 )
+
+/**
+ * The search by artist and title ran for this result (feedback round 47): recorded since then, and always part
+ * of a fingerprint run before.
+ */
+val MbCacheEntity.searchedByName: Boolean get() = nameSearched || fingerprintChecked
 
 /** A user-made playlist. The built-in "All" playlist is virtual and never stored. */
 @Entity(tableName = "playlists")

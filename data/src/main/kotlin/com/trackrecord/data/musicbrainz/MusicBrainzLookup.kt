@@ -3,6 +3,7 @@ package com.trackrecord.data.musicbrainz
 import com.trackrecord.data.db.MbCacheEntity
 import com.trackrecord.data.db.SongEntity
 import com.trackrecord.data.db.SongSource
+import com.trackrecord.data.db.searchedByName
 import com.trackrecord.engine.musicbrainz.MatchAcceptance
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
@@ -17,9 +18,20 @@ interface MbCache {
 sealed interface LookupResult {
     data class Match(val year: Int) : LookupResult
     data object NoMatch : LookupResult
-    /** Lookups are off (no contact email / disabled) or the network is unavailable. */
+    /** Lookups are switched off (or, in a build without a built-in contact, no contact email is set). */
     data object Skipped : LookupResult
+
+    /** The phone couldn't reach the service: no connection (feedback round 47; was part of [Skipped]). */
+    data object Offline : LookupResult
+
+    /**
+     * [service] kept turning requests away, also at the slowest pace, and the run stopped (feedback round 47):
+     * it seems to be unavailable for now, worth trying again later.
+     */
+    data class Unavailable(val service: LookupService) : LookupResult
 }
+
+enum class LookupService { MUSICBRAINZ, ACOUSTID }
 
 /**
  * Looks songs up on MusicBrainz: gathers candidates from their recording ids, their ISRCs, their audio
@@ -27,8 +39,10 @@ sealed interface LookupResult {
  * ones and takes the earliest date. Results are cached; a "no match" is retried after [noMatchRetryMs].
  *
  * Requests are consolidated (DECISIONS.md D-071, D-075): recording ids (tagged or found by fingerprint)
- * and ISRCs of many songs go into one search each; a song settled by those needs no search; and a
- * search starts narrowed to releases up to the tag year. A request that fails for a passing reason
+ * and ISRCs of many songs go into one search each; and a search starts narrowed to releases up to the tag
+ * year. Every song is also searched by artist and title, since ids name one recording, which may be a
+ * remaster, and only the search finds the original release (feedback round 47; D-071 skipped it when the
+ * ids agreed with the tags). A request that fails for a passing reason
  * (rate limit, server trouble, timeout) puts its song at the end of the queue (D-074).
  */
 class MusicBrainzLookup(
@@ -69,6 +83,7 @@ class MusicBrainzLookup(
          * search ran (D-276).
          */
         var fingerprinted = false
+        /** No artist: no search possible, done after the id step. */
         var settled = false
         var retries = 0
     }
@@ -77,7 +92,8 @@ class MusicBrainzLookup(
      * Looks up several songs with as few requests as possible. [onResult] is called for each song as
      * soon as its result is known (cached ones first). A failed request puts its song at the end of the
      * queue, at most [MAX_RETRIES] times. Offline, or after [MAX_FAILURES_IN_ROW] failed requests in a
-     * row, the remaining songs are [LookupResult.Skipped] and nothing more is cached for them.
+     * row, the remaining songs are [LookupResult.Unavailable] (offline: [LookupResult.Offline]) and nothing
+     * more is cached for them.
      */
     suspend fun lookupAll(
         songs: List<SongEntity>,
@@ -104,7 +120,7 @@ class MusicBrainzLookup(
         val todo = ArrayDeque<Work>()
         for (song in songs.distinctBy { it.id }) {
             val hit = cache.get(keyOf(song))
-            val fresh = hit != null && !force && !byFingerprint && hit.lookupVersion >= version
+            val fresh = hit != null && !force && !byFingerprint && hit.lookupVersion >= version && hit.searchedByName
             when {
                 fresh && hit!!.year != null -> done(song, LookupResult.Match(hit.year!!))
                 fresh && clock() - hit!!.checkedAt < noMatchRetryMs -> done(song, LookupResult.NoMatch)
@@ -125,24 +141,38 @@ class MusicBrainzLookup(
         }
         var failuresInRow = 0
         var stop = false
+        /** The service whose refusals stopped the run; null when it stopped because the phone is offline. */
+        var refusedBy: LookupService? = null
+        /** The service that refused the last failed request. */
+        var lastRefused = LookupService.MUSICBRAINZ
 
         /** Runs one network step; null if it failed (the caller then requeues, unless [stop] is set). */
-        suspend fun <T : Any> net(step: suspend () -> T): T? = try {
+        suspend fun <T : Any> net(service: LookupService, step: suspend () -> T): T? = try {
             step().also { failuresInRow = 0 }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: AcoustIdKeyException) {
             throw e
         } catch (e: ServiceUnavailableException) {
-            if (++failuresInRow >= MAX_FAILURES_IN_ROW) stop = true
+            lastRefused = service
+            if (++failuresInRow >= MAX_FAILURES_IN_ROW) {
+                stop = true
+                refusedBy = service
+            }
+            null
+        } catch (e: java.io.IOException) {
+            stop = true // no connection
             null
         } catch (e: Exception) {
-            stop = true // offline
+            // An answer that can't be read: the service misbehaves, the phone is online.
+            stop = true
+            refusedBy = service
             null
         }
 
         suspend fun requeue(work: Work) {
-            if (++work.retries > MAX_RETRIES) done(work.song, LookupResult.Skipped) else todo.addLast(work)
+            // Only refusals requeue: a song refused this often found the service unavailable too.
+            if (++work.retries > MAX_RETRIES) done(work.song, LookupResult.Unavailable(lastRefused)) else todo.addLast(work)
         }
 
         // Fingerprints are pure computation: they are prepared ahead while the network work goes on.
@@ -182,7 +212,7 @@ class MusicBrainzLookup(
             for (chunk in asking.chunked(AcoustIdClient.BATCH)) {
                 if (stop || !useFingerprints) break
                 val ids = try {
-                    net { fingerprints!!.recordingIds(chunk.map { it.song to it.fingerprint!! }) }
+                    net(LookupService.ACOUSTID) { fingerprints!!.recordingIds(chunk.map { it.song to it.fingerprint!! }) }
                 } catch (e: AcoustIdKeyException) {
                     NetLog.w("AcoustID rejected the API key: ${e.message}")
                     useFingerprints = false // the rest of the run matches by name
@@ -197,7 +227,7 @@ class MusicBrainzLookup(
             if (ready.isEmpty()) return
             val ids = ready.flatMap { listOfNotNull(it.song.mbRecordingId?.lowercase()) + it.fingerprintIds.orEmpty() }.distinct()
             val isrcs = ready.mapNotNull { it.song.isrc }.distinct()
-            val fetched = net { client.recordingsByIds(ids) to client.recordingsByIsrcs(isrcs) }
+            val fetched = net(LookupService.MUSICBRAINZ) { client.recordingsByIds(ids) to client.recordingsByIsrcs(isrcs) }
             if (fetched == null) {
                 if (!stop) ready.forEach { requeue(it) }
                 return
@@ -215,17 +245,11 @@ class MusicBrainzLookup(
                     if (w.song.isrc != null) addAll(acceptedOf(fetched.second, artist, w.song.title))
                 }
                 val fromAudio = acceptedOf(w.fingerprintIds.orEmpty().mapNotNull { byId[it] }, artist, w.song.title, audio = true)
-                val best = earliestYear(fromTags + fromAudio)
-                val tagYear = w.song.tagOriginalYear ?: w.song.tagYear
-                // Ids that agree with (or beat) the tags settle a song: a search can't change the answer
-                // that matters (D-071). A fingerprint match settles it on its own unless the tags name an
-                // earlier year (D-075).
-                w.settled = !byFingerprint && best != null && (if (tagYear != null) best <= tagYear else fromAudio.isNotEmpty())
                 w.accepted = fromTags + fromAudio
                 w.fromAudio = fromAudio
             }
-            // Settled songs are done now; the rest wait for the name searches, which come after every
-            // song's fast steps (D-078). "Check all by fingerprint" searches every song by name too, so
+            // Songs without an artist can't be searched and are done now; the rest wait for the name searches,
+            // which come after every song's fast steps (D-078). "Check all by fingerprint" searches every song by name too, so
             // there each group is finished first: the progress moves on steadily instead of staying at 0
             // until every file is fingerprinted (feedback round 27).
             val searchNext = mutableListOf<Work>()
@@ -252,17 +276,18 @@ class MusicBrainzLookup(
             // Name searches, [SEARCH_BATCH] songs per request.
             val batch = mutableListOf<Work>()
             while (todo.isNotEmpty() && todo.first().accepted != null && batch.size < SEARCH_BATCH) batch += todo.removeFirst()
-            val found = net {
+            val found = net(LookupService.MUSICBRAINZ) {
                 searchAll(batch.map { NameQuery(it.song.artist!!, it.song.title, it.song.tagOriginalYear ?: it.song.tagYear, it.accepted!!) })
             }
             if (found == null) {
                 if (!stop) batch.forEach { requeue(it) }
                 continue
             }
-            batch.zip(found) { w, more -> done(w.song, store(w, w.accepted!! + more, version)) }
+            batch.zip(found) { w, more -> done(w.song, store(w, w.accepted!! + more, version, searched = true)) }
         }
         pending.values.forEach { it.cancel() }
-        unfinished.filter { it.id !in results }.forEach { done(it, LookupResult.Skipped) }
+        val left = refusedBy?.let { LookupResult.Unavailable(it) } ?: LookupResult.Offline
+        unfinished.filter { it.id !in results }.forEach { done(it, left) }
         results
     }
 
@@ -275,7 +300,7 @@ class MusicBrainzLookup(
         null
     }
 
-    private suspend fun store(w: Work, accepted: List<MbRecording>, version: Int): LookupResult {
+    private suspend fun store(w: Work, accepted: List<MbRecording>, version: Int, searched: Boolean = false): LookupResult {
         val song = w.song
         val hit = w.hit
         val fromAudio = w.fromAudio
@@ -291,6 +316,7 @@ class MusicBrainzLookup(
                 lookupVersion = version,
                 viaFingerprint = year != null && earliestYear(fromAudio) == year,
                 fingerprintChecked = w.fingerprinted || hit?.fingerprintChecked == true,
+                nameSearched = searched,
             ),
         )
         return if (year != null) LookupResult.Match(year) else LookupResult.NoMatch
@@ -374,9 +400,9 @@ class MusicBrainzLookup(
         const val MAX_RETRIES = 3
 
         /**
-         * Failed requests in a row after which MusicBrainz counts as unavailable for this run. With the
-         * spacing doubling per failure (2, 4, 8, 16, 30 … s) that is about 2½ minutes of refusals: a phone
-         * sharing the limit with others waits it out (feedback round 29).
+         * Failed requests in a row after which MusicBrainz or AcoustID counts as unavailable for this run
+         * ([LookupResult.Unavailable]). With the spacing doubling per failure (2, 4, 8 s, then 10 s, D-307) the
+         * last five come at the slowest pace, about a minute of refusals (feedback rounds 29, 47).
          */
         const val MAX_FAILURES_IN_ROW = 8
 

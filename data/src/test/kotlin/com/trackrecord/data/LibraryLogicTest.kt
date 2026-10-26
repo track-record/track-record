@@ -6,6 +6,7 @@ import androidx.media3.extractor.metadata.id3.InternalFrame
 import androidx.media3.extractor.metadata.id3.TextInformationFrame
 import androidx.media3.extractor.metadata.vorbis.VorbisComment
 import com.trackrecord.data.db.FolderEntity
+import com.trackrecord.data.db.MbCacheEntity
 import com.trackrecord.data.db.SongEntity
 import com.trackrecord.data.db.SongOverrideEntity
 import com.trackrecord.data.db.SongScanState
@@ -18,7 +19,9 @@ import com.trackrecord.data.library.LibraryStats
 import com.trackrecord.data.library.Media3TagReader
 import com.trackrecord.data.library.ScanPlanner
 import com.trackrecord.data.library.SongStatus
+import com.trackrecord.data.library.Verification
 import com.trackrecord.data.library.filtered
+import com.trackrecord.data.musicbrainz.MusicBrainzLookup
 import com.trackrecord.data.playlists.BuiltInPlaylists
 import com.trackrecord.data.sources.AudioRef
 import com.trackrecord.data.sources.AudioResolver
@@ -118,6 +121,33 @@ class LibraryLogicTest {
 
     private fun override(uri: String, key: String = "x", year: Int? = null) =
         SongOverrideEntity(songUri = uri, matchKey = key, manualYear = year, updatedAt = 0)
+
+    @Test
+    fun `verify by fingerprint leaves out streamed songs a name check already covered`() {
+        val local = song(1, "u1", tag = 1990)
+        val streamed = song(2, "deezer:2", tag = 1990).copy(folderId = null, source = SongSource.DEEZER)
+        fun needs(s: SongEntity, lookup: MbCacheEntity?) =
+            LibrarySong.assemble(listOf(s), emptyList(), listOf(FolderEntity(1, "tree", "Music")), year, lookups = listOfNotNull(lookup).associateBy { MusicBrainzLookup.keyOf(s) }).single().needsFingerprintCheck
+        val byName = MbCacheEntity(songKey = "k", year = 1990, checkedAt = 0, lookupVersion = MusicBrainzLookup.LOOKUP_VERSION, nameSearched = true)
+        assertTrue(needs(local, byName), "a local file still gets its fingerprint")
+        assertFalse(needs(local, byName.copy(fingerprintChecked = true)))
+        assertFalse(needs(streamed, byName), "nothing more to check without a file")
+        assertTrue(needs(streamed, null), "never checked")
+        assertTrue(needs(streamed, byName.copy(nameSearched = false)), "settled by its ISRC without a name search, before feedback round 47")
+        assertTrue(needs(streamed, byName.copy(lookupVersion = 0)), "only looked up before verification existed")
+        assertFalse(needs(streamed, byName.copy(nameSearched = false, fingerprintChecked = true)), "a fingerprint run always searched by name")
+    }
+
+    @Test
+    fun `a result without the name search shows as not verified until checked again`() {
+        val s = song(1, "u1", tag = 1990)
+        fun status(lookup: MbCacheEntity) =
+            LibrarySong.assemble(listOf(s), emptyList(), listOf(FolderEntity(1, "tree", "Music")), year, lookups = mapOf(MusicBrainzLookup.keyOf(s) to lookup)).single().verification
+        val old = MbCacheEntity(songKey = "k", year = 1990, checkedAt = 0, lookupVersion = MusicBrainzLookup.LOOKUP_VERSION)
+        assertEquals(Verification.NONE, status(old), "settled by its ids before feedback round 47")
+        assertEquals(Verification.NAME, status(old.copy(nameSearched = true)))
+        assertEquals(Verification.FINGERPRINT, status(old.copy(fingerprintChecked = true)))
+    }
 
     @Test
     fun `manual edits are found by uri, then by artist title and duration`() {

@@ -144,14 +144,14 @@ class LibraryRepository(
 
     /** Playable songs that have no MusicBrainz result yet ("Verify library"). */
     suspend fun unverifiedSongs(currentVersion: Int = MusicBrainzLookup.LOOKUP_VERSION): List<SongEntity> =
-        assembleNow().filter { it.playable && (it.lookup == null || it.lookup.lookupVersion < currentVersion) }.map { it.song }
+        assembleNow().filter { it.playable && (it.needsNameCheck || it.lookup!!.lookupVersion < currentVersion) }.map { it.song }
 
     /**
      * Songs "Verify by fingerprint" hasn't checked yet (D-194): local songs by their audio and names,
      * streamed songs by their ISRC and names (D-276).
      */
     suspend fun fingerprintUncheckedSongs(): List<SongEntity> =
-        assembleNow().filter { it.lookup?.fingerprintChecked != true }.map { it.song }
+        assembleNow().filter { it.needsFingerprintCheck }.map { it.song }
 
     /** Songs without a usable year ("Check missing years"). */
     suspend fun missingYearSongs(): List<SongEntity> = assembleNow().filter { it.missingYear }.map { it.song }

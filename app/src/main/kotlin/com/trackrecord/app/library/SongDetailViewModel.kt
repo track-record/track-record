@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.trackrecord.data.library.LibraryRepository
 import com.trackrecord.data.library.LibrarySong
 import com.trackrecord.data.musicbrainz.LookupResult
+import com.trackrecord.data.musicbrainz.LookupService
 import com.trackrecord.data.musicbrainz.MusicBrainzLookup
 import com.trackrecord.data.sources.AudioResolver
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,13 @@ sealed interface LookupUi {
     data object Idle : LookupUi
     data object Running : LookupUi
     data object NoMatch : LookupUi
-    data object Unavailable : LookupUi
+    /** Lookups are switched off. */
+    data object Off : LookupUi
+
+    data object Offline : LookupUi
+
+    /** [service] kept refusing: try again later (feedback round 47). */
+    data class Refused(val service: LookupService) : LookupUi
 }
 
 class SongDetailViewModel(
@@ -64,7 +71,9 @@ class SongDetailViewModel(
         _lookup.value = when (result) {
             is LookupResult.Match -> LookupUi.Idle
             LookupResult.NoMatch -> LookupUi.NoMatch
-            LookupResult.Skipped -> LookupUi.Unavailable
+            LookupResult.Skipped -> LookupUi.Off
+            LookupResult.Offline -> LookupUi.Offline
+            is LookupResult.Unavailable -> LookupUi.Refused(result.service)
         }
     }
 

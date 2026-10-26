@@ -25,8 +25,9 @@ class ServiceUnavailableException(message: String) : Exception(message)
  *
  * The spacing adapts (feedback rounds 28, 29): it starts at [minIntervalMs], the fastest the service
  * allows, and only grows once something fails, doubling per failure (2 s, 4 s, 8 s … at most
- * [maxBackoffMs]). It stays there, since other phones on the same network may share the limit; every
- * [PROBE_AFTER] successes in a row it shrinks by a fifth, testing whether a faster pace works again.
+ * [maxBackoffMs]). It doesn't jump back, since other phones on the same network may share the limit: every
+ * [PROBE_AFTER] successes in a row it halves, testing whether a faster pace works again (feedback round 47:
+ * a fifth less per 5 successes took over 20 minutes to get from 30 s back to 1 s).
  * After [IDLE_RESET_MS] without requests the next run starts at the minimum again. Clock and sleep are
  * injected for tests.
  */
@@ -35,7 +36,8 @@ class RateLimitedQueue(
     private val clock: () -> Long,
     private val sleep: suspend (Long) -> Unit,
     private val minIntervalMs: Long = 1_000,
-    private val maxBackoffMs: Long = 30_000,
+    /** At most 10 s between requests, however often they fail (feedback round 47; was 30 s). */
+    private val maxBackoffMs: Long = 10_000,
 ) {
     private val mutex = Mutex()
     private var lastStart: Long? = null
@@ -65,7 +67,7 @@ class RateLimitedQueue(
         }
         if (++successesInRow >= PROBE_AFTER) {
             successesInRow = 0
-            intervalMs = maxOf(minIntervalMs, intervalMs * 4 / 5)
+            intervalMs = maxOf(minIntervalMs, intervalMs / 2)
         }
         response
     }
@@ -86,7 +88,7 @@ class RateLimitedQueue(
     }
 
     private companion object {
-        const val PROBE_AFTER = 5
+        const val PROBE_AFTER = 2
         const val IDLE_RESET_MS = 60_000L
     }
 }
