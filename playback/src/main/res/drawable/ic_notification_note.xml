@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome app glyph for the media notification: music note over timeline cards. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M34,66h40v6h-40zM34,76h40v6h-40z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M58,28v22.6c-1.2,-0.7 -2.5,-1.1 -4,-1.1c-4.1,0 -7.5,3.1 -7.5,7s3.4,7 7.5,7s7.5,-3.1 7.5,-7V36h8v-8z" />
+</vector>

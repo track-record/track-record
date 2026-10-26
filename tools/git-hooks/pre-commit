@@ -1,0 +1,9 @@
+#!/bin/sh
+# Keeps `gradlew spotlessCheck` green (CLAUDE.md; review 2 C-09): a commit with Kotlin files that don't
+# pass is stopped. Fix with `gradlew spotlessApply`. Enabled with: git config core.hooksPath tools/git-hooks
+if git diff --cached --name-only | grep -qE '\.kts?$'; then
+  ./gradlew spotlessCheck -q --console=plain || {
+    echo "spotlessCheck failed: run ./gradlew spotlessApply and add the changes." >&2
+    exit 1
+  }
+fi

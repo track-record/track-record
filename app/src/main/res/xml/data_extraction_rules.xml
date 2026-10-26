@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: cloud backup and device transfer (DECISIONS.md D-168). Settings, library, players and
+     their photos are kept; downloaded cover art is left out because it is fetched again. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="mb_covers/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="mb_covers/" />
+    </device-transfer>
+</data-extraction-rules>

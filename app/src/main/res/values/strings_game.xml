@@ -1,0 +1,512 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Common -->
+    <string name="action_next">Next</string>
+    <string name="action_reveal">Reveal</string>
+    <string name="action_ok">OK</string>
+    <string name="value_off">Off</string>
+    <string name="stepper_decrease">Decrease %1$s</string>
+    <string name="stepper_increase">Increase %1$s</string>
+    <string name="name_with_detail">%1$s · %2$s</string>
+    <string name="list_separator">", "</string>
+    <string name="flag_separator">" · "</string>
+    <string name="a11y_with_detail">%1$s, %2$s</string>
+
+    <!-- Home -->
+    <string name="home_new_game">New game</string>
+    <string name="home_continue">Continue game</string>
+
+    <!-- Placeholders: the only text the media session, notification and lock screen ever see -->
+    <string name="placeholder_title">Mystery song</string>
+    <string name="placeholder_round">Round %1$d</string>
+
+    <!-- Player colors (spoken with the color swatches) -->
+    <string name="color_red">Red</string>
+    <string name="color_green">Green</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_orange">Orange</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_magenta">Magenta</string>
+    <string name="color_lime">Lime</string>
+    <string name="color_pink">Pink</string>
+    <string name="color_teal">Teal</string>
+    <string name="color_brown">Brown</string>
+
+    <!-- Plurals -->
+    <plurals name="vetoes">
+        <item quantity="one">%d veto</item>
+        <item quantity="other">%d vetoes</item>
+    </plurals>
+    <plurals name="cards">
+        <item quantity="one">%d card</item>
+        <item quantity="other">%d cards</item>
+    </plurals>
+    <plurals name="seconds">
+        <item quantity="one">%d s</item>
+        <item quantity="other">%d s</item>
+    </plurals>
+    <plurals name="years_off">
+        <item quantity="one">%d year off</item>
+        <item quantity="other">%d years off</item>
+    </plurals>
+
+    <!-- Rejections -->
+    <string name="reject_no_game">No game is running.</string>
+    <string name="reject_not_now">That isn\'t possible right now.</string>
+    <string name="reject_too_few_players">At least 2 players are needed.</string>
+    <string name="reject_too_many_players">At most 10 players can play.</string>
+    <string name="reject_duplicate_player">A player is in the game twice.</string>
+    <string name="reject_invalid_settings">Some settings are out of range.</string>
+    <string name="reject_pool_too_small">Not enough playable songs for this game.</string>
+    <string name="reject_pool_empty">There are no songs left in the pool.</string>
+    <string name="reject_unknown_player">Unknown player.</string>
+    <string name="reject_active_cannot_veto">The active player can\'t veto.</string>
+    <string name="reject_invalid_slot">That gap doesn\'t exist.</string>
+    <string name="reject_slot_taken">That gap is already taken.</string>
+    <string name="reject_no_slot">Tap a gap first.</string>
+    <string name="reject_not_enough_vetoes">Not enough vetoes.</string>
+    <string name="reject_veto_limit">No more vetoes for this song.</string>
+    <string name="reject_nothing_to_undo">Nothing to undo.</string>
+    <string name="reject_feature_disabled">That\'s turned off in this game.</string>
+    <string name="reject_year_out_of_range">That year is out of range.</string>
+    <string name="reject_duplicate_guess">That year was already guessed.</string>
+    <string name="reject_guesses_incomplete">Everyone has to guess first.</string>
+    <string name="reject_all_guessed">Everyone has guessed.</string>
+    <string name="reject_song_not_found">Song not found.</string>
+    <string name="reject_song_in_game">That song is already in this game.</string>
+
+    <!-- New game -->
+    <string name="new_game_title">New game</string>
+    <string name="new_game_step">Step %1$d of %2$d: %3$s</string>
+    <string name="new_game_start">Start game</string>
+    <string name="step_mode">Mode</string>
+    <string name="step_players">Players and seats</string>
+    <string name="step_pool">Song pool</string>
+    <string name="step_settings">Rules</string>
+    <string name="mode_timeline">Song Order</string>
+    <string name="mode_timeline_hint">Place each song among your cards, in year order. Others can veto.</string>
+    <string name="mode_closest">Timeline</string>
+    <string name="mode_closest_hint">Everyone guesses the year. Closest guess wins the round.</string>
+    <string name="players_hint">%1$d to %2$d players. Seat 1 starts. Drag a player by the handle on the left to change seats.</string>
+    <string name="players_add_guest">Add player</string>
+    <string name="players_shuffle">Shuffle seats</string>
+    <string name="players_drag_hint">Drag to change the seat</string>
+    <string name="players_seat">Seat %1$d</string>
+    <string name="players_remove">Remove %1$s</string>
+    <string name="player_add_title">Add player</string>
+    <string name="player_edit_title">Edit player</string>
+    <string name="player_name">Name</string>
+    <string name="player_initials">Initials (1–3)</string>
+    <string name="player_color">Color</string>
+    <string name="player_color_taken">%1$s, taken</string>
+    <string name="pool_year_filter">Year filter</string>
+    <string name="pool_year_from">From</string>
+    <string name="pool_year_to">To</string>
+    <string name="pool_year_any">Any</string>
+    <string name="pool_counting">Counting songs…</string>
+    <plurals name="pool_count">
+        <item quantity="one">%d playable song</item>
+        <item quantity="other">%d playable songs</item>
+    </plurals>
+    <string name="pool_too_small">This game needs at least %1$d songs.</string>
+
+    <!-- Settings editor -->
+    <string name="settings_preset">Preset</string>
+    <string name="settings_rules">Rules</string>
+    <string name="settings_starting_cards">Starting cards per player</string>
+    <string name="settings_cards_to_win">Cards to win</string>
+    <string name="settings_cards_to_win_hint">Starting cards count</string>
+    <string name="settings_starting_vetoes">Starting vetoes</string>
+    <string name="settings_max_vetoes">Max vetoes held</string>
+    <string name="settings_vetoes_per_song">Vetoes per player per song</string>
+    <string name="settings_naming_bonus">+1 veto for naming song and artist</string>
+    <string name="settings_naming_bonus_hint">On your own turn, even after a wrong placement</string>
+    <string name="settings_skip_cost">Skip current song</string>
+    <string name="settings_buy_cost">Buy a card</string>
+    <string name="settings_wins_to_win">Cards to win</string>
+    <string name="settings_playback">Playback</string>
+    <string name="settings_auto_play">Auto-play when a song is drawn</string>
+    <string name="settings_start_offset">Start offset</string>
+    <string name="start_offset_next_song">From the next song on</string>
+    <string name="settings_clip_limit">Clip length limit</string>
+    <string name="settings_musicbrainz">MusicBrainz lookups</string>
+    <string name="settings_musicbrainz_hint">Check years online while playing</string>
+    <string name="settings_year_preference">When sources disagree</string>
+    <string name="year_preference_lowest">Lowest year</string>
+    <string name="year_preference_lowest_hint">The earlier of the tag year and MusicBrainz\'s year.</string>
+    <string name="year_preference_musicbrainz">MusicBrainz leads</string>
+    <string name="year_preference_musicbrainz_hint">MusicBrainz\'s year whenever there is a match.</string>
+    <string name="year_preference_tags">Tags lead</string>
+    <string name="year_preference_tags_hint">The year in the file\'s tags; MusicBrainz only for songs without one.</string>
+    <string name="preset_fixed">Fixed vetoes</string>
+    <string name="preset_fixed_hint">2 vetoes per game, spent right or wrong. No earning, skipping or buying.</string>
+    <string name="preset_classic">Classic</string>
+    <string name="preset_classic_hint">Start with 2, hold 5, +1 for naming, skip for 1, buy a card for 3.</string>
+    <string name="preset_custom">Custom</string>
+    <string name="preset_custom_hint">Any value changed from a preset.</string>
+    <string name="preset_save">Save as preset</string>
+    <string name="preset_name">Preset name</string>
+    <string name="preset_delete">Delete preset %1$s</string>
+    <plurals name="summary_cards_to_win">
+        <item quantity="one">%1$d card to win</item>
+        <item quantity="other">%1$d cards to win</item>
+    </plurals>
+    <plurals name="summary_vetoes">
+        <item quantity="one">%1$d veto at the start, max %2$d</item>
+        <item quantity="other">%1$d vetoes at the start, max %2$d</item>
+    </plurals>
+    <plurals name="summary_skips">
+        <item quantity="one">%1$d skip at the start, max %2$d</item>
+        <item quantity="other">%1$d skips at the start, max %2$d</item>
+    </plurals>
+    <plurals name="summary_skips_no_max">
+        <item quantity="one">%1$d skip at the start, no max</item>
+        <item quantity="other">%1$d skips at the start, no max</item>
+    </plurals>
+    <string name="summary_naming">+1 for naming</string>
+    <string name="summary_skip_for">skip for %1$d</string>
+    <string name="summary_buy_for">buy a card for %1$d</string>
+    <string name="settings_skip_costs">Skip costs</string>
+    <string name="settings_skip_costs_hint">How many skips each option costs; Off turns it off.</string>
+
+    <!-- In game -->
+    <string name="round_title">Round %1$d</string>
+    <string name="game_next_song">The next song is coming…</string>
+    <string name="game_leave_title">Leave game?</string>
+    <string name="game_leave_text">The game is paused. You can continue it from the home screen.</string>
+    <string name="game_leave_confirm">Leave</string>
+    <string name="scoreboard_title">Scoreboard</string>
+    <string name="scoreboard_buy">Buy a card (%1$s)</string>
+    <string name="scoreboard_no_cards">No cards yet.</string>
+    <string name="score_timeline">%1$s · %2$s</string>
+    <string name="purchase_title">%1$s bought a card</string>
+    <string name="skip_title">%1$s skipped this song</string>
+    <string name="playback_play">Play</string>
+    <string name="playback_pause">Pause</string>
+    <string name="playback_replay">Replay from the start</string>
+    <string name="playback_error">This song can\'t be played.</string>
+    <string name="playback_full_preview">Play the whole preview</string>
+    <string name="song_unplayable">This song streams from Deezer and can\'t be played right now (offline?).</string>
+    <string name="song_replace">Replace song</string>
+    <plurals name="songs_replaced">
+        <item quantity="one">%1$d song couldn\'t be played and went back into the pool.</item>
+        <item quantity="other">%1$d songs couldn\'t be played and went back into the pool.</item>
+    </plurals>
+    <plurals name="pool_streamed">
+        <item quantity="one">%1$d of them streams from Deezer and needs internet.</item>
+        <item quantity="other">%1$d of them stream from Deezer and need internet.</item>
+    </plurals>
+
+    <string name="timeline_lock_in">Lock in</string>
+    <string name="timeline_skip">Skip (%1$s)</string>
+    <string name="timeline_place_hint">%1$s, tap where this song belongs.</string>
+    <string name="timeline_veto_hint">Others: tap your name, then a free gap to veto.</string>
+    <string name="timeline_veto_pick_gap">%1$s, tap a free gap, then Confirm.</string>
+    <string name="timeline_no_vetoes_left">Nobody can veto this song.</string>
+    <string name="gap_only">The only gap</string>
+    <string name="gap_before">Before %1$s</string>
+    <string name="gap_after">After %1$s</string>
+    <string name="gap_between">Between %1$s and %2$s</string>
+    <string name="gap_chosen_by">chosen by %1$s</string>
+    <string name="gap_vetoed_by">vetoed by %1$s</string>
+    <string name="gap_here">Here</string>
+    <string name="gap_veto">Veto</string>
+    <string name="gap_veto_here">Veto here?</string>
+    <string name="action_confirm">Confirm</string>
+
+    <string name="result_cover">Cover</string>
+    <string name="result_named">%1$s named song and artist</string>
+    <string name="result_named_hint">+1 veto, even after a wrong placement</string>
+    <string name="result_guesses">Guesses</string>
+    <string name="result_guess_chip">Guess</string>
+    <string name="result_fits_here">%1$s fits here</string>
+    <string name="section_expand">Show</string>
+    <string name="section_collapse">Hide</string>
+    <string name="playback_open_deezer">Open in Deezer</string>
+    <string name="reject_not_allowed_to_name">This player can\'t call out song and artist with these rules.</string>
+    <string name="settings_naming_callers">Who can call out song and artist</string>
+    <string name="naming_callers_active">Active player</string>
+    <string name="naming_callers_active_hint">Only the player whose turn it is (the classic rule).</string>
+    <string name="naming_callers_vetoers">Active player and vetoers</string>
+    <string name="naming_callers_vetoers_hint">Players who vetoed can call out too, in veto order; if right, they get their veto back.</string>
+    <string name="naming_callers_all">Everyone</string>
+    <string name="naming_callers_all_hint">Any player can call out; vetoers come first.</string>
+    <string name="result_named_hint_vetoers">+1 veto for the active player, a vetoer gets their veto back; even after a wrong placement. Only one player can be marked.</string>
+    <string name="result_named_hint_all">+1 veto for whoever named it (a vetoer gets their veto back); even after a wrong placement. Only one player can be marked.</string>
+    <string name="photo_crop_title">Choose the picture</string>
+    <string name="photo_crop_hint">Drag to move, pinch to zoom. The circle is what others see.</string>
+    <string name="photo_crop_use">Use photo</string>
+    <string name="timeline_veto_button">Veto</string>
+    <string name="timeline_no_veto_button">Don\'t veto</string>
+    <string name="timeline_declined">No veto this time.</string>
+    <string name="outcome_nobody_won">Nobody wins the round</string>
+    <string name="result_corrected">Year corrected</string>
+    <string name="result_sources">Tag %1$s · MusicBrainz %2$s</string>
+    <string name="outcome_kept">%1$s keeps it</string>
+    <string name="outcome_stolen">%1$s steals it</string>
+    <string name="outcome_discarded">Nobody gets it</string>
+    <string name="outcome_vetoes_lost">The vetoes on this song are spent.</string>
+    <string name="outcome_round_won">%1$s wins the round</string>
+
+    <string name="closest_undo_guess">Undo guess</string>
+    <string name="closest_your_guess">your guess</string>
+    <string name="closest_all_guessed">Everyone has guessed.</string>
+    <string name="closest_range">From %1$s to %2$s</string>
+    <string name="closest_axis_hint">or tap the line above</string>
+    <string name="closest_guess">Guess</string>
+    <string name="keypad_backspace">Delete digit</string>
+
+    <string name="game_over_title">Game over</string>
+    <string name="game_over_winner">%1$s wins!</string>
+    <string name="game_over_shared">Shared win: %1$s</string>
+    <string name="game_over_pool_empty">The song pool ran out.</string>
+    <string name="game_over_final_scores">Final scores</string>
+    <string name="game_over_home">Home</string>
+    <string name="game_over_play_again">Play again</string>
+
+    <!-- Settings -->
+    <string name="home_settings">Settings</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_default_preset">Default preset</string>
+    <string name="settings_default_preset_hint">New games start with these rules; you can still change them in New game for one game.</string>
+    <string name="settings_contact_email">Contact email for MusicBrainz</string>
+    <string name="settings_contact_email_hint">Sent in the request header so MusicBrainz can reach you. Lookups stay off without it.</string>
+    <string name="settings_contact_email_invalid">That doesn\'t look like an email address.</string>
+    <string name="settings_acoustid_key">AcoustID API key (fingerprint matching)</string>
+    <string name="settings_acoustid_checking">Checking the key with AcoustID…</string>
+    <string name="settings_acoustid_valid">Key works: songs are matched by their audio first.</string>
+    <string name="settings_acoustid_rejected">AcoustID rejected this key. Copy it again from your application on acoustid.org.</string>
+    <string name="settings_acoustid_unreachable">Couldn\'t reach AcoustID to check the key (offline?).</string>
+    <string name="settings_acoustid_key_hint">Matches songs by their audio, which needs far fewer MusicBrainz requests. Register an application at acoustid.org/new-application (free for non-commercial use) and paste its key. Leave empty to match by artist and title only.</string>
+    <string name="settings_language">Language</string>
+    <string name="language_english">English</string>
+
+    <!-- Players / profiles -->
+    <string name="home_players">Players</string>
+    <string name="players_title">Players</string>
+    <string name="players_add_saved">Add saved player</string>
+    <string name="profiles_new">New player</string>
+    <string name="profiles_edit">Edit player</string>
+    <string name="profiles_empty">No saved players yet. Saved players keep their name, color and photo for every game.</string>
+    <string name="profiles_take_photo">Take photo</string>
+    <string name="profiles_choose_photo">Choose photo</string>
+    <string name="profiles_remove_photo">Remove photo</string>
+    <string name="profiles_delete">Delete</string>
+    <string name="profiles_delete_title">Delete %1$s?</string>
+
+    <!-- Feedback round 2 -->
+    <string name="reject_vetoes_at_max">That player already holds the most vetoes allowed.</string>
+    <string name="playback_seek">Song position</string>
+    <string name="playback_time">%1$s / %2$s</string>
+    <string name="playback_full_song">Play full song</string>
+    <string name="scoreboard_adjust_vetoes">Adjust vetoes</string>
+    <string name="scoreboard_adjust_vetoes_hint">Fix mistakes, e.g. a wrongly ticked naming bonus.</string>
+    <string name="scoreboard_remove_veto">Take a veto from %1$s</string>
+    <string name="scoreboard_add_veto">Give %1$s a veto</string>
+    <string name="scoreboard_card_title">Scoreboard</string>
+    <string name="scoreboard_rank">%1$d.</string>
+    <string name="scoreboard_gained">+%1$d</string>
+    <string name="pool_playlists_hint">Create playlists in the Library to play only part of your music.</string>
+
+    <!-- Feedback round 3 -->
+    <string name="pool_include">Include</string>
+    <string name="pool_exclude">Exclude</string>
+    <string name="pool_exclude_hint">Songs on these playlists never come up, even if they are also on an included one.</string>
+    <string name="settings_closest_fixed_rules">The first guesser rotates. With guesses in turn, every guess must be a different year, and in Closest scoring an exact guess ends the round. Guesses start at the beginning of the decade of the earliest song (at most 2000).</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_low_poly">Low Poly</string>
+    <string name="settings_advanced_show">Advanced…</string>
+    <string name="settings_advanced_hide">Hide advanced</string>
+    <string name="settings_corner_radius">Corner radius: %1$d dp</string>
+    <string name="settings_corner_radius_hint">Rounding of cards, dialogs, fields and gaps between cards. 4 dp is the default.</string>
+    <string name="settings_button_radius">Button corner radius: %1$d dp</string>
+    <string name="settings_button_radius_full">Button corner radius: fully rounded</string>
+    <string name="settings_button_radius_hint">Buttons separately; the right end of the slider makes them fully rounded again.</string>
+    <string name="settings_show_covers">Show cover art</string>
+    <string name="settings_show_covers_hint">Off: no covers anywhere; song cards show plain colours.</string>
+    <string name="settings_load_covers">Load cover art from MusicBrainz</string>
+    <string name="settings_load_covers_hint">Covers of the first release, from the Cover Art Archive, for songs found on MusicBrainz.</string>
+    <string name="result_year_details">Year details and correction</string>
+    <string name="year_sheet_title">Year sources</string>
+    <string name="year_sheet_round">This round counted %1$s.</string>
+    <!-- Feedback round 11: Closest Year skips and presets -->
+    <string name="reject_not_enough_skips">No skips left.</string>
+    <string name="settings_starting_skips">Starting skips</string>
+    <string name="settings_starting_skips_hint">The first guesser of a round may spend one to skip the song.</string>
+    <string name="settings_naming_skip">+1 skip for naming song and artist</string>
+    <string name="settings_naming_skip_hint">Marked after the reveal for everyone who named it on their turn</string>
+    <plurals name="skips">
+        <item quantity="one">%d skip</item>
+        <item quantity="other">%d skips</item>
+    </plurals>
+    <string name="closest_skip">Skip</string>
+    <string name="result_named_who">Who named song and artist?</string>
+    <string name="result_named_skip_hint">The player who named it gets a skip, even without winning the round. Only one player can be marked.</string>
+    <string name="reject_skips_at_max">Already at the most skips allowed.</string>
+    <string name="reject_not_a_guesser">Only players who guessed this round can be marked.</string>
+    <string name="settings_max_skips">Max skips held</string>
+    <string name="settings_default_timeline">Song Order</string>
+    <string name="settings_default_closest">Timeline</string>
+    <string name="scoreboard_adjust_skips">Adjust skips</string>
+    <string name="scoreboard_adjust_skips_hint">Fix a mistake, e.g. a wrongly marked name</string>
+    <string name="scoreboard_remove_skip">Remove a skip from %1$s</string>
+    <string name="scoreboard_add_skip">Add a skip for %1$s</string>
+    <string name="settings_musicbrainz_section">MusicBrainz</string>
+    <string name="settings_theme">Theme</string>
+    <string name="remote_copy_link">Tap to copy the link</string>
+    <string name="remote_link_copied">Link copied</string>
+    <!-- Feedback round 11: tap twice to confirm -->
+    <string name="settings_placing">Placing</string>
+    <string name="settings_confirm_twice">Tap a gap twice to confirm</string>
+    <string name="settings_confirm_twice_hint">Tapping the chosen gap again locks in or places the veto, without the extra button.</string>
+    <string name="settings_confirm_twice_guests">Guests can change this on their own device.</string>
+    <string name="timeline_place_hint_twice">%1$s, tap where this song belongs, then tap it again to lock in.</string>
+    <string name="timeline_veto_pick_gap_twice">%1$s, tap a free gap, then tap it again to veto.</string>
+    <string name="gap_tap_again">Tap again to veto</string>
+    <string name="gap_tap_again_place">Tap again to place</string>
+
+    <!-- Feedback round 36: Closest Year scoring, hidden guesses, tie breaker -->
+    <string name="value_on">On</string>
+    <string name="settings_hidden_guesses">Hidden guesses</string>
+    <string name="settings_hidden_guesses_hint">Everyone guesses at once without seeing the others\' guesses; the same year may be guessed twice.</string>
+    <string name="settings_scoring">Scoring</string>
+    <string name="scoring_closest">Closest</string>
+    <string name="scoring_closest_hint">The closest guess wins the round and the song as a card.</string>
+    <string name="scoring_rank">Rank</string>
+    <string name="scoring_rank_hint">Points for every place: with n players the closest gets n − 1, the farthest 0.</string>
+    <string name="scoring_distance">Distance</string>
+    <string name="scoring_distance_hint">Points for an exact guess, one less for every year off.</string>
+    <string name="settings_distance_points">Points for an exact guess</string>
+    <string name="settings_perfect_rounds">Perfect rounds to win</string>
+    <string name="settings_perfect_rounds_hint_rank">The target is this many first places: with 5 players, 10 × 4 = 40 points.</string>
+    <plurals name="settings_perfect_rounds_hint_distance">
+        <item quantity="one">The target is this many exact guesses: %1$d point.</item>
+        <item quantity="other">The target is this many exact guesses: %1$d points.</item>
+    </plurals>
+    <string name="settings_tie_breaker">Equally close guesses</string>
+    <string name="tie_both">Both score</string>
+    <string name="tie_both_hint">Each gets the points of the better place.</string>
+    <string name="tie_first">First guess scores</string>
+    <string name="tie_first_hint">The earlier guess is ahead; with hidden guesses, the one locked in first.</string>
+    <string name="preset_closest">Closest</string>
+    <string name="preset_closest_hint">Closest guess wins the card. 1 skip each, hold up to 5; +1 for naming song and artist; buy a card for 3 skips.</string>
+    <string name="preset_ranking">Ranking</string>
+    <string name="preset_ranking_hint">Like Closest, but every place scores: with n players n − 1 points for the closest, down to 0.</string>
+    <string name="preset_distance">Distance</string>
+    <string name="preset_distance_hint">Like Closest, but every guess scores: 5 points for an exact guess, one less for every year off.</string>
+    <plurals name="summary_perfect_rounds">
+        <item quantity="one">%1$d perfect round to win</item>
+        <item quantity="other">%1$d perfect rounds to win</item>
+    </plurals>
+    <string name="summary_scoring_rank">scored by rank</string>
+    <plurals name="summary_scoring_distance">
+        <item quantity="one">%1$d point for an exact guess</item>
+        <item quantity="other">%1$d points for an exact guess</item>
+    </plurals>
+    <string name="summary_tie_first">first guess scores on a tie</string>
+    <plurals name="points">
+        <item quantity="one">%d point</item>
+        <item quantity="other">%d points</item>
+    </plurals>
+    <string name="score_cards_of">%1$d of %2$d cards</string>
+    <string name="score_points_of">%1$d of %2$d points</string>
+    <string name="outcome_round_won_shared">%1$s win the round</string>
+    <string name="closest_waiting_for">Waiting for %1$s</string>
+    <string name="closest_guessed">Guessed</string>
+
+    <!-- Feedback round 36: removing a player mid-game -->
+    <string name="scoreboard_remove">Remove from game</string>
+    <string name="scoreboard_remove_title">Remove %1$s?</string>
+    <string name="scoreboard_remove_text">%1$s stops playing. Their score stays on the scoreboard, greyed out.</string>
+    <string name="scoreboard_remove_turn">It\'s their turn: the round ends, and the song leaves the game unless a veto already won it.</string>
+    <string name="scoreboard_removed">Removed</string>
+
+    <!-- Feedback round 36: the info sheet -->
+    <string name="info_title">Game info</string>
+    <string name="info_rules">How to play</string>
+    <string name="info_settings">Settings</string>
+    <string name="info_songs">Songs</string>
+    <string name="info_included">From</string>
+    <string name="info_excluded">Left out</string>
+    <string name="info_unknown_playlist">A deleted playlist</string>
+    <string name="info_mode">Mode</string>
+    <string name="info_target">Target</string>
+    <string name="info_years">Years</string>
+    <string name="info_year_range">%1$s – %2$s</string>
+    <string name="rules_timeline_turn">On your turn you hear a song and place it among your cards: before, between or after them, in year order. If its year fits there, you keep the card.</string>
+    <string name="rules_timeline_veto">Once you lock in, the others may spend a veto on another gap. If your gap is wrong, the first veto on a right gap steals the card.</string>
+    <string name="rules_timeline_naming">Name song and artist on your turn for +1 veto, up to the most you can hold.</string>
+    <string name="rules_timeline_naming_vetoers">You, then those who vetoed, may call out song and artist; one of you gets +1 veto.</string>
+    <string name="rules_timeline_naming_all">Everyone may call out song and artist, vetoers first; one of you gets +1 veto.</string>
+    <plurals name="rules_timeline_skip">
+        <item quantity="one">Skip a song on your turn for %d veto.</item>
+        <item quantity="other">Skip a song on your turn for %d vetoes.</item>
+    </plurals>
+    <plurals name="rules_timeline_buy">
+        <item quantity="one">Buy a card for %d veto: the next song goes straight into your cards.</item>
+        <item quantity="other">Buy a card for %d vetoes: the next song goes straight into your cards.</item>
+    </plurals>
+    <plurals name="rules_target_cards">
+        <item quantity="one">The first to collect %d card wins.</item>
+        <item quantity="other">The first to collect %d cards wins.</item>
+    </plurals>
+    <plurals name="rules_target_points">
+        <item quantity="one">The first to reach %d point wins.</item>
+        <item quantity="other">The first to reach %d points wins.</item>
+    </plurals>
+    <string name="rules_closest_turns">Everyone hears the song and guesses its year, one after another. The first guesser changes every round, and every guess must be a different year.</string>
+    <string name="rules_closest_hidden">Everyone hears the song and guesses its year at the same time, without seeing the others\' guesses until the reveal. The same year may be guessed more than once.</string>
+    <string name="rules_closest_closest">The closest guess wins the round and the song as a card.</string>
+    <string name="rules_closest_exact">An exact guess ends the round right away.</string>
+    <plurals name="rules_closest_rank">
+        <item quantity="one">Every place scores: with %1$d players the closest guess gets %2$d point, the next one less, down to 0 for the farthest.</item>
+        <item quantity="other">Every place scores: with %1$d players the closest guess gets %2$d points, the next one less, down to 0 for the farthest.</item>
+    </plurals>
+    <plurals name="rules_closest_distance">
+        <item quantity="one">Every guess scores %1$d point minus the years it is off, never below 0.</item>
+        <item quantity="other">Every guess scores %1$d points minus the years it is off, never below 0.</item>
+    </plurals>
+    <string name="rules_tie_both">Equally close guesses all win.</string>
+    <string name="rules_tie_both_rank">Equally close guesses share the better place.</string>
+    <string name="rules_tie_first">Of equally close guesses the earlier one is ahead; with hidden guesses, the one locked in first.</string>
+    <string name="rules_closest_skip">The round\'s first guesser may spend a skip to skip the song, before anyone guessed.</string>
+    <string name="rules_closest_naming">Naming song and artist after your guess earns a skip.</string>
+    <plurals name="rules_closest_buy">
+        <item quantity="one">Buy a card for %d skip: it counts as much as a perfect round.</item>
+        <item quantity="other">Buy a card for %d skips: it counts as much as a perfect round.</item>
+    </plurals>
+    <!-- Player stats (feedback round 47) -->
+    <string name="player_stats">Stats</string>
+    <string name="player_stats_open">Stats for %1$s</string>
+    <string name="player_stats_games">Games</string>
+    <string name="player_stats_mode">Mode</string>
+    <string name="player_stats_played">Played</string>
+    <string name="player_stats_won">Won</string>
+    <string name="player_stats_rounds">Rounds</string>
+    <string name="player_stats_rounds_hint">Games count when they are finished. Rounds: turns in Song Order, guesses in Timeline.</string>
+    <string name="player_stats_accuracy">Timeline accuracy</string>
+    <string name="player_stats_years_off">%1$s years off</string>
+    <string name="player_stats_accuracy_hint">On average, from %1$s. Lower is better.</string>
+    <plurals name="player_stats_guesses">
+        <item quantity="one">%d guess</item>
+        <item quantity="other">%d guesses</item>
+    </plurals>
+    <string name="player_stats_accuracy_none">No Timeline guesses yet.</string>
+    <string name="player_stats_by_year">By song year</string>
+    <string name="player_stats_accuracy_scale">Up to %1$s years off</string>
+    <string name="player_stats_accuracy_detail">%1$s: %2$s years off, %3$s</string>
+    <string name="player_stats_accuracy_description">Average years off per song year from %1$s to %2$s.</string>
+    <string name="player_stats_naming">Naming songs</string>
+    <string name="player_stats_naming_hint">Named %1$d of %2$s. A chance is a round where the rules let them name the song and nobody calling before them got it.</string>
+    <plurals name="player_stats_chances">
+        <item quantity="one">%d chance</item>
+        <item quantity="other">%d chances</item>
+    </plurals>
+    <string name="player_stats_naming_none">No chances to name a song yet. Naming counts when the game\'s rules reward it.</string>
+    <string name="player_stats_naming_detail">%1$s: %2$s, %3$d of %4$s</string>
+    <string name="player_stats_naming_description">Share of songs named per song year from %1$s to %2$s.</string>
+</resources>

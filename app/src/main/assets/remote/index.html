@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-theme="LOW_POLY">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#141218">
+  <meta name="referrer" content="no-referrer">
+  <!-- For the published page (SPEC v4), which can't send headers: the relays (wss:), images that
+       arrive over the connection (blob:) and Deezer's preview audio. On the phone the server's
+       stricter header applies as well (D-168). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: https://*.dzcdn.net; connect-src 'self' wss:; font-src 'self'; base-uri 'none'; form-action 'none'">
+  <title>Track Record</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <canvas id="scene" hidden></canvas>
+  <div id="dim"></div>
+  <main id="app"></main>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="scenes.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

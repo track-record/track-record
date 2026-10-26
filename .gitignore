@@ -1,0 +1,15 @@
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+.cxx/
+.externalNativeBuild/
+# Built-in API key and contact address (DECISIONS.md D-177); see secrets.properties.example.
+secrets.properties
+# The release signing key and its passwords (D-273).
+keystore.properties
+*.jks
+*.keystore

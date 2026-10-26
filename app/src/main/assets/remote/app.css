@@ -1,0 +1,471 @@
+/*
+ * Track Record guest page. It looks like the app (DESIGN-REVIEW.md):
+ * - Colours: the app sends every theme's palette with each view (D-277). The theme blocks below hold the
+ *   same values for the moments before the first view; WebThemeTest checks them.
+ * - Type: Roboto, shipped with the page (fonts/, SIL Open Font License), in Material's type scale.
+ * - Sizes: the app's, 1 dp = 1 px.
+ */
+
+@font-face {
+  font-family: "Track Record Roboto";
+  src: url("fonts/roboto.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  --radius: 4px;
+  --button-radius: 4px;
+  --font: "Track Record Roboto", Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html[data-theme="LIGHT"] {
+  color-scheme: light;
+  --bg: #F6FAFF;
+  --panel: #E8EFF6;
+  --panel-solid: #E8EFF6;
+  --panel-high: #E2E9F0;
+  --panel-highest: #DDE3EA;
+  --on: #161C21;
+  --on-variant: #41484D;
+  --primary: #1C6586;
+  --on-primary: #FFFFFF;
+  --tonal: #D1E5F4;
+  --on-tonal: #0A1E28;
+  --outline: #70777C;
+  --outline-variant: #C0C7CD;
+  --error: #B3261E;
+  --inverse: #2A3136;
+  --on-inverse: #EBF2F8;
+  --dim: #00000000;
+  --heading-weight: 700;
+  --base-dim-alpha: 0.0;
+}
+
+html[data-theme="DARK"] {
+  color-scheme: dark;
+  --bg: #0D1419;
+  --panel: #1A2026;
+  --panel-solid: #1A2026;
+  --panel-high: #242B30;
+  --panel-highest: #2F363B;
+  --on: #DDE3EA;
+  --on-variant: #C0C7CD;
+  --primary: #90CEF3;
+  --on-primary: #00344A;
+  --tonal: #374955;
+  --on-tonal: #D1E5F4;
+  --outline: #8B9297;
+  --outline-variant: #41484D;
+  --error: #F2B8B5;
+  --inverse: #DDE3EA;
+  --on-inverse: #2A3136;
+  --dim: #00000000;
+  --heading-weight: 700;
+  --base-dim-alpha: 0.0;
+}
+
+/* Low Poly, the illustrated theme: transparent page over the scene, panels slightly see-through. */
+html[data-theme="LOW_POLY"] {
+  color-scheme: dark;
+  --bg: #101A30;
+  --panel: #16213EC7;
+  --panel-solid: #16213E;
+  --panel-high: #222E4A;
+  --panel-highest: #283350E0;
+  --on: #EFF4FF;
+  --on-variant: #C3CEE6;
+  --primary: #FFC857;
+  --on-primary: #2E1F00;
+  --tonal: #2C6171;
+  --on-tonal: #E8F8F6;
+  --outline: #5C7AA8;
+  --outline-variant: #374B71;
+  --error: #FF6B6B;
+  --inverse: #EFF4FF;
+  --on-inverse: #16213E;
+  --dim: #101A30;
+  --heading-weight: 900;
+  --base-dim-alpha: 0.6;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--on);
+  font-family: var(--font);
+  font-size: 16px; letter-spacing: 0.5px;
+  line-height: 24px;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Material's letter spacing per type role, as in the app; form controls don't inherit it by default. */
+button, input { font-family: inherit; letter-spacing: inherit; }
+
+#scene { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; }
+/* The scene is always dimmed: the app shows it at full strength only on its home screen (TH-05). */
+#dim { position: fixed; inset: 0; z-index: 1; background: var(--dim); opacity: var(--base-dim-alpha); pointer-events: none; }
+
+#app {
+  position: relative;
+  z-index: 2;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: max(12px, env(safe-area-inset-top)) 16px calc(112px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- Material's type scale, as in the app (TY-02 to TY-05) ---- */
+h1, h2, .heading, .display-large, .display-medium, .headline-medium, .headline-small, .title-large {
+  font-weight: var(--heading-weight);
+  margin: 0;
+}
+h1 { font-size: 32px; letter-spacing: 0; line-height: 40px; }
+h2, .title-large { font-size: 22px; letter-spacing: 0; line-height: 28px; }
+.display-large { font-size: 57px; letter-spacing: -0.25px; line-height: 64px; }
+.display-medium { font-size: 45px; letter-spacing: 0; line-height: 52px; }
+.headline-medium { font-size: 28px; letter-spacing: 0; line-height: 36px; }
+.headline-small { font-size: 24px; letter-spacing: 0; line-height: 32px; }
+h3.heading, .title-medium { font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; margin: 0; }
+.title-small { font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500; margin: 0; }
+.body-medium { font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+.body-small { font-size: 12px; letter-spacing: 0.4px; line-height: 16px; }
+.label-large { font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500; }
+.label-medium { font-size: 12px; letter-spacing: 0.5px; line-height: 16px; font-weight: 500; }
+
+p { margin: 0; }
+.muted { color: var(--on-variant); font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+.center { text-align: center; }
+
+.panel {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* ---- Top bar ---- */
+.topbar { display: flex; align-items: center; gap: 8px; min-height: 56px; }
+.topbar h2 { flex: 1; }
+.icon-button {
+  border: none; background: transparent; color: var(--on); width: 48px; height: 48px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+}
+.icon-button svg { width: 24px; height: 24px; fill: currentColor; }
+.icon-button:active { background: color-mix(in srgb, currentColor 12%, transparent); }
+
+/* ---- Buttons: the app's (main 60, others 52, small 40) ---- */
+button.btn {
+  font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; min-height: 52px; padding: 0 24px;
+  border-radius: var(--button-radius); border: none; cursor: pointer; width: 100%;
+  background: var(--primary); color: var(--on-primary);
+}
+/* Lock in, Reveal, Next, Confirm: as large as the app's. */
+button.btn.main { min-height: 60px; font-size: 22px; letter-spacing: 0; line-height: 28px; font-weight: var(--heading-weight); }
+button.btn.tonal { background: var(--tonal); color: var(--on-tonal); }
+/* Material 3 1.4's outlined button, as the app draws it: muted text, a light outline. */
+button.btn.outlined { background: transparent; color: var(--on-variant); border: 1px solid var(--outline-variant); }
+button.btn.small { width: auto; min-height: 40px; font-size: 14px; letter-spacing: 0.1px; line-height: 20px; padding: 0 24px; }
+.text-button {
+  border: none; background: transparent; color: var(--primary); font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500;
+  min-height: 40px; padding: 0 12px; border-radius: var(--button-radius); cursor: pointer;
+}
+/* Unusable: greyed out like the app's buttons, not faded (feedback round 27; TH-04, the Guess key too). */
+button.btn:disabled, .keypad button:disabled, .keypad button.ok:disabled, .clip-row button:disabled, .score-row .adjust button:disabled, .round-button:disabled, .round-button.tonal:disabled {
+  background: color-mix(in srgb, var(--on) 12%, transparent); color: color-mix(in srgb, var(--on) 38%, transparent);
+  opacity: 1; cursor: default;
+}
+button.btn.outlined:disabled { background: transparent; border-color: color-mix(in srgb, var(--on) 12%, transparent); }
+.text-button:disabled { color: color-mix(in srgb, var(--on) 38%, transparent); cursor: default; }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; }
+
+/* With a mouse: a light layer on what can be clicked, like the app's (IN-06). */
+@media (hover: hover) {
+  button:not(:disabled):hover, .score-row.tappable:hover, .final-row.tappable:hover {
+    box-shadow: inset 0 0 0 999px color-mix(in srgb, currentColor 8%, transparent);
+  }
+}
+
+/* The bar at the bottom: solid, flat, like the app's (TH-02). */
+.bottom {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--panel-solid);
+}
+.bottom-inner { max-width: 528px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- Play controls (round, like the app's) ---- */
+.play-row { display: flex; align-items: center; gap: 12px; }
+.round-button {
+  width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer; padding: 0; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary); color: var(--on-primary);
+}
+.round-button.tonal { width: 56px; height: 56px; background: var(--tonal); color: var(--on-tonal); }
+.round-button svg { width: 36px; height: 36px; fill: currentColor; }
+.round-button.tonal svg { width: 24px; height: 24px; }
+/* Material's progress bar: the played part, a small gap, the track (LY-05). */
+.progress-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.progress { display: flex; align-items: center; gap: 4px; height: 4px; overflow: hidden; }
+.progress-fill { flex: none; height: 4px; width: 0; border-radius: 2px; background: var(--primary); }
+.progress-track { flex: 1; height: 4px; border-radius: 2px; background: var(--tonal); }
+.play-note { font-size: 12px; letter-spacing: 0.4px; line-height: 16px; }
+.play-note.error { color: var(--error); }
+.actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---- Players ---- */
+.avatar {
+  flex: none; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; position: relative; overflow: hidden; border: 3px solid transparent;
+}
+.avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* On a fill of the player's own colour, outlined so it stays visible (UX-02). */
+.avatar.ringed { border-width: 2px; }
+.player-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius);
+  background: var(--panel); border: none; color: inherit; font-size: 16px; letter-spacing: 0.5px; width: 100%; text-align: left; cursor: pointer;
+}
+.player-row .name { flex: 1; font-size: 16px; letter-spacing: 0.15px; font-weight: 500; }
+.player-row .tag { font-size: 12px; letter-spacing: 0.4px; color: var(--on-variant); }
+.player-row:disabled { cursor: default; }
+.chip { display: inline-flex; align-items: center; gap: 8px; }
+
+/* ---- Song cards ---- */
+.timeline { display: flex; flex-direction: column; gap: 4px; }
+.card {
+  position: relative; overflow: hidden;
+  border-radius: var(--radius); padding: 12px 16px; min-height: 72px;
+  display: flex; align-items: center;
+}
+.card > span { position: relative; z-index: 2; }
+.card-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+.card.has-cover::after { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0.35)); }
+.card.has-cover .year, .card.has-cover .what { color: #fff; }
+.card .year { font-size: 28px; letter-spacing: 0; line-height: 36px; font-weight: var(--heading-weight); width: 96px; flex: none; }
+.card .what { min-width: 0; flex: 1; }
+.card .title, .card .artist { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card .title { font-size: 16px; letter-spacing: 0.5px; line-height: 24px; }
+.card .artist { font-size: 12px; letter-spacing: 0.4px; line-height: 16px; }
+
+/* ---- Gaps (the app's: 56 high, + for a free one; LY-04) ---- */
+.gap {
+  min-height: 56px; border-radius: var(--radius); border: 1px solid var(--outline-variant);
+  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 12px;
+  background: transparent; color: var(--outline); font-size: 22px; letter-spacing: 0; width: 100%;
+}
+button.gap { cursor: pointer; }
+/* Press a gap and drag the guess (feedback round 27): no page scrolling from a gap. */
+button.gap[data-act="select"] { touch-action: none; }
+button.gap:active { background: var(--panel-high); }
+.gap .label { font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; color: var(--on); }
+.gap.chosen .label { color: inherit; font-weight: 700; }
+/* A veto, placed or marked: the player's colour around the gap. */
+.gap.vetoed, .gap.pending { border-width: 1.5px; }
+
+/* ---- Panels' titles, sections ---- */
+h3.heading { margin: 0 0 4px; }
+/* A panel's title sits close to the top, the content 14 px below it, as in the app's cards (feedback rounds 21, 44). */
+.panel > h3.heading:first-child { margin: -4px 0 14px; }
+/* A folding section's header is tappable edge to edge, a closed one all over, like the app's (feedback round 43). */
+.panel > .section-toggle:first-child { margin: -16px -16px 2px; width: calc(100% + 32px); padding: 12px 16px; border-radius: var(--radius) var(--radius) 0 0; }
+.panel > .section-toggle:only-child { margin-bottom: -16px; border-radius: var(--radius); }
+.section-toggle { display: flex; align-items: center; width: 100%; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; text-align: left; }
+.section-toggle h3.heading { margin: 0; flex: 1; }
+.section-toggle .chevron { display: flex; color: var(--on); }
+.section-toggle .chevron svg { width: 24px; height: 24px; fill: currentColor; }
+
+/* ---- The reveal ---- */
+.reveal { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.reveal-cover { width: 160px; height: 160px; object-fit: cover; border-radius: var(--radius); display: block; }
+.year-line { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; }
+.year-line > :last-child { justify-self: start; display: flex; }
+.outcome { margin-top: 4px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 700; }
+.panel.outcome-won { box-shadow: inset 0 0 0 3px #43A047; }
+.panel.outcome-other { box-shadow: inset 0 0 0 3px #F57C00; }
+.panel.outcome-lost { box-shadow: inset 0 0 0 3px #E53935; }
+.result-gap { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; padding: 8px 12px; border: 1px solid var(--outline-variant); border-radius: var(--radius); }
+.result-gap.fits { border: 2px solid #43A047; }
+.gchip { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500; }
+/* "Fits here": the outline's green, with a check mark (LY-09). */
+.gchip.fits { color: #43A047; font-weight: 700; }
+.gchip.fits svg { width: 22px; height: 22px; fill: currentColor; }
+.links { display: flex; gap: 4px; flex-wrap: wrap; }
+.links a.text-button { display: inline-flex; align-items: center; text-decoration: none; }
+/* Internet guests: one tap allows the page to play the music (SPEC v4). */
+.sound-banner { display: block; width: 100%; padding: 12px 16px; border: 0; border-radius: var(--button-radius); background: var(--primary); color: var(--on-primary); font-size: 16px; letter-spacing: 0.15px; font-weight: 500; cursor: pointer; }
+.volume-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.volume-row span { flex: none; }
+.volume-row input { flex: 1; accent-color: var(--primary); }
+/* A co-host's seek bar on the reveal: Material's slider (16 px track, bar thumb with a gap, the rest in the tonal colour) (feedback round 44). */
+input.seek { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; }
+input.seek::-webkit-slider-runnable-track { height: 16px; border-radius: 8px; background: linear-gradient(to right, var(--primary) calc(var(--seek, 0%) - 5px), transparent calc(var(--seek, 0%) - 5px), transparent calc(var(--seek, 0%) + 5px), var(--tonal) calc(var(--seek, 0%) + 5px)); }
+input.seek::-moz-range-track { height: 16px; border-radius: 8px; background: linear-gradient(to right, var(--primary) calc(var(--seek, 0%) - 5px), transparent calc(var(--seek, 0%) - 5px), transparent calc(var(--seek, 0%) + 5px), var(--tonal) calc(var(--seek, 0%) + 5px)); }
+input.seek::-webkit-slider-thumb { -webkit-appearance: none; width: 4px; height: 44px; margin-top: -14px; border-radius: 2px; background: var(--primary); }
+input.seek::-moz-range-thumb { width: 4px; height: 44px; border: 0; border-radius: 2px; background: var(--primary); }
+.play-time { font-size: 12px; letter-spacing: 0.4px; line-height: 16px; }
+/* A co-host's host buttons, where the host has them (D-189, feedback round 26). */
+.host-row { display: flex; gap: 8px; }
+.host-row .btn { flex: 1; }
+.host-row .host-undo { flex: none; width: auto; display: inline-flex; align-items: center; gap: 8px; }
+.host-undo svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+/* The app's Undo guess: as high as Reveal, in the button's normal text. */
+.host-row .btn.host-undo { min-height: 60px; font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+.year-input { width: 100%; margin: 0 0 8px; padding: 12px; font-size: 24px; letter-spacing: 0; text-align: center; color: var(--on); background: var(--panel-high); border: 1px solid var(--outline-variant); border-radius: var(--radius); }
+.naming-panel { display: flex; flex-direction: column; gap: 8px; }
+.naming-panel .title-small { margin-bottom: 0; }
+/* Who named song and artist: the app's toggles; on guest phones that aren't co-host, read-only (IF-02). */
+.named-toggle {
+  position: relative; min-height: 48px; padding: 8px 40px; border-radius: var(--radius); width: 100%;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  background: transparent; color: var(--on-variant); border: 1px solid var(--outline-variant); font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500;
+}
+button.named-toggle { cursor: pointer; }
+.named-toggle.on { background: var(--tonal); color: var(--on-tonal); border-color: transparent; }
+.named-toggle.on::after { content: "✓"; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
+/* The app's Stepper: tonal buttons in the theme's button shape (feedback round 26). */
+.clip-row { display: flex; align-items: center; gap: 0; padding: 4px 0; }
+.clip-row > span:first-child { flex: 1; }
+.clip-row button { width: 48px; height: 48px; border-radius: var(--button-radius); border: none; background: var(--tonal); color: var(--on-tonal); font-size: 22px; letter-spacing: 0; cursor: pointer; }
+.clip-value { min-width: 64px; text-align: center; font-size: 22px; letter-spacing: 0; line-height: 28px; font-weight: var(--heading-weight); }
+.volume-button { flex: none; width: 40px; height: 40px; }
+.volume-button svg { width: 24px; height: 24px; fill: currentColor; }
+/* Vetoes or skips on the left, the buttons beside them; a fixed width so nothing jumps (D-193). */
+.wallet { display: flex; align-items: center; gap: 12px; }
+.wallet-count { flex: none; min-width: 10.5em; }
+.wallet-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.score-row .adjust { display: inline-flex; gap: 4px; margin-left: 8px; }
+.score-row .adjust button { width: 40px; height: 40px; border-radius: var(--button-radius); border: none; background: var(--tonal); color: var(--on-tonal); font-size: 22px; letter-spacing: 0; cursor: pointer; }
+
+/* ---- Game over, as in the app (LY-06) ---- */
+.final { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.final .winners { display: flex; gap: 8px; }
+.final-title { margin-top: 16px; text-align: center; }
+.final-list { width: 100%; display: flex; flex-direction: column; }
+.final-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 0; background: transparent; border: none; border-bottom: 1px solid var(--outline-variant); color: inherit; text-align: left; }
+.final-row.tappable { cursor: pointer; }
+.final-row .who, .score-row .who { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.final-row .detail, .score-row .who .detail { font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+
+/* ---- Timeline (Closest Year) ---- */
+.digits { display: flex; justify-content: center; gap: 12px; }
+.digits .slot {
+  width: 56px; height: 56px; display: flex; align-items: flex-end; justify-content: center;
+  font-size: 45px; letter-spacing: 0; line-height: 52px; font-weight: var(--heading-weight);
+  border-bottom: 2px solid var(--outline-variant);
+}
+.digits .slot.next { border-bottom: 3px solid var(--primary); }
+
+/* The year line (the app's GuessAxis): 48 high, markers 36. */
+.axis { position: relative; z-index: 2; height: 48px; margin: 0 18px; }
+.axis-line { position: absolute; left: -18px; right: -18px; top: 50%; height: 4px; transform: translateY(-50%); background: var(--outline-variant); }
+.axis-mark { position: absolute; top: 50%; transform: translate(-50%, -50%); display: flex; }
+/* This phone's turn: tap or drag on the line to pick a year (feedback round 35). */
+.axis.pickable { cursor: pointer; touch-action: none; }
+/* Dragging on the year line or a gap selects no text (feedback round 40). */
+.axis.pickable, .axis.pickable + .axis-labels, body.dragging { -webkit-user-select: none; user-select: none; }
+.axis-mark.pending { opacity: 0.55; pointer-events: none; }
+.axis-year { position: absolute; top: 50%; width: 4px; height: 48px; transform: translate(-50%, -50%); background: var(--primary); }
+/* The end years right under the line (feedback round 14). */
+.axis-labels { display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 0.4px; line-height: 16px; margin-top: -11px; position: relative; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.keypad button { font-size: 24px; letter-spacing: 0; line-height: 32px; font-weight: var(--heading-weight); min-height: 64px; border: none; border-radius: var(--button-radius); background: var(--tonal); color: var(--on-tonal); cursor: pointer; }
+.keypad button.ok { background: var(--primary); color: var(--on-primary); font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; }
+.guess-row { display: flex; align-items: center; gap: 8px; }
+/* Rows apart like the app's (8 px, 6 on the scoreboard), none above the first (feedback round 44). */
+.guess-row + .guess-row { margin-top: 8px; }
+.guess-row .name { flex: 1; min-width: 0; }
+.guess-row .year { font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; }
+.guess-row .off { width: 96px; text-align: right; font-size: 12px; letter-spacing: 0.4px; line-height: 16px; white-space: nowrap; }
+.guess-row .points { width: 36px; text-align: right; color: var(--primary); font-size: 14px; letter-spacing: 0.1px; font-weight: 500; }
+
+/*
+ * Guessing: the year entry fixed at the bottom without a background, as in the app; everything above it
+ * scrolls in the space left (feedback rounds 18, 38; TH-02).
+ */
+body.pinned #app { height: 100vh; height: 100dvh; min-height: 0; padding-bottom: 0; }
+body.pinned .pinned-scroll { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 0 -16px; padding: 0 16px 8px; }
+.keypad-panel { display: flex; flex-direction: column; gap: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+.keypad-panel .bar { margin: 4px -16px calc(-12px - env(safe-area-inset-bottom)); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--panel-solid); }
+
+/* ---- Sheets: handle, title, content, Close, like the app's (LY-01) ---- */
+.overlay { position: fixed; inset: 0; z-index: 10; background: rgba(0, 0, 0, 0.32); display: flex; align-items: flex-end; justify-content: center; }
+.sheet {
+  background: var(--panel-solid); color: var(--on); width: 100%; max-width: 640px; max-height: 85vh; overflow: auto;
+  border-radius: var(--radius) var(--radius) 0 0; touch-action: pan-y;
+  padding: 0 16px calc(16px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px;
+}
+.sheet-handle { flex: none; display: flex; justify-content: center; padding: 22px 0 14px; margin: 0 -16px; cursor: grab; touch-action: none; }
+.sheet-handle span { width: 32px; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--on-variant) 40%, transparent); }
+.sheet > .btn.close { margin-top: 4px; }
+.sheet .panel { background: var(--panel-high); }
+.option {
+  display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius);
+  background: transparent; border: none; color: inherit; font-size: 16px; letter-spacing: 0.5px; text-align: left; width: 100%; cursor: pointer;
+}
+.option:active, .option.selected { background: var(--panel-high); }
+.option .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--on-variant); flex: none; }
+.option.selected .dot { border-color: var(--primary); background: radial-gradient(var(--primary) 45%, transparent 50%); }
+/* The scoreboard: two lines a player, lines between them, as in the app (LY-02). */
+.score-row { display: flex; align-items: center; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--outline-variant); }
+.score-row .who .name { font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; }
+.score-row.tappable { cursor: pointer; }
+.sheet .score-list > .expanded { padding: 0 0 12px; border-bottom: 1px solid var(--outline-variant); }
+.text-button.danger { color: var(--error); }
+/* The scoreboard card on the reveal: rank, avatar, name, +1, score (the app's ScoreboardCard). */
+.board-row { display: flex; align-items: center; gap: 8px; }
+.board-row + .board-row { margin-top: 6px; }
+.board-row .rank { width: 32px; font-size: 16px; letter-spacing: 0.15px; font-weight: 500; }
+.board-row .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.board-row .gained { color: var(--primary); font-size: 14px; letter-spacing: 0.1px; font-weight: 500; }
+.board-row .detail { font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 0;
+  background: transparent; border: none; color: inherit; font-size: 16px; letter-spacing: 0.5px; text-align: left; cursor: pointer;
+}
+.toggle-row .labels { display: flex; flex-direction: column; }
+/* Under the menu's options: their padding, so the texts line up (feedback round 43). */
+.option ~ .toggle-row { padding: 12px; }
+.toggle-row .hint { font-size: 12px; letter-spacing: 0.4px; line-height: 16px; }
+/* Material's switch: an outlined track when off, the primary colour when on. */
+.switch { flex: none; width: 52px; height: 32px; border-radius: 16px; background: var(--panel-highest); border: 2px solid var(--outline); position: relative; transition: background 0.15s; }
+.switch::after { content: ""; position: absolute; top: 6px; left: 6px; width: 16px; height: 16px; border-radius: 50%; background: var(--outline); transition: left 0.15s, width 0.15s, height 0.15s, top 0.15s; }
+.switch.on { background: var(--primary); border-color: var(--primary); }
+.switch.on::after { left: 22px; top: 2px; width: 24px; height: 24px; background: var(--on-primary); }
+
+/* ---- Dialogs: a bought card, a skipped song, taking over a player (LY-03, IN-03) ---- */
+.dialog-scrim { position: fixed; inset: 0; z-index: 15; background: rgba(0, 0, 0, 0.32); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.dialog { background: var(--panel-high); color: var(--on); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 560px; min-width: 280px; display: flex; flex-direction: column; gap: 16px; }
+.dialog .text { color: var(--on-variant); font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+.dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* Messages, like the app's snackbar (LY-08). */
+#toast {
+  position: fixed; left: 16px; right: 16px; max-width: 528px; margin: 0 auto; bottom: calc(100px + env(safe-area-inset-bottom));
+  z-index: 20; background: var(--inverse); color: var(--on-inverse); padding: 14px 16px; border-radius: var(--radius);
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; font-size: 14px; letter-spacing: 0.25px; line-height: 20px;
+}
+#toast.show { opacity: 1; }
+
+.banner { background: var(--error); color: #000; padding: 8px 12px; border-radius: var(--radius); font-size: 14px; letter-spacing: 0.25px; }
+.countdown { font-weight: 500; color: var(--primary); }
+.spacer { flex: 1; }
+.hero { margin-top: 20vh; text-align: center; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+/* Waiting for the next song: a spinner, as in the app (LY-07). */
+.waiting { margin-top: 20vh; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.spinner { width: 48px; height: 48px; border-radius: 50%; border: 4px solid var(--tonal); border-top-color: var(--primary); animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Feedback round 36: removed players greyed out; tap a scoreboard row for the cards; the info sheet. */
+.removed { opacity: 0.5; }
+.info-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 14px; letter-spacing: 0.25px; line-height: 20px; }
+.info-row span:last-child { text-align: right; }
+.info-sub { margin: 10px 0 2px; font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500; }
+.info-panel .body-medium + .body-medium { margin-top: 4px; }
+.info-rules p + p { margin-top: 8px; }

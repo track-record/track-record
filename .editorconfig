@@ -1,0 +1,22 @@
+# Formatting rules checked by ktlint through Spotless (DECISIONS.md D-169). Only rules that keep the
+# code tidy without restyling it are on: import order, unused imports, blank lines and whitespace.
+root = true
+
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+ij_kotlin_imports_layout = *, java.**, javax.**, kotlin.**, ^
+ktlint_code_style = intellij_idea
+ktlint_standard = disabled
+ktlint_standard_import-ordering = enabled
+ktlint_standard_no-unused-imports = enabled
+ktlint_standard_no-consecutive-blank-lines = enabled
+ktlint_standard_no-trailing-spaces = enabled
+ktlint_standard_final-newline = enabled
+ktlint_standard_no-blank-line-before-rbrace = enabled
+ktlint_standard_no-empty-first-line-in-class-body = enabled

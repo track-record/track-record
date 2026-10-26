@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Track Record</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_remove">Remove</string>
+
+    <!-- Home -->
+    <string name="home_library">Library</string>
+
+    <!-- Library -->
+    <string name="library_title">Library</string>
+    <string name="library_rescan">Rescan</string>
+    <string name="library_folders">Folders</string>
+    <string name="library_no_folders">No folders yet. Add a music folder to import songs.</string>
+    <string name="library_add_folder">Add folder</string>
+    <string name="library_folder_unavailable">Folder unavailable — pick it again</string>
+    <string name="library_pick_again">Pick again</string>
+    <string name="library_remove_folder">Remove %1$s</string>
+    <string name="library_remove_folder_title">Remove folder?</string>
+    <string name="library_remove_folder_text">The songs from %1$s leave the library. Year edits are kept in case you add the folder again.</string>
+    <string name="library_scanning">Scanning %1$s…</string>
+    <string name="library_scanning_progress">Reading tags in %1$s: %2$d of %3$d</string>
+    <string name="library_scan_report">Scan finished: %1$d new, %2$d updated, %3$d removed</string>
+    <plurals name="library_songs">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+    <string name="library_counts">%1$s · %2$d playable · %3$d missing year</string>
+    <string name="library_search">Search title, artist, album</string>
+    <string name="library_empty">No songs yet.</string>
+    <string name="library_no_matches">No songs match.</string>
+    <!-- The library's info sheet (feedback round 45) -->
+    <string name="library_info_title">How the library works</string>
+    <string name="library_info_hint">Tap the info button at the top to read this again.</string>
+    <string name="library_info_files">Your own music files</string>
+    <string name="library_info_files_1">Add folder picks a folder on this phone. Track Record reads every song file in it and its subfolders, with title, artist, album and year from the files\' tags. Rescan (the arrow at the top) picks up files added, changed or removed since.</string>
+    <string name="library_info_files_2">A song needs a year to come up in a game. Songs without one get it from MusicBrainz (see below), or you enter it on the song\'s page.</string>
+    <string name="library_info_streamed">Songs from Deezer and Spotify</string>
+    <string name="library_info_streamed_1">Add Deezer playlist: paste the link of a public Deezer playlist (Share → Copy link in the Deezer app). Its songs play as 30-second previews from Deezer.</string>
+    <string name="library_info_streamed_2">Import song list: Spotify playlists are exported as a file with Exportify, which opens in your browser. Other lists work too: a CSV file with title and artist columns, or a text file with one "Artist - Title" per line. The songs are looked up on Deezer and play as its previews.</string>
+    <string name="library_info_streamed_3">Songs you also have as files always play from the file. Streamed songs need an internet connection during the game.</string>
+    <string name="library_info_years">Years and verification</string>
+    <string name="library_info_years_1">The year decides where a song belongs, so it should be the year the song first came out. File tags often hold the year of a later album or compilation instead.</string>
+    <string name="library_info_years_2">Verify by name looks up each song on MusicBrainz by artist and title and takes its earliest release. Verify by fingerprint also recognises your files by their sound (AcoustID), which finds songs with missing or wrong tags; it takes longer. Streamed songs are verified by name.</string>
+    <string name="library_info_years_3">When the tags and MusicBrainz disagree, Settings → When sources disagree decides which year counts. You can correct any year on the song\'s page.</string>
+    <string name="library_info_playlists">Playlists</string>
+    <string name="library_info_playlists_1">Long-press songs to select them, then add them to a playlist. Each Deezer playlist and imported list becomes a playlist of its own.</string>
+    <string name="library_info_playlists_2">In New game you choose which playlists the songs come from. Local files and Streamed songs hold all songs of their kind; Excluded songs never come up in a game.</string>
+    <string name="missing_year">Missing year</string>
+    <string name="unknown_artist">Unknown artist</string>
+    <string name="song_flag_edited">Edited</string>
+    <string name="song_flag_excluded">Excluded</string>
+    <string name="song_flag_folder_unavailable">Folder unavailable</string>
+
+    <!-- Song detail -->
+    <string name="song_detail_title">Song</string>
+    <string name="song_file_info">%1$s · %2$s</string>
+    <string name="song_read_failed">The tags of this file couldn\'t be read.</string>
+    <string name="song_effective_year">Effective year</string>
+    <string name="song_year_source">Source: %1$s</string>
+    <string name="song_tag_original_year">Tag original year</string>
+    <string name="song_tag_year">Tag year</string>
+    <string name="song_musicbrainz_year">MusicBrainz year</string>
+    <string name="song_manual_year">Manual edit</string>
+    <string name="song_edit_year">Edit year</string>
+    <string name="song_reset_year">Reset to automatic</string>
+    <string name="song_exclude">Exclude from games</string>
+    <string name="song_exclude_hint">The song stays in the library but is never drawn.</string>
+    <string name="song_preview">Preview</string>
+    <string name="song_preview_stop">Stop preview</string>
+    <string name="year_none">—</string>
+    <string name="year_source_manual">manual edit</string>
+    <string name="year_source_tag_original">tag original year</string>
+    <string name="year_source_tag">tag year</string>
+    <string name="year_source_musicbrainz">MusicBrainz</string>
+
+    <!-- Year editor -->
+    <string name="year_editor_title">Edit year</string>
+    <string name="year_editor_label">Year</string>
+    <string name="year_editor_range">From %1$s to %2$s</string>
+
+    <!-- MusicBrainz in the library -->
+    <string name="verify_title">Verify with MusicBrainz</string>
+    <string name="deezer_add">Add Deezer playlist</string>
+    <string name="deezer_add_title">Add a Deezer playlist</string>
+    <string name="deezer_add_text">Paste the link of a public Deezer playlist (Share → Copy link in the Deezer app). Its songs play as 30-second previews; songs you also have as files play from the file.</string>
+    <string name="deezer_link">Playlist link</string>
+    <string name="deezer_import">Import</string>
+    <string name="deezer_update_named">Update %1$s from Deezer</string>
+    <string name="deezer_reading">Reading the playlist from Deezer…</string>
+    <string name="deezer_progress">Reading song details: %1$d of %2$d</string>
+    <string name="deezer_done">%1$s: %2$s (%3$d new, %4$d from your files).</string>
+    <string name="deezer_updated">%1$s updated: %2$s (%3$d new, %4$d from your files).</string>
+    <plurals name="deezer_unavailable_songs">
+        <item quantity="one">%1$d song isn\'t playable on Deezer and was left out.</item>
+        <item quantity="other">%1$d songs aren\'t playable on Deezer and were left out.</item>
+    </plurals>
+    <string name="list_import">Import song list</string>
+    <string name="list_import_choose">Spotify playlists are exported with Exportify, which opens with your browser\'s login. Tap Export next to a playlist (or Export All). With file access the download is imported when you come back here; otherwise tap Open in the download message. Other lists come from a CSV file.</string>
+    <string name="list_from_spotify">Spotify playlist (Exportify)</string>
+    <string name="list_from_file">Choose a file</string>
+    <string name="list_done_many">Imported %1$s with %2$s (%3$d new, %4$d from your files).</string>
+    <plurals name="playlists_count">
+        <item quantity="one">%1$d playlist</item>
+        <item quantity="other">%1$d playlists</item>
+    </plurals>
+    <string name="list_import_hint">Song lists: a CSV from Exportify (exports Spotify playlists), any CSV with title and artist columns, or a text file with one "Artist - Title" per line (open text files and ZIPs from your file manager). Songs are matched on Deezer; your own files are used where you have them.</string>
+    <plurals name="list_not_found">
+        <item quantity="one">%1$d song wasn\'t found on Deezer.</item>
+        <item quantity="other">%1$d songs weren\'t found on Deezer.</item>
+    </plurals>
+    <string name="list_show_not_found">Show them</string>
+    <string name="list_not_found_title">Not found on Deezer</string>
+    <string name="list_failed_empty">No songs found in that file. Lists need a title and an artist per song.</string>
+    <string name="list_failed_unreadable">That file couldn\'t be read.</string>
+    <string name="deezer_failed_link">That doesn\'t look like a Deezer playlist link.</string>
+    <string name="deezer_failed_not_found">Deezer has no public playlist at that link.</string>
+    <string name="deezer_failed_unavailable">Couldn\'t reach Deezer. Check the connection and try again.</string>
+    <string name="playlist_from_deezer">%1$s · from Deezer</string>
+    <string name="song_flag_deezer">Deezer</string>
+    <string name="song_deezer_info">Deezer track · %1$s · plays as a 30-second preview</string>
+    <string name="verify_start">Verify by name</string>
+    <string name="verify_fingerprint_all">Verify by fingerprint</string>
+    <string name="verify_fingerprint_all_hint">Verification by fingerprint is a more extensive verification, which may take a while for a large library. It also includes a verification by name. Streamed songs can\'t be fingerprinted; they are verified by name.</string>
+    <string name="acoustid_rejected_warning">AcoustID rejected the API key, so songs are matched by artist and title only. Check the key in Settings.</string>
+    <string name="verify_progress">Checked %1$d of %2$d · %3$d matched</string>
+    <string name="verify_skipped">Stopped: MusicBrainz is off, offline, or no contact email is set in Settings.</string>
+    <string name="find_missing_start">Check missing years</string>
+    <string name="find_missing_progress">Looked up %1$d of %2$d songs without a year · %3$d found</string>
+    <plurals name="find_missing_no_artist">
+        <item quantity="one">%d song has no artist tag and was skipped.</item>
+        <item quantity="other">%d songs have no artist tag and were skipped.</item>
+    </plurals>
+    <string name="lookup_button">Look up</string>
+    <string name="lookup_running">Asking MusicBrainz…</string>
+    <string name="lookup_running_fingerprint">Fingerprinting the audio, asking AcoustID and MusicBrainz…</string>
+    <string name="song_via_fingerprint">Matched by audio fingerprint (AcoustID)</string>
+    <string name="lookup_no_match">No matching recording found on MusicBrainz.</string>
+    <string name="lookup_unavailable">MusicBrainz is off, offline, or no contact email is set in Settings.</string>
+
+    <!-- Playlists -->
+    <string name="playlists_title">Playlists</string>
+    <string name="playlists_hint">Long-press songs to select them, then add them to a playlist.</string>
+    <string name="playlist_local_files">Local files</string>
+    <string name="playlist_excluded">Excluded songs</string>
+    <string name="exportify_permission_title">Import automatically?</string>
+    <string name="exportify_permission_text">Track Record needs file permissions to automatically import the downloaded tracklists from Exportify. If you don\'t want to give these permissions, you can still open the CSV with Track Record to import it.</string>
+    <string name="exportify_permission_allow">Give permission</string>
+    <string name="exportify_permission_skip">Continue without</string>
+    <string name="verify_intro">Finds each song\'s earliest release on MusicBrainz.</string>
+    <string name="song_verification_none">Not verified on MusicBrainz yet</string>
+    <string name="song_verified_name">Verified on MusicBrainz by name</string>
+    <string name="song_verified_fingerprint">Verified on MusicBrainz by fingerprint</string>
+    <string name="song_checked_name_no_match">Checked on MusicBrainz by name: no match</string>
+    <string name="song_checked_fingerprint_no_match">Checked on MusicBrainz by fingerprint: no match</string>
+    <string name="excluded_add">Add to excluded songs</string>
+    <string name="excluded_remove">Remove from excluded songs</string>
+    <string name="add_to_playlist">Add to a playlist</string>
+    <string name="remove_from_playlist">Remove from a playlist</string>
+    <plurals name="songs_selected">
+        <item quantity="one">%d song selected</item>
+        <item quantity="other">%d songs selected</item>
+    </plurals>
+    <string name="verify_preparing">Picking the songs…</string>
+    <string name="verify_fingerprinted">%1$d of %2$d fingerprinted</string>
+    <string name="summary_no_changes">No years changed.</string>
+    <plurals name="summary_checked">
+        <item quantity="one">%1$d song checked</item>
+        <item quantity="other">%1$d songs checked</item>
+    </plurals>
+    <plurals name="summary_new_years">
+        <item quantity="one">%1$d new year found</item>
+        <item quantity="other">%1$d new years found</item>
+    </plurals>
+    <plurals name="summary_earlier">
+        <item quantity="one">%1$d earlier release found than before</item>
+        <item quantity="other">%1$d earlier releases found than before</item>
+    </plurals>
+    <plurals name="summary_failed">
+        <item quantity="one">%1$d failed (offline or the service was busy); try again later</item>
+        <item quantity="other">%1$d failed (offline or the service was busy); try again later</item>
+    </plurals>
+    <string name="pool_stats">Pool overview</string>
+    <string name="playlist_streamed">Streamed songs</string>
+    <string name="action_close">Close</string>
+    <string name="stats_button">Stats</string>
+    <string name="stats_title">Stats: %1$s</string>
+    <string name="stats_filtered">Only the songs the filters let through.</string>
+    <string name="stats_songs">Songs</string>
+    <string name="stats_artists">Artists</string>
+    <string name="stats_years">Years</string>
+    <string name="stats_year_range">%1$s – %2$s</string>
+    <string name="stats_busiest">Most songs</string>
+    <string name="stats_busiest_value">%1$s (%2$s)</string>
+    <plurals name="stats_without_year">
+        <item quantity="one">%1$d song has no year and isn\'t in the chart.</item>
+        <item quantity="other">%1$d songs have no year and aren\'t in the chart.</item>
+    </plurals>
+    <string name="stats_histogram">Songs per year</string>
+    <string name="stats_histogram_description">Songs per year from %1$s to %2$s; the tallest bar is %3$d songs.</string>
+    <string name="selection_deselect_all">Deselect all</string>
+    <string name="status_group_playability">Playability</string>
+    <string name="status_group_data_quality">Data quality</string>
+    <string name="status_group_verification">MusicBrainz verification</string>
+    <string name="playlist_all">All songs</string>
+    <string name="playlist_showing">Showing</string>
+    <string name="playlist_new">New playlist</string>
+    <string name="playlist_rename">Rename playlist</string>
+    <string name="playlist_rename_named">Rename %1$s</string>
+    <string name="playlist_delete">Delete</string>
+    <string name="playlist_delete_named">Delete %1$s</string>
+    <string name="playlist_delete_title">Delete %1$s?</string>
+    <string name="playlist_delete_text">The songs stay in your library; only the playlist goes.</string>
+    <string name="playlist_delete_text_deezer">Your own song files stay in the library. The songs streamed from Deezer leave it, unless another playlist or the saved game still uses them.</string>
+    <string name="playlist_name">Name</string>
+    <string name="playlist_none_yet">No playlists yet.</string>
+    <plurals name="selected_songs">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="listed_songs">
+        <item quantity="one">%d song listed</item>
+        <item quantity="other">%d songs listed</item>
+    </plurals>
+    <string name="selection_clear">Clear selection</string>
+    <string name="selection_all_listed">Select all listed</string>
+    <string name="selection_select">Select</string>
+    <string name="selection_add_to_playlist">Add to…</string>
+    <string name="selection_remove_from_playlist">Remove from…</string>
+
+    <!-- Filter pane -->
+    <string name="filters_title">Filters</string>
+    <string name="filters_none">Showing every song</string>
+    <plurals name="filters_active">
+        <item quantity="one">%d filter active</item>
+        <item quantity="other">%d filters active</item>
+    </plurals>
+    <string name="filters_expand">Show filters</string>
+    <string name="filters_collapse">Hide filters</string>
+    <string name="filters_status">Status</string>
+    <string name="filters_years">Year range</string>
+    <string name="filters_playlist">Playlist</string>
+    <string name="filters_reset">Reset filters</string>
+    <string name="status_all">All</string>
+    <string name="status_playable">Playable</string>
+    <string name="status_missing_year">Missing year</string>
+    <string name="status_edited">Edited</string>
+    <string name="status_excluded">Excluded</string>
+    <string name="status_sources_disagree">Sources disagree</string>
+    <string name="status_not_checked">Unchecked</string>
+    <string name="status_verified_name">Verified by name</string>
+    <string name="status_verified_fingerprint">Verified by fingerprint</string>
+    <string name="status_no_match">No MusicBrainz match</string>
+    <string name="status_folder_unavailable">Folder unavailable</string>
+    <string name="status_unreadable">Tags unreadable</string>
+
+    <!-- Cover art -->
+    <string name="covers_start">Load cover art</string>
+    <string name="covers_progress">Loading covers: %1$d of %2$d · %3$d found</string>
+    <string name="covers_done">Found covers for %1$d of %2$d songs.</string>
+    <!-- Updates (feedback round 47) -->
+    <string name="update_title">Update available</string>
+    <string name="update_text">Track Record %1$s is out; this phone has %2$s. Please update: playing over the internet only works when the app matches the guest page, which is always the newest version.</string>
+    <string name="update_download">Download</string>
+    <string name="update_later">Later</string>
+    <string name="settings_updates">Updates</string>
+    <string name="settings_check_updates">Check for updates at start</string>
+    <string name="settings_check_updates_hint">Asks GitHub whether a newer version is out. Nothing about you or your library is sent.</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_check_now">Check now</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">Up to date.</string>
+    <string name="update_failed">Couldn\'t reach GitHub. Try again later.</string>
+    <string name="update_available_short">Version %1$s is out.</string>
+    <string name="update_download_version">Download %1$s</string>
+</resources>

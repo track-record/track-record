@@ -1,0 +1,2 @@
+Chromaprint 1.6.1, https://github.com/acoustid/chromaprint/releases/tag/v1.6.1
+Only the library sources and the bundled KissFFT are kept; tests, tools and the googletest copy are left out. Unmodified.

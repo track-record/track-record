@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- v3: veto window and auto-reveal on the host -->
+    <string name="reveal_locked">Reveal in %1$d s</string>
+    <string name="reveal_auto">Revealing in %1$d s</string>
+    <string name="reveal_waiting_veto">Veto pending</string>
+    <string name="timeline_remote_picking">%1$s is placing a veto on their %2$s.</string>
+    <string name="timeline_remote_picking_many">%1$s are placing vetoes on their own devices.</string>
+    <string name="timeline_waiting_remote">Waiting for %1$s to decide on a veto.</string>
+    <string name="veto_status_deciding">deciding…</string>
+    <string name="veto_status_declined">no veto</string>
+
+    <!-- v3: Settings -->
+    <string name="settings_reveal">Reveal</string>
+    <string name="settings_auto_reveal">Auto-reveal</string>
+    <string name="settings_auto_reveal_hint">Reveals when nobody can or wants to veto any more.</string>
+    <string name="settings_reveal_despite_remote">Auto-reveal despite outstanding remote vetoes</string>
+    <string name="settings_reveal_despite_remote_hint">After the minimum veto time, remote players who haven\'t decided no longer hold back auto-reveal. A player picking a gap still does.</string>
+    <string name="auto_reveal_off">Off</string>
+    <string name="auto_reveal_instant">Instant</string>
+    <string name="auto_reveal_5s">5 s</string>
+    <string name="auto_reveal_10s">10 s</string>
+    <string name="settings_veto_time">Minimum veto time for remote players: %1$d s</string>
+    <string name="settings_veto_time_hint">After Lock in, Reveal stays locked this long while a remote player who could veto hasn\'t decided.</string>
+    <!-- v3: remote play on the host -->
+    <string name="remote_button">Remote players (QR code)</string>
+    <string name="remote_title">Remote players</string>
+    <string name="remote_qr_description">QR code for the guest page</string>
+    <string name="remote_scan_hint">Guests scan this code with their phone\'s camera, no app needed. Their phone must be on the same Wi-Fi as this one, or on this phone\'s hotspot.</string>
+    <string name="remote_no_network">This phone has no Wi-Fi address. Join a Wi-Fi or turn on the hotspot, then try again.</string>
+    <string name="remote_retry">Try again</string>
+    <string name="remote_players_title">Connected players</string>
+    <string name="remote_none">Nobody has joined yet.</string>
+    <string name="remote_status_connected">connected</string>
+    <string name="remote_status_away">disconnected</string>
+    <string name="remote_disconnect">Disconnect</string>
+    <string name="remote_disconnect_a11y">Disconnect %1$s</string>
+    <string name="remote_stop">Stop remote play</string>
+    <string name="remote_close">Close</string>
+    <string name="scoreboard_remote_connected">On their own %1$s</string>
+    <string name="scoreboard_remote_away">On their own %1$s (disconnected)</string>
+    <string name="timeline_remote_turn">%1$s places the song on their %2$s.</string>
+    <string name="timeline_remote_lock_in">%1$s locks in on their %2$s</string>
+    <string name="closest_remote_guess">guesses on their %1$s</string>
+    <string name="new_game_reset">Reset</string>
+    <string name="settings_veto_costs">Veto costs</string>
+    <string name="settings_veto_costs_hint">How many vetoes each option costs; Off turns it off.</string>
+    <string name="home_remote_on">Remote play is on</string>
+    <plurals name="home_remote_players">
+        <item quantity="one">%d player on their own device</item>
+        <item quantity="other">%d players on their own devices</item>
+    </plurals>
+
+    <!-- v3: the guest page (sent to the browser; %1$s / %1$d are filled in there) -->
+    <string name="web_connecting">Connecting to the host…</string>
+    <string name="web_reconnecting">Connection lost. Reconnecting…</string>
+    <string name="web_invalid_link">This link doesn\'t work any more. Scan the QR code on the host\'s phone again.</string>
+    <string name="web_invalid_link_internet">This link doesn\'t work any more. Ask the host for a new one.</string>
+    <string name="web_paused_title">Game paused</string>
+    <string name="web_paused_text">The host is in the menu. The game continues when they\'re back.</string>
+    <string name="web_error_paused">The game is paused while the host is in the menu.</string>
+    <string name="web_waiting_title">Waiting for the game</string>
+    <string name="web_lobby_title">You\'re %1$s</string>
+    <string name="web_lobby_text">The host is still setting up the game. It starts here as soon as they start it.</string>
+    <string name="web_waiting_text">The host hasn\'t started a game yet. This page updates by itself.</string>
+    <string name="web_pick_title">Who are you?</string>
+    <string name="web_pick_hint">Pick your player. This %1$s then plays for them.</string>
+    <string name="web_taken">on another %1$s</string>
+    <string name="web_you">you</string>
+    <string name="web_takeover_confirm">%1$s is already connected on another %2$s. Take over?</string>
+    <string name="web_takeover_title">Take over %1$s?</string>
+    <string name="web_takeover_take">Take over</string>
+    <string name="web_your_turn">Your turn: tap where this song belongs, then Lock in.</string>
+    <string name="web_placing">%1$s is placing the song.</string>
+    <string name="web_your_turn_twice">Your turn: tap where this song belongs, then tap it again to lock in.</string>
+    <string name="web_veto_pick_twice">Tap a free gap, then tap it again for your veto.</string>
+    <string name="web_you_have">You have %1$s</string>
+    <string name="web_veto_question">%1$s locked in. Veto?</string>
+    <string name="web_veto_pick">Tap a free gap for your veto, then Confirm.</string>
+    <string name="web_veto_placed">Your veto is in. Waiting for the reveal.</string>
+    <string name="web_waiting_vetoes">Waiting for the others to veto or not.</string>
+    <string name="web_waiting_reveal">Waiting for the reveal.</string>
+    <string name="web_gap_choose">Choose this gap</string>
+    <string name="web_your_guess">Your guess</string>
+    <string name="web_guessing">%1$s is guessing.</string>
+    <string name="web_guess_taken">Already guessed: %1$s</string>
+    <string name="web_menu">Menu</string>
+    <string name="web_my_cards">My cards</string>
+    <string name="web_my_songs">My songs</string>
+    <string name="web_no_cards">No cards yet.</string>
+    <string name="web_switch_player">Switch player</string>
+    <string name="web_theme">Theme</string>
+    <string name="web_theme_host">Like the host (%1$s)</string>
+    <string name="web_error_network">Couldn\'t reach the host\'s phone.</string>
+    <string name="web_error_no_game">No game is running.</string>
+    <string name="web_error_pick_player">Pick your player first.</string>
+    <string name="web_error_stale">The game moved on. Please try again.</string>
+    <string name="web_error_bad_request">Something went wrong.</string>
+    <string name="web_p2p_unreachable">Can\'t reach the host. Check that the link is complete, or ask the host for a new one.</string>
+    <string name="web_sound_on">🔊 Tap to hear the music</string>
+    <string name="web_volume">Music volume</string>
+    <string name="web_host_more">Add one for %1$s</string>
+    <string name="web_host_less">Take one from %1$s</string>
+    <string name="web_error_not_host">Only the host can do that.</string>
+    <string name="web_error_reveal_locked">Reveal is still locked for vetoes.</string>
+    <string name="remote_cohost">Co-host</string>
+    <string name="remote_cohost_on">Co-host ✓</string>
+    <string name="remote_cohost_a11y">Host controls for the %2$s playing as %1$s</string>
+    <string name="remote_cohost_hint">A co-host gets Reveal, Next and the other host controls on their own device; this phone keeps them too.</string>
+    <string name="web_takeover_waiting">Waiting for the host to allow it…</string>
+    <string name="web_takeover_denied">The host didn\'t allow it.</string>
+    <string name="web_blocked">The host removed this %1$s from the game.</string>
+    <string name="web_error_blocked">You were removed from the game.</string>
+    <string name="remote_block">Block</string>
+    <string name="remote_block_a11y">Block the %2$s playing as %1$s for this session</string>
+    <string name="remote_takeover_title">Let another %2$s play as %1$s?</string>
+    <string name="remote_takeover_text">A %2$s wants to take over %1$s. The %3$s playing as %1$s now is still connected.</string>
+    <string name="remote_takeover_allow">Allow</string>
+    <string name="remote_takeover_deny">Deny</string>
+    <string name="web_outdated">This page is out of date. Reload it to join.</string>
+    <string name="remote_wifi_title">On this Wi-Fi</string>
+    <string name="remote_internet_title">Over the internet</string>
+    <string name="remote_internet_hint">Friends who aren\'t on this Wi-Fi join with a link. Their browser connects directly to this phone.</string>
+    <string name="remote_internet_invite">Invite over the internet</string>
+    <string name="remote_internet_share">Share link</string>
+    <string name="remote_internet_new">New link</string>
+    <string name="remote_internet_unsupported">This phone\'s web component (Android System WebView) is too old for internet play. Update it from the Play Store.</string>
+    <string name="remote_internet_share_text">Join my Track Record game: %1$s</string>
+    <string name="web_left">You were removed from the game. You can keep watching.</string>
+
+    <!-- Design review (WD-01): what a guest plays on, as its page tells -->
+    <string name="device_phone">phone</string>
+    <string name="device_tablet">tablet</string>
+    <string name="device_computer">computer</string>
+    <string name="device_unknown">device</string>
+</resources>
