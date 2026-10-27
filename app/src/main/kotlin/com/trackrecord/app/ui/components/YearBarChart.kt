@@ -27,10 +27,11 @@ import androidx.compose.ui.unit.dp
 /**
  * One bar per year, [years] consecutive, [values] null where a year has no bar (zero is a stub). Year labels sit under their own
  * bars (first, last and round decades). The line above shows [topLabel] (the scale) until a bar is tapped, then
- * that bar's [detail] (feedback round 47; the library's songs per year since round 5).
+ * that bar's [detail] (feedback round 47; the library's songs per year since round 5). With [decades] each bar is a
+ * decade, [years] its first years, and every bar is labelled (feedback round 48).
  */
 @Composable
-fun YearBarChart(years: List<Int>, values: List<Double?>, max: Double, topLabel: String, description: String, detail: (Int) -> String) {
+fun YearBarChart(years: List<Int>, values: List<Double?>, max: Double, topLabel: String, description: String, decades: Boolean = false, detail: (Int) -> String) {
     var selected by remember(years, values) { mutableStateOf<Int?>(null) }
     val top = max.coerceAtLeast(Double.MIN_VALUE)
     val barColor = MaterialTheme.colorScheme.primary
@@ -64,10 +65,10 @@ fun YearBarChart(years: List<Int>, values: List<Double?>, max: Double, topLabel:
                 }
             }
             drawLine(axisColor, Offset(0f, chart), Offset(size.width, chart), strokeWidth = 2f)
-            val candidates = listOf(0, years.lastIndex) + years.indices.filter { years[it] % 10 == 0 }
+            val candidates = if (decades) years.indices.toList() else listOf(0, years.lastIndex) + years.indices.filter { years[it] % 10 == 0 }
             var taken = emptyList<ClosedFloatingPointRange<Float>>()
             for (i in candidates.distinct()) {
-                val text = measurer.measure(formatYear(years[i]), labelStyle)
+                val text = measurer.measure(if (decades) formatDecade(years[i]) else formatYear(years[i]), labelStyle)
                 val center = i * slot + slot / 2
                 val x = (center - text.size.width / 2f).coerceIn(0f, size.width - text.size.width)
                 val span = (x - 8f)..(x + text.size.width + 8f)

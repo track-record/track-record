@@ -66,7 +66,7 @@ class MigrationTest {
             execSQL("INSERT INTO mb_cache (song_key, year, confirmed, checked_at) VALUES ('k', 1977, 1, 0)")
             close()
         }
-        val db = helper.runMigrationsAndValidate(name, 15, true, AppDatabase.MIGRATION_10_11)
+        val db = helper.runMigrationsAndValidate(name, 16, true, AppDatabase.MIGRATION_10_11)
         assertEquals(listOf(1L), db.longs("SELECT id FROM songs"))
         assertEquals(listOf(1977L), db.longs("SELECT year FROM mb_cache"))
         db.query("SELECT json, songs_json FROM saved_game").use { c ->

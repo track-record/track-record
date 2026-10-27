@@ -381,6 +381,7 @@ class RemoteHub(
                 "hostOffset" -> HostCommand.StartOffset(r.year ?: return badRequest())
                 "hostWhole" -> HostCommand.WholeSong
                 "hostRemove" -> HostCommand.Remove(r.player ?: return badRequest())
+                "hostStopLookups" -> HostCommand.StopLookups
                 "hostSeek" -> HostCommand.Seek(r.positionMs?.takeIf { it >= 0 } ?: return badRequest())
                 else -> return badRequest()
             }
@@ -471,6 +472,7 @@ class RemoteHub(
             pendingPlayer = pendingTakeovers[client],
             deniedPlayer = deniedTakeovers[client],
             coHost = client == coHost?.client,
+            requests = snapshot.requests?.takeIf { client == coHost?.client && snapshot.game != null },
         )
     }
 
@@ -537,7 +539,7 @@ class RemoteHub(
         private val VERSIONED = setOf("select", "lockIn", "veto", "guess", "skip")
 
         /** Co-host commands that name what they change, so they don't depend on the state the phone saw. */
-        private val UNVERSIONED_HOST = setOf("hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek")
+        private val UNVERSIONED_HOST = setOf("hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek", "hostStopLookups")
         private val STRINGS = MapSerializer(String.serializer(), String.serializer())
 
         /** A random 128-bit key, URL-safe (DECISIONS.md D-100). */

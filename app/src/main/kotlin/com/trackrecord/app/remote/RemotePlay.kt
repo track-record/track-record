@@ -41,6 +41,7 @@ import com.trackrecord.remote.PlayerInfo
 import com.trackrecord.remote.RemoteClients
 import com.trackrecord.remote.RemoteHost
 import com.trackrecord.remote.RemoteHub
+import com.trackrecord.remote.RequestsView
 import com.trackrecord.remote.RevealInfo
 import com.trackrecord.remote.SongText
 import com.trackrecord.remote.ThemeInfo
@@ -229,10 +230,14 @@ class RemotePlay(
         feed = scope.launch {
             val audio = game.audio.state.map(::audioChange).filterNotNull()
             val sessionOrLobby = combine(game.session, game.lobby) { session, lobby -> session to lobby }
-            combine(sessionOrLobby, game.revealStatus, settings, audio, game.hostOnGame) { (session, lobby), reveal, app, player, onGame ->
+            val onGameAndRequests = combine(game.hostOnGame, game.requests) { onGame, requests -> onGame to requests }
+            combine(sessionOrLobby, game.revealStatus, settings, audio, onGameAndRequests) { (session, lobby), reveal, app, player, (onGame, requests) ->
                 // While the host sets up a new game, guests see its players, not an earlier game (feedback round 32).
                 snapshot(session.takeIf { lobby == null }, reveal, app, player)
-                    .copy(paused = !onGame, confirmTwice = app.confirmByTappingTwice, showCovers = app.showCovers, lobby = lobby?.map(::playerInfo))
+                    .copy(
+                        paused = !onGame, confirmTwice = app.confirmByTappingTwice, showCovers = app.showCovers, lobby = lobby?.map(::playerInfo),
+                        requests = RequestsView(requests.yearsDone, requests.yearsTotal, requests.coversDone, requests.coversTotal, requests.stopped),
+                    )
             }
                 // The reveal timer ticks 5 times a second, guests see whole seconds: equal snapshots go once (REVIEW.md P-02).
                 .distinctUntilChanged()
@@ -428,6 +433,10 @@ class RemotePlay(
                     null
                 }
                 is HostCommand.Remove -> game.tryDispatch(GameAction.RemovePlayer(command.playerId), ActionSource.REMOTE)
+                HostCommand.StopLookups -> {
+                    game.stopRequests()
+                    null
+                }
                 is HostCommand.Adjust -> game.tryDispatch(
                     if (timeline) GameAction.AdjustVetoes(command.playerId, command.delta) else GameAction.AdjustSkips(command.playerId, command.delta),
                     ActionSource.REMOTE,

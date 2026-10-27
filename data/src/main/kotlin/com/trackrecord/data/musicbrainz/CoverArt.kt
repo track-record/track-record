@@ -121,20 +121,36 @@ class CoverArtService(
         }
         val release = entry.releaseId?.takeIf(MBID::matches)
         val group = entry.releaseGroupId?.takeIf(MBID::matches)
-        val bytes = try {
-            release?.let { client.front("release", it) } ?: group?.let { client.front("release-group", it) }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            return Outcome.FAILED // not marked as checked: tried again later
-        }
-        if (bytes != null) {
-            dir.mkdirs()
-            File(dir, "${release ?: group}.jpg").writeBytes(bytes)
+        val name = release ?: group ?: return Outcome.NONE
+        // One download at a time, checked again once it's this one's turn: when a game and "Load cover art" want
+        // the same cover, it is fetched once (feedback round 48).
+        val bytes = downloads.withLock {
+            if (File(dir, "$name.jpg").exists()) return Outcome.COVER
+            if (name in noCover) null else {
+                try {
+                    release?.let { client.front("release", it) } ?: group?.let { client.front("release-group", it) }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    return Outcome.FAILED // not marked as checked: tried again later
+                }.also { bytes ->
+                    if (bytes != null) {
+                        dir.mkdirs()
+                        File(dir, "$name.jpg").writeBytes(bytes)
+                    } else {
+                        noCover += name
+                    }
+                }
+            }
         }
         lookup.markCoverChecked(song)
         return if (bytes != null) Outcome.COVER else Outcome.NONE
     }
+
+    private val downloads = Mutex()
+
+    /** Releases the archive has no cover for, asked this session: not asked again until the app restarts. */
+    private val noCover = HashSet<String>()
 
     private companion object {
         const val MAX_RETRIES = 3

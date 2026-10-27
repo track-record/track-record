@@ -22,6 +22,23 @@ object MatchAcceptance {
     private val whitespace = Regex("""\s+""")
     private val dashes = Regex("""[\u2010\u2011\u2012\u2013\u2014\u2212]""")
 
+    private val featuringAnyCase = Regex(featuring.pattern, RegexOption.IGNORE_CASE)
+
+    /**
+     * A title or artist as searched on MusicBrainz: as written, without the parts [normalize] drops ("(2015
+     * Remaster)", "- Radio Edit", "feat. …"). Those notes are rarely in MusicBrainz's titles, so a search with
+     * them found nothing; matches are judged on [normalize]d names anyway (feedback round 48).
+     */
+    fun searchText(text: String): String {
+        var s = text.trim()
+        while (true) {
+            val before = s
+            s = s.replace(trailingBrackets, "").replace(dashSuffix, "").replace(featuringAnyCase, "").trim()
+            if (s == before) break
+        }
+        return s.ifBlank { text.trim() }
+    }
+
     /** Lowercase, strip diacritics, drop "feat."/"ft." parts and bracketed or dash suffixes. */
     fun normalize(text: String): String {
         var s = basic(text)

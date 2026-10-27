@@ -1,5 +1,6 @@
 package com.trackrecord.data.musicbrainz
 
+import com.trackrecord.engine.musicbrainz.MatchAcceptance
 import com.trackrecord.engine.musicbrainz.MbCandidate
 import com.trackrecord.engine.year.TagYears
 import kotlinx.serialization.SerialName
@@ -96,7 +97,7 @@ class MusicBrainzClient(private val queue: RateLimitedQueue, private val root: S
     }
 
     private fun clause(s: NameSearch): String {
-        var query = "artist:\"${luceneEscape(s.artist)}\" AND recording:\"${luceneEscape(s.title)}\""
+        var query = "artist:\"${luceneEscape(MatchAcceptance.searchText(s.artist))}\" AND recording:\"${luceneEscape(MatchAcceptance.searchText(s.title))}\""
         if (s.releasedBefore != null) query += " AND firstreleasedate:[1000 TO ${s.releasedBefore}-12-31]"
         return "($query)"
     }

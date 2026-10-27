@@ -35,7 +35,8 @@ data class AppSettings(
     val acoustIdKey: String = "",
     val autoPlay: Boolean = true,
     val startOffsetSeconds: Int = 0,
-    val clipLimitSeconds: Int? = null,
+    /** 20 s unless changed (feedback round 48). */
+    val clipLimitSeconds: Int? = DEFAULT_CLIP_LIMIT_S,
     /** Download the first release's cover from the Cover Art Archive for MusicBrainz matches. */
     val loadCovers: Boolean = true,
     /** Show covers at all (reveal, timeline cards, song details); off = plain colours (feedback round 6). */
@@ -99,6 +100,9 @@ data class CustomPreset(
 
 /** Button radius value meaning "fully rounded" (pill). */
 const val FULL_RADIUS = 25
+
+/** The clip limit of a fresh install, in seconds. */
+const val DEFAULT_CLIP_LIMIT_S = 20
 
 @Serializable
 /** The app's look (DECISIONS.md D-172): the illustrated Low Poly (the default, listed first), Light or Dark. */

@@ -10,12 +10,12 @@ import kotlinx.serialization.Serializable
  * until both are done and the new shape is recorded.
  */
 object RemoteProtocol {
-    const val VERSION = 5
+    const val VERSION = 6
 
     /** Every action type a page may send to POST /api/action. */
     val ACTIONS: Set<String> = setOf(
         "select", "dragSelect", "lockIn", "vetoStart", "vetoCancel", "veto", "decline", "guess", "skip", "buy", "togglePlay", "replay",
-        "hostReveal", "hostNext", "hostUndo", "hostNamed", "hostYear", "hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek",
+        "hostReveal", "hostNext", "hostUndo", "hostNamed", "hostYear", "hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek", "hostStopLookups",
     )
 }
 
@@ -36,7 +36,13 @@ data class HostSnapshot(
      * pick theirs before it starts. While set, it stands in for any earlier game.
      */
     val lobby: List<PlayerInfo>? = null,
+    /** The game's lookups and covers, for the co-host's settings (feedback round 48). */
+    val requests: RequestsView? = null,
 )
+
+/** A game's requests (feedback round 48): years and covers, done of total, and whether they were stopped. */
+@Serializable
+data class RequestsView(val yearsDone: Int, val yearsTotal: Int, val coversDone: Int, val coversTotal: Int, val stopped: Boolean)
 
 data class HostGame(
     val state: GameState,
@@ -223,6 +229,8 @@ data class ClientView(
     val blocked: Boolean = false,
     /** This phone has the host controls (co-host, D-189). */
     val coHost: Boolean = false,
+    /** Co-host only: the game's lookups and covers, which it can stop (feedback round 48). */
+    val requests: RequestsView? = null,
     /** This phone's player was removed from the game: it watches (feedback round 36). */
     val left: Boolean = false,
 )
@@ -415,6 +423,9 @@ sealed interface HostCommand {
 
     /** Takes a player out of the game, as from the host's scoreboard (feedback round 36). */
     data class Remove(val playerId: String) : HostCommand
+
+    /** Stops the game's lookups and covers for the rest of the game (feedback round 48). */
+    data object StopLookups : HostCommand
 }
 
 @Serializable

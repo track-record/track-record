@@ -331,6 +331,8 @@ button.named-toggle { cursor: pointer; }
 .named-toggle.on::after { content: "✓"; position: absolute; right: 14px; top: 50%; transform: translateY(-50%); }
 /* The app's Stepper: tonal buttons in the theme's button shape (feedback round 26). */
 .clip-row { display: flex; align-items: center; gap: 0; padding: 4px 0; }
+.requests { display: flex; flex-direction: column; gap: 6px; padding: 12px 0 4px; }
+.requests h3 { margin: 0; }
 .clip-row > span:first-child { flex: 1; }
 .clip-row button { width: 48px; height: 48px; border-radius: var(--button-radius); border: none; background: var(--tonal); color: var(--on-tonal); font-size: 22px; letter-spacing: 0; cursor: pointer; }
 .clip-value { min-width: 64px; text-align: center; font-size: 22px; letter-spacing: 0; line-height: 28px; font-weight: var(--heading-weight); }

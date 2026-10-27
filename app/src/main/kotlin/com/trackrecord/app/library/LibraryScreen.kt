@@ -69,6 +69,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.trackrecord.app.R
 import com.trackrecord.app.appContainer
 import com.trackrecord.app.contactEmailInUse
+import com.trackrecord.app.game.GameRequestsPanel
 import com.trackrecord.app.ui.components.BottomBarSurface
 import com.trackrecord.app.ui.components.Button
 import com.trackrecord.app.ui.components.Card
@@ -77,6 +78,7 @@ import com.trackrecord.app.ui.components.TextButton
 import com.trackrecord.app.ui.components.formatYear
 import com.trackrecord.data.db.FolderEntity
 import com.trackrecord.data.db.SongSource
+import com.trackrecord.data.deezer.DefaultPlaylists
 import com.trackrecord.data.library.LibrarySong
 import com.trackrecord.data.library.LibraryStats
 import com.trackrecord.data.library.ScanState
@@ -98,6 +100,7 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
     val verify by container.verifier.state.collectAsStateWithLifecycle()
     val keyStatus by container.fingerprints.keyStatus.collectAsStateWithLifecycle()
     val deezer by container.deezerImports.state.collectAsStateWithLifecycle()
+    val gameRequests by container.game.requests.collectAsStateWithLifecycle()
     val appSettings by container.settings.appSettings.collectAsStateWithLifecycle(initialValue = null)
     val snackbar = remember { SnackbarHostState() }
     var removing by remember { mutableStateOf<FolderEntity?>(null) }
@@ -153,14 +156,24 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
     }
     val infoHint = stringResource(R.string.library_info_hint)
     if (infoOpen) {
-        LibraryInfoSheet(onDismiss = {
+        val closeInfo = {
             infoOpen = false
             if (firstInfo) {
                 firstInfo = false
                 infoHighlight = true
                 listScope.launch { snackbar.showSnackbar(infoHint) }
             }
-        })
+        }
+        LibraryInfoSheet(
+            onDismiss = closeInfo,
+            defaultsMissing = DefaultPlaylists.ALL.any { d -> state.playlists.none { it.deezerPlaylistId == d.deezerId } },
+            importing = deezer is DeezerImportState.Running,
+            // Closed straight away: the progress shows in the Playlists card.
+            onGetDefaults = {
+                container.deezerImports.importDefaults()
+                closeInfo()
+            },
+        )
     }
     val unreadable = stringResource(R.string.list_failed_unreadable)
     val pickList = rememberLauncherForActivityResult(OpenInDownloads()) { uri: Uri? ->
@@ -252,6 +265,17 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
         ) {
             item { ScanProgress(state.scan) }
             item { FoldersCard(folders = state.folders, onAdd = { pickFolder.launch(null) }, onRemove = { removing = it }) }
+            // Requests started elsewhere show here too, with Stop (feedback round 48): a game's lookups and covers.
+            if (gameRequests.running) {
+                item {
+                    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text(stringResource(R.string.requests_library_title), style = MaterialTheme.typography.titleMedium)
+                            GameRequestsPanel(gameRequests, onStop = container.game::stopRequests, modifier = Modifier.padding(top = 4.dp), title = false)
+                        }
+                    }
+                }
+            }
             item {
                 VerifyCard(
                     state = verify,
@@ -275,6 +299,7 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
                     onAddDeezer = container.deezerImports::import,
                     onUpdateDeezer = container.deezerImports::update,
                     onDismissDeezer = container.deezerImports::dismiss,
+                    onCancelDeezer = container.deezerImports::cancel,
                     onImportList = { pickList.launch(listTypes) },
                     onExportify = {
                         // With the file permission the download is imported by itself; ask first (feedback round 32).
@@ -522,7 +547,9 @@ private fun LookupSummary(state: VerifyState.Finished) {
         Text(if (state.offline) stringResource(R.string.lookup_offline) else lookupsOffText(), color = MaterialTheme.colorScheme.error)
         return
     }
-    Text(pluralStringResource(R.plurals.summary_checked, state.total, state.total), style = MaterialTheme.typography.titleSmall)
+    val title = state.cancelledOf?.let { of -> pluralStringResource(R.plurals.summary_cancelled, of, state.total, of) }
+        ?: pluralStringResource(R.plurals.summary_checked, state.total, state.total)
+    Text(title, style = MaterialTheme.typography.titleSmall)
     val lines = buildList {
         if (state.newYears > 0) add(pluralStringResource(R.plurals.summary_new_years, state.newYears, state.newYears))
         if (state.earlier > 0) add(pluralStringResource(R.plurals.summary_earlier, state.earlier, state.earlier))

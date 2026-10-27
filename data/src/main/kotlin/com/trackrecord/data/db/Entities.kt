@@ -200,6 +200,8 @@ data class PlayerRoundEntity(
     @ColumnInfo(name = "years_off") val yearsOff: Int?,
     @ColumnInfo(name = "naming_chance") val namingChance: Boolean,
     val named: Boolean,
+    /** Recorded from feedback round 48 on: older rounds count as not won. */
+    @ColumnInfo(defaultValue = "0") val won: Boolean = false,
 )
 
 /** A finished game of a saved player who was still playing at the end (feedback round 47). */

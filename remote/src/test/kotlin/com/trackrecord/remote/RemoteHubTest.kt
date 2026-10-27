@@ -28,10 +28,13 @@ class RemoteHubTest {
         var state: GameState? = null
         /** The players of a game being set up (feedback round 32). */
         var lobby: List<PlayerInfo>? = null
+
+        /** The game's lookups and covers, for the co-host (feedback round 48). */
+        var requests: RequestsView? = null
         val declined = mutableListOf<String>()
         lateinit var hub: RemoteHub
 
-        fun publish() = hub.update(HostSnapshot(state?.let { HostGame(it, players, songs) }, ThemeInfo("VINYL", 4, 25), lobby = lobby))
+        fun publish() = hub.update(HostSnapshot(state?.let { HostGame(it, players, songs) }, ThemeInfo("VINYL", 4, 25), lobby = lobby, requests = requests))
 
         override fun dispatch(action: GameAction): RejectReason? =
             when (val r = GameEngine.reduce(state, action)) {
@@ -67,7 +70,7 @@ class RemoteHubTest {
                 is HostCommand.ClipLimit -> GameAction.SetClipLimit(command.seconds)
                 is HostCommand.StartOffset -> GameAction.SetStartOffset(command.seconds)
                 is HostCommand.Remove -> GameAction.RemovePlayer(command.playerId)
-                HostCommand.WholeSong, is HostCommand.Seek -> return null
+                HostCommand.WholeSong, is HostCommand.Seek, HostCommand.StopLookups -> return null
             }
             return dispatch(action)?.let(::rejectText)
         }
@@ -366,6 +369,25 @@ class RemoteHubTest {
         hub.setCoHost(null)
         assertEquals(null, clients.last().coHost)
         assertEquals("error:NOT_HOST", act("phone-ben1", "hostNext").error)
+    }
+
+    @Test
+    fun `only the co-host sees the game's lookups and can stop them`() {
+        startTimeline()
+        claim("phone-anna", "anna")
+        claim("phone-ben1", "ben")
+        val anna = open("phone-anna")
+        val ben = open("phone-ben1")
+        hub.setCoHost("ben")
+        val requests = RequestsView(yearsDone = 3, yearsTotal = 12, coversDone = 4, coversTotal = 20, stopped = false)
+        host.requests = requests
+        host.publish()
+        val seen = (1..100).asSequence().map { ben.latest().also { Thread.sleep(20) } }.firstOrNull { it.requests != null }
+        assertEquals(requests, seen?.requests)
+        assertNull(anna.latest().requests)
+        assertEquals("error:NOT_HOST", act("phone-anna", "hostStopLookups").error)
+        assertTrue(act("phone-ben1", "hostStopLookups", version = -1).ok, "whatever the phone saw")
+        assertEquals(HostCommand.StopLookups, host.commands.last())
     }
 
     @Test

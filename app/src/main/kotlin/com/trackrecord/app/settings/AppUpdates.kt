@@ -38,7 +38,8 @@ class AppUpdates(
     val dismissed: StateFlow<Boolean> = _dismissed.asStateFlow()
 
     init {
-        scope.launch { if (settings.appSettings.first().checkForUpdates) check() }
+        // Debug builds don't ask (feedback round 47): the release is another app beside them.
+        if (BuildConfig.UPDATE_CHECK) scope.launch { if (settings.appSettings.first().checkForUpdates) check() }
     }
 
     fun check() {

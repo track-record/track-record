@@ -3,9 +3,11 @@ package com.trackrecord.app.game
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -127,7 +129,7 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
                 SwitchRow(stringResource(R.string.scoreboard_adjust_skips), adjusting, { adjusting = it }, hint = stringResource(R.string.scoreboard_adjust_skips_hint))
             }
         }
-        LazyColumn(Modifier.heightIn(max = sheetHeight())) {
+        LazyColumn(sheetBody(fixed = false)) {
             items(session.playing + session.removed, key = { it.id }) { player ->
                 val ps = state.anyPlayer(player.id) ?: return@items
                 val gone = state.player(player.id) == null
@@ -236,6 +238,11 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
  */
 @Composable
 fun sheetHeight(): Dp = LocalConfiguration.current.screenHeightDp.dp * SHEET_FRACTION
+
+/** A sheet's scrolling body: [sheetHeight] tall, less where the screen is too short for the whole sheet (feedback round 48). */
+@Composable
+fun ColumnScope.sheetBody(fixed: Boolean = true): Modifier =
+    Modifier.weight(1f, fill = false).then(if (fixed) Modifier.height(sheetHeight()) else Modifier.heightIn(max = sheetHeight()))
 
 private const val SHEET_FRACTION = 0.7f
 

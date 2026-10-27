@@ -76,6 +76,7 @@ fun PlaylistsCard(
     onAddDeezer: (String) -> Unit = {},
     onUpdateDeezer: (Long) -> Unit = {},
     onDismissDeezer: () -> Unit = {},
+    onCancelDeezer: () -> Unit = {},
     onImportList: () -> Unit = {},
     /** Opens Exportify in a Custom Tab of the default browser. */
     onExportify: () -> Unit = {},
@@ -131,7 +132,7 @@ fun PlaylistsCard(
                 PlaylistAction(Icons.Default.Add, stringResource(R.string.list_import), enabled = deezer !is DeezerImportState.Running) { choosingList = true }
             }
             Text(stringResource(R.string.list_import_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-            DeezerStatus(deezer, onDismissDeezer)
+            DeezerStatus(deezer, onDismissDeezer, onCancelDeezer)
             Text(stringResource(R.string.playlists_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp))
         }
     }
@@ -175,7 +176,7 @@ private fun PlaylistAction(icon: androidx.compose.ui.graphics.vector.ImageVector
 
 /** Progress and outcome of a Deezer import or update. */
 @Composable
-private fun DeezerStatus(state: DeezerImportState, onDismiss: () -> Unit) {
+private fun DeezerStatus(state: DeezerImportState, onDismiss: () -> Unit, onCancel: () -> Unit) {
     val modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
     when (state) {
         DeezerImportState.Idle -> Unit
@@ -186,6 +187,7 @@ private fun DeezerStatus(state: DeezerImportState, onDismiss: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                 drawStopIndicator = {},
             )
+            TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) }
         }
         is DeezerImportState.Done -> Column(modifier) {
             val r = state.result

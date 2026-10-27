@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Track Record</string>
+    <!-- The launcher's name; debug builds have their own (src/debug/res). -->
+    <string name="app_label" translatable="false">Track Record</string>
 
     <!-- Common actions -->
     <string name="action_back">Back</string>
@@ -50,6 +52,8 @@
     <string name="library_info_playlists">Playlists</string>
     <string name="library_info_playlists_1">Long-press songs to select them, then add them to a playlist. Each Deezer playlist and imported list becomes a playlist of its own.</string>
     <string name="library_info_playlists_2">In New game you choose which playlists the songs come from. Local files and Streamed songs hold all songs of their kind; Excluded songs never come up in a game.</string>
+    <string name="library_get_defaults">Get default playlists</string>
+    <string name="library_defaults_added">Default playlists are in your library</string>
     <string name="missing_year">Missing year</string>
     <string name="unknown_artist">Unknown artist</string>
     <string name="song_flag_edited">Edited</string>
@@ -172,6 +176,10 @@
     <string name="verify_preparing">Picking the songs…</string>
     <string name="verify_fingerprinted">%1$d of %2$d fingerprinted</string>
     <string name="summary_no_changes">No years changed.</string>
+    <plurals name="summary_cancelled">
+        <item quantity="one">Stopped after %1$d of %2$d song</item>
+        <item quantity="other">Stopped after %1$d of %2$d songs</item>
+    </plurals>
     <plurals name="summary_checked">
         <item quantity="one">%1$d song checked</item>
         <item quantity="other">%1$d songs checked</item>

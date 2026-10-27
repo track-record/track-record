@@ -110,8 +110,10 @@ fun GameTopBar(title: String, session: GameSession, onLeave: () -> Unit, onScore
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameSettingsSheet(session: GameSession, onDismiss: () -> Unit, onAction: (GameAction) -> Unit) {
-    val repo = LocalContext.current.appContainer.settings
+    val container = LocalContext.current.appContainer
+    val repo = container.settings
     val app by repo.appSettings.collectAsStateWithLifecycle(initialValue = null)
+    val requests by container.game.requests.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val state = session.state
     AppSheet(stringResource(R.string.settings_title), onDismiss = onDismiss) {
@@ -143,6 +145,9 @@ fun GameSettingsSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Ga
                     { on -> scope.launch { repo.update { it.copy(confirmByTappingTwice = on) } } },
                     hint = stringResource(R.string.settings_confirm_twice_hint) + " " + stringResource(R.string.settings_confirm_twice_guests),
                 )
+            }
+            if (state.settings.common.musicBrainzLookups) {
+                GameRequestsPanel(requests, onStop = container.game::stopRequests, modifier = Modifier.padding(top = 12.dp))
             }
         }
     }

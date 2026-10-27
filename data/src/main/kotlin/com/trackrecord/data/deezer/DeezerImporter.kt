@@ -97,13 +97,20 @@ class DeezerImporter(
         return sync(deezerId, playlistId, onProgress)
     }
 
-    private suspend fun sync(deezerId: Long, existing: Long?, onProgress: (Int, Int) -> Unit): DeezerImportResult {
+    /**
+     * Adds the [DefaultPlaylists] the library doesn't have yet ("Get default playlists", feedback round 48);
+     * the ones already there stay as they are.
+     */
+    suspend fun importDefaults(onProgress: (done: Int, total: Int) -> Unit = { _, _ -> }): List<DeezerImportResult> =
+        DefaultPlaylists.ALL.filter { db.playlists().byDeezerId(it.deezerId) == null }.map { sync(it.deezerId, existing = null, onProgress, name = it.name) }
+
+    private suspend fun sync(deezerId: Long, existing: Long?, onProgress: (Int, Int) -> Unit, name: String? = null): DeezerImportResult {
         val meta = retrying { client.playlist(deezerId) }
             ?: throw DeezerImportException(DeezerImportException.Reason.NOT_FOUND, "Deezer playlist $deezerId not found or not public")
         val listed = retrying { client.playlistTracks(deezerId) }
         val (picks, details) = resolve(listed, onProgress)
         val (playlistId, added) = save(picks, details, existing) {
-            PlaylistEntity(name = meta.title.ifBlank { "Deezer $deezerId" }, createdAt = clock(), deezerPlaylistId = deezerId)
+            PlaylistEntity(name = name ?: meta.title.ifBlank { "Deezer $deezerId" }, createdAt = clock(), deezerPlaylistId = deezerId)
         }
         return result(playlistId, meta.title, picks, added, emptyList())
     }

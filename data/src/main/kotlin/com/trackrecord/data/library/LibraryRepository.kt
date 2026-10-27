@@ -14,11 +14,15 @@ import com.trackrecord.engine.year.YearPreference
 import com.trackrecord.engine.year.YearResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,6 +62,10 @@ class LibraryRepository(
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val scanMutex = Mutex()
+
+    /** The folder being read in and its job, so removing that folder stops the read-in (feedback round 48). */
+    private var activeScan: Pair<Long, Job>? = null
+    private val removedFolders = HashSet<Long>()
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
     val scanState: StateFlow<ScanState> = _scanState.asStateFlow()
 
@@ -171,7 +179,15 @@ class LibraryRepository(
         return scanMutex.withLock { scanFolders(listOf(folder)) }
     }
 
-    suspend fun removeFolder(folderId: Long) = db.folders().delete(folderId)
+    /** Removes a folder and its songs; a read-in of it stops first, else it would save songs of a folder that is gone. */
+    suspend fun removeFolder(folderId: Long) {
+        val scan = synchronized(this) {
+            removedFolders += folderId
+            activeScan?.takeIf { it.first == folderId }?.second
+        }
+        scan?.cancelAndJoin()
+        db.folders().delete(folderId)
+    }
 
     /** Rescans every folder; unchanged files (same modification time and size) are skipped. */
     suspend fun rescanAll(): ScanReport = scanMutex.withLock { scanFolders(db.folders().getAll()) }
@@ -195,7 +211,24 @@ class LibraryRepository(
         return report
     }
 
-    private suspend fun scanFolder(folder: FolderEntity): ScanReport {
+    private suspend fun scanFolder(folder: FolderEntity): ScanReport = coroutineScope {
+        val job = async(start = CoroutineStart.LAZY) { readFolder(folder) }
+        synchronized(this@LibraryRepository) {
+            if (folder.id in removedFolders) return@coroutineScope ScanReport(0, 0, 0, 0, 0)
+            activeScan = folder.id to job
+        }
+        try {
+            job.await()
+        } catch (e: CancellationException) {
+            // Only the folder's removal stopped it: the rest of a rescan goes on.
+            ensureActive()
+            ScanReport(0, 0, 0, 0, 0)
+        } finally {
+            synchronized(this@LibraryRepository) { activeScan = null }
+        }
+    }
+
+    private suspend fun readFolder(folder: FolderEntity): ScanReport {
         _scanState.value = ScanState.Scanning(folder.displayName, 0, 0)
         val found = try {
             withContext(Dispatchers.IO) { scanner.scan(folder.treeUri) }

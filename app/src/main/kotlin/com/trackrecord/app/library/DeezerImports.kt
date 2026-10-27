@@ -63,9 +63,31 @@ class DeezerImports(private val importer: DeezerImporter) {
         }
     }
 
+    /** The default Deezer playlists the library doesn't have yet (feedback round 48). */
+    fun importDefaults() {
+        if (job?.isActive == true) return
+        _state.value = DeezerImportState.Running(0, 0)
+        job = scope.launch {
+            _state.value = try {
+                DeezerImportState.DoneMany(importer.importDefaults(::progress))
+            } catch (e: DeezerImportException) {
+                DeezerImportState.Failed(e.reason)
+            }
+        }
+    }
+
     /** After a playlist was deleted: drop streamed songs nothing uses any more. */
     fun cleanUp() {
         scope.launch { importer.removeUnused() }
+    }
+
+    /**
+     * Stops the import or update (feedback round 48: no requests that can't be stopped). A song list keeps the songs
+     * saved so far; a Deezer playlist is saved only when complete, so it stays as it was.
+     */
+    fun cancel() {
+        job?.cancel()
+        _state.value = DeezerImportState.Idle
     }
 
     fun dismiss() {

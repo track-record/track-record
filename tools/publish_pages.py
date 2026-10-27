@@ -1,8 +1,10 @@
 """Publishes the internet play guest page (app/src/main/assets/remote, SPEC v4) as the organization site of the
-"track-record" GitHub organization, served by GitHub Pages at https://track-record.github.io/ (feedback round 28). Signs in through Git Credential Manager (Felix confirms in its window / the browser);
+"track-record" GitHub organization, served by GitHub Pages at https://track-record.github.io/ (feedback round 28).
+With --dev it goes to https://track-record.github.io/dev/ instead, the page debug builds invite to, so a changed page
+can be tried without a release (feedback round 47). Signs in through Git Credential Manager (Felix confirms in its window / the browser);
 the token stays in memory and in GCM's own store, never in a file or the output.
 Run from anywhere; publishes the files listed in FILES.
-Usage: publish_pages.py <project-root> <work-dir>"""
+Usage: publish_pages.py <project-root> <work-dir> [--dev]"""
 import base64
 import json
 import os
@@ -14,10 +16,12 @@ import urllib.error
 import urllib.request
 
 ROOT, WORK = sys.argv[1], sys.argv[2]
+DEV = "--dev" in sys.argv[3:]
 OWNER = "track-record"
-# An organization site: the repo named <owner>.github.io is served at the root of that address.
-REPO = f"{OWNER}.github.io"
-SITE = f"https://{REPO}/"
+# An organization site: the repo named <owner>.github.io is served at the root of that address; another repo of the
+# organization at <owner>.github.io/<repo>/.
+REPO = "dev" if DEV else f"{OWNER}.github.io"
+SITE = f"https://{OWNER}.github.io/dev/" if DEV else f"https://{REPO}/"
 # (source, published path): the app's own guest page (assets/remote; SPEC v4). strings.json is made
 # from the app's string resources.
 GAME = "app/src/main/assets/remote"
@@ -73,7 +77,8 @@ subprocess.run(["git", "credential", "approve"], input="".join(f"{k}={v}\n" for 
 
 status, repo = api("POST", f"/orgs/{OWNER}/repos", token, {
     "name": REPO,
-    "description": "Track Record: the guest page for playing over the internet (static, served by GitHub Pages).",
+    "description": ("Track Record: the guest page for debug builds, for trying changes before a release." if DEV
+                    else "Track Record: the guest page for playing over the internet (static, served by GitHub Pages)."),
     "private": False, "has_issues": False, "has_projects": False, "has_wiki": False, "auto_init": False,
 })
 if status == 201:

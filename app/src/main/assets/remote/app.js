@@ -614,6 +614,21 @@ import { music } from "./music.js";
       `<button data-act="hostClip" data-seconds="${up}" ${now === 120 ? "disabled" : ""} aria-label="+">+</button></div>`;
   }
 
+  /**
+   * The game's lookups and covers in the co-host's settings, like the host's (feedback round 48): done of queued,
+   * and Stop for the rest of the game.
+   */
+  function requestsPanel(r) {
+    if (!r || (!r.stopped && r.yearsDone >= r.yearsTotal && r.coversDone >= r.coversTotal)) return "";
+    const bar = (done, total) => `<div class="progress"><div class="progress-fill" style="width:${Math.round((done / total) * 100)}%"></div><div class="progress-track"></div></div>`;
+    const line = (key, done, total) => total > 0 ? `<p class="body-medium">${esc(T(key, done, total))}</p>${bar(done, total)}` : "";
+    const body = r.stopped
+      ? `<p class="body-medium">${esc(T("web_requests_stopped"))}</p>`
+      : line("web_requests_years", r.yearsDone, r.yearsTotal) + line("web_requests_covers", r.coversDone, r.coversTotal) +
+        `<p class="body-small">${esc(T("web_requests_stop_hint"))}</p><button class="btn outlined small" data-act="hostStopLookups">${esc(T("web_requests_stop"))}</button>`;
+    return `<div class="requests"><h3>${esc(T("web_requests_title"))}</h3>${body}</div>`;
+  }
+
   /** The start offset in the co-host's settings, like the host's: 0 to 60 s in steps of 5, from the next song (feedback round 34). */
   function offsetStepper(g) {
     const now = g.startOffset || 0;
@@ -991,7 +1006,7 @@ import { music } from "./music.js";
     } else if (S.overlay === "settings" && v && v.game) {
       // Beside the scoreboard (feedback round 26); a co-host also has the host's clip length (D-191).
       body = `<h2>${esc(T("web_settings"))}</h2>` +
-        (v.coHost && v.game.phase !== "GAME_OVER" ? clipStepper(v.game) + offsetStepper(v.game) : "") +
+        (v.coHost && v.game.phase !== "GAME_OVER" ? clipStepper(v.game) + offsetStepper(v.game) + requestsPanel(v.requests) : "") +
         // Internet guests play the music themselves: their own volume (D-185).
         (INTERNET ? volumeSlider() : "") +
         toggleRow("toggleConfirm", T("web_confirm_twice"), confirmTwice(), T("web_confirm_twice_hint"));
@@ -1463,6 +1478,7 @@ import { music } from "./music.js";
       }
       case "volumeToggle": S.volumeOpen = !S.volumeOpen; render(); break;
       case "hostClip": act("hostClip", { year: Number(target.dataset.seconds) }); break;
+      case "hostStopLookups": act("hostStopLookups"); break;
       case "hostOffset": act("hostOffset", { year: Number(target.dataset.seconds) }); break;
       case "toggleGuesses": S.guessesOpen = S.guessesOpen === false; render(); break;
       case "expand": S.expanded = S.expanded === target.dataset.player ? null : target.dataset.player; render(); break;

@@ -20,7 +20,9 @@ import com.trackrecord.data.musicbrainz.ServiceUnavailableException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -100,7 +102,7 @@ class MusicBrainzTest {
     }
 
     @Test
-    fun `a 503 fails the call and the spacing doubles per failure, then stays until it proves too slow`() = runBlocking {
+    fun `a 503 fails the call and the spacing doubles per failure, then steps back down`() = runBlocking {
         val clock = FakeClock()
         val codes = ArrayDeque(listOf(503, 503, 429, 200, 200))
         val fetcher = FakeFetcher(clock) { HttpResponse(codes.removeFirst(), "ok") }
@@ -109,12 +111,12 @@ class MusicBrainzTest {
         assertEquals("ok", queue.get("https://x").body)
         queue.get("https://x")
         val gaps = fetcher.calls.zipWithNext { a, b -> b.first - a.first }
-        // Another phone on the same network may share the limit: no jump back to 1 s (feedback round 28).
-        assertEquals(listOf(2_000L, 4_000L, 8_000L, 8_000L), gaps, "one attempt per call; backoff 2/4/8 s, kept after a success")
+        // Another phone on the same network may share the limit: no jump back to 1 s (feedback round 28), but halved per success (round 48).
+        assertEquals(listOf(2_000L, 4_000L, 8_000L, 4_000L), gaps, "one attempt per call; backoff 2/4/8 s, then half after a success")
     }
 
     @Test
-    fun `the spacing halves after every 2 successes and grows again on the next 503`() = runBlocking {
+    fun `the spacing halves after every success and grows again on the next 503`() = runBlocking {
         val clock = FakeClock()
         var code = 503
         val fetcher = FakeFetcher(clock) { HttpResponse(code, "ok") }
@@ -123,16 +125,67 @@ class MusicBrainzTest {
         assertEquals(8_000L, queue.currentIntervalMs)
         code = 200
         queue.get("https://x")
-        assertEquals(8_000L, queue.currentIntervalMs, "one success isn't enough")
-        queue.get("https://x")
-        assertEquals(4_000L, queue.currentIntervalMs, "half after 2 successes in a row")
-        repeat(4) { queue.get("https://x") }
+        assertEquals(4_000L, queue.currentIntervalMs, "half after a success (feedback round 48)")
+        repeat(2) { queue.get("https://x") }
         assertEquals(1_000L, queue.currentIntervalMs, "back to normal within a few requests (feedback round 47)")
         repeat(20) { queue.get("https://x") }
         assertEquals(1_000L, queue.currentIntervalMs, "never below the normal spacing")
         code = 503
         assertFailsWith<ServiceUnavailableException> { queue.get("https://x") }
         assertEquals(2_000L, queue.currentIntervalMs)
+    }
+
+    // --- Requests under way at once (feedback round 48) ---
+
+    /** Answers after [latencyMs] of (virtual) time with [code], noting when each request started. */
+    private class SlowFetcher(private val clock: () -> Long, private val latencyMs: Long, var code: Int = 200) : HttpFetcher {
+        val starts = mutableListOf<Long>()
+        var underWay = 0
+        var mostAtOnce = 0
+        override suspend fun get(url: String): HttpResponse {
+            starts += clock()
+            mostAtOnce = maxOf(mostAtOnce, ++underWay)
+            delay(latencyMs)
+            underWay--
+            return HttpResponse(code, """{"count":0,"recordings":[]}""")
+        }
+    }
+
+    @Test
+    fun `a slow answer doesn't hold up the next start, and at most 3 wait at once`() = runTest {
+        val fetcher = SlowFetcher({ testScheduler.currentTime }, latencyMs = 3_000)
+        val queue = RateLimitedQueue(fetcher, { testScheduler.currentTime }, { delay(it) })
+        (1..4).map { async { queue.get("https://x") } }.awaitAll()
+        assertEquals(listOf(0L, 1_000L, 2_000L, 3_000L), fetcher.starts, "one start per second; the fourth when the first answer is in")
+        assertEquals(3, fetcher.mostAtOnce)
+    }
+
+    @Test
+    fun `requests refused together slow the pace down once`() = runTest {
+        val fetcher = SlowFetcher({ testScheduler.currentTime }, latencyMs = 3_000, code = 503)
+        val queue = RateLimitedQueue(fetcher, { testScheduler.currentTime }, { delay(it) })
+        (1..3).map { async { runCatching { queue.get("https://x") } } }.awaitAll()
+        assertEquals(2_000L, queue.currentIntervalMs, "three refusals of requests under way at once count as one")
+    }
+
+    @Test
+    fun `a run keeps several lookup steps under way, with the same results`() = runBlocking {
+        var underWay = 0
+        var mostAtOnce = 0
+        val answer = searches(*(1..32).map { "T$it" to "${1960 + it}" }.toTypedArray())
+        val fetcher = object : HttpFetcher {
+            override suspend fun get(url: String): HttpResponse {
+                synchronized(this) { mostAtOnce = maxOf(mostAtOnce, ++underWay) }
+                delay(200)
+                synchronized(this) { underWay-- }
+                return answer(url)
+            }
+        }
+        val queue = RateLimitedQueue(fetcher, System::currentTimeMillis, { delay(it) }, minIntervalMs = 10)
+        val lookup = MusicBrainzLookup(MusicBrainzClient(queue), MemoryCache(), { true }, { 2026 })
+        val results = lookup.lookupAll(titled(1L..32L))
+        assertEquals((1..32).associate { it.toLong() to LookupResult.Match(1960 + it) }, results)
+        assertEquals(3, mostAtOnce, "four search batches, three under way at once")
     }
 
     @Test
@@ -461,6 +514,94 @@ class MusicBrainzTest {
         assertEquals(LookupResult.Match(1971), results[1L])
     }
 
+    // --- Faster searches (feedback round 48) ---
+
+    @Test
+    fun `titles and artists are searched without remaster notes and featured artists`() = runBlocking {
+        val clock = FakeClock()
+        val fetcher = FakeFetcher(clock, respond = searches("Jump" to "1984"))
+        val song = song(1, "Jump (2015 Remaster)", "Band feat. Guest", null, null)
+        assertEquals(LookupResult.Match(1984), lookupWith(clock, fetcher).lookup(song))
+        val q = decoded(fetcher.calls.single().second)
+        assertTrue("artist:\"Band\" AND recording:\"Jump\"" in q, q)
+    }
+
+    @Test
+    fun `a year known from the ISRC bounds the search, and nothing found up to it needs no open search`() = runBlocking {
+        val clock = FakeClock()
+        val fetcher = FakeFetcher(clock) { url ->
+            if ("isrc:(" in decoded(url)) HttpResponse(200, """{"count":1,"recordings":[${recJson("i", "Song", "Band", "1983")}]}""")
+            else HttpResponse(200, """{"count":0,"recordings":[]}""")
+        }
+        // Tagged with a compilation's year, as Deezer songs are: the search goes up to 1983 only.
+        assertEquals(LookupResult.Match(1983), lookupWith(clock, fetcher).lookup(song(1, "Song", "Band", null, 2015, isrc = "X1")))
+        val searchesMade = fetcher.calls.map { decoded(it.second) }.filter { "isrc:(" !in it }
+        assertEquals(listOf(true), searchesMade.map { "firstreleasedate:[1000 TO 1983-12-31]" in it })
+    }
+
+    @Test
+    fun `a tag year earlier than the known year is retried up to the known year, not openly`() = runBlocking {
+        val clock = FakeClock()
+        val fetcher = FakeFetcher(clock) { url ->
+            val q = decoded(url)
+            when {
+                "isrc:(" in q -> HttpResponse(200, """{"count":1,"recordings":[${recJson("i", "Song", "Band", "1990")}]}""")
+                "firstreleasedate:[1000 TO 1990-12-31]" in q -> HttpResponse(200, """{"count":1,"recordings":[${recJson("o", "Song", "Band", "1982")}]}""")
+                else -> HttpResponse(200, """{"count":0,"recordings":[]}""")
+            }
+        }
+        // The tag says 1975 (wrong), the ISRC a 1990 remaster; the original is from 1982.
+        assertEquals(LookupResult.Match(1982), lookupWith(clock, fetcher).lookup(song(1, "Song", "Band", null, 1975, isrc = "X1")))
+        assertTrue(fetcher.calls.none { val q = decoded(it.second); "recording:" in q && "firstreleasedate" !in q }, "no open search")
+    }
+
+    // --- No song asked for twice at once (feedback round 48) ---
+
+    @Test
+    fun `a song another run is looking up is waited for, not asked for again`() = runBlocking {
+        val asked = mutableListOf<String>()
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val answer = searches("T1" to "1971")
+        val fetcher = object : HttpFetcher {
+            override suspend fun get(url: String): HttpResponse {
+                asked += url
+                gate.await()
+                return answer(url)
+            }
+        }
+        val lookup = MusicBrainzLookup(MusicBrainzClient(RateLimitedQueue(fetcher, System::currentTimeMillis, { delay(it) }, minIntervalMs = 0)), MemoryCache(), { true }, { 2026 })
+        val song = titled(1L..1L).single()
+        val game = async { lookup.lookupAll(listOf(song)) }
+        while (asked.isEmpty()) delay(5)
+        val library = async { lookup.lookupAll(listOf(song)) }
+        delay(50)
+        gate.complete(Unit)
+        assertEquals(LookupResult.Match(1971), game.await()[1L])
+        assertEquals(LookupResult.Match(1971), library.await()[1L], "the library run got the game's result")
+        assertEquals(1, asked.size)
+    }
+
+    @Test
+    fun `when the other run is cancelled, the waiting one looks the song up itself`() = runBlocking {
+        var calls = 0
+        val answer = searches("T1" to "1971")
+        val fetcher = object : HttpFetcher {
+            override suspend fun get(url: String): HttpResponse {
+                if (++calls == 1) kotlinx.coroutines.awaitCancellation()
+                return answer(url)
+            }
+        }
+        val lookup = MusicBrainzLookup(MusicBrainzClient(RateLimitedQueue(fetcher, System::currentTimeMillis, { delay(it) }, minIntervalMs = 0)), MemoryCache(), { true }, { 2026 })
+        val song = titled(1L..1L).single()
+        val first = async { lookup.lookupAll(listOf(song)) }
+        while (calls == 0) delay(5)
+        val second = async { lookup.lookupAll(listOf(song)) }
+        delay(50)
+        first.cancel()
+        assertEquals(LookupResult.Match(1971), second.await()[1L])
+        assertEquals(2, calls)
+    }
+
     // --- Fingerprint matching (D-075) ---
 
     /** AcoustID results (a JSON array) for one fingerprint. */
@@ -588,11 +729,12 @@ class MusicBrainzTest {
         val mb = FakeFetcher(clock) { url -> if ("rid:(" in decoded(url)) recordingsIn(decoded(url)) else searchFor("Song", "1990") }
         val fingerprinted = mutableListOf<Long>()
         val lookup = fingerprintLookup(clock, mb, acoustId, fingerprinter = Fingerprinter { fingerprinted += it.id; "fp${it.id}" })
-        val songs = (1L..100L).map { song(it, "Song", "Band", null, null) }
+        val songs = (1L..300L).map { song(it, "Song", "Band", null, null) }
         var fingerprintedAtFirstResult = -1
         lookup.lookupAll(songs, byFingerprint = true) { _, _ -> if (fingerprintedAtFirstResult < 0) fingerprintedAtFirstResult = fingerprinted.size }
-        // Before: no result until all 100 songs were fingerprinted (feedback round 27).
-        assertTrue(fingerprintedAtFirstResult in 1 until 100, "first result after $fingerprintedAtFirstResult fingerprints")
+        // Before: no result until every song was fingerprinted (feedback round 27). Some groups at once and the
+        // fingerprints made ahead come first (round 48).
+        assertTrue(fingerprintedAtFirstResult in 1 until 300, "first result after $fingerprintedAtFirstResult fingerprints")
     }
 
     @Test

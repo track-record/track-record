@@ -30,6 +30,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
+
+/**
+ * A game's own requests (feedback round 48): years looked up for its next songs and for songs on its playlists
+ * that lack one (D-064), and covers for its cards. Shown with Stop in the game's settings, to the co-host and in
+ * the library; [stopped] keeps them off for the rest of the game.
+ */
+data class GameRequests(val yearsDone: Int = 0, val yearsTotal: Int = 0, val coversDone: Int = 0, val coversTotal: Int = 0, val stopped: Boolean = false) {
+    val running: Boolean get() = yearsDone < yearsTotal || coversDone < coversTotal
+}
 
 /** Where an action came from: the host's phone or a remote player's (SPEC v3). */
 enum class ActionSource { HOST, REMOTE }
@@ -80,6 +90,17 @@ class GameController(
     private val prefetching = MutableStateFlow(0)
     private var candidateJob: Job? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    private val _requests = MutableStateFlow(GameRequests())
+    val requests: StateFlow<GameRequests> = _requests.asStateFlow()
+
+    /** Every request of the current game runs in here: Stop and a new game cancel them all at once. */
+    private var requestScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var coverQueue = Channel<SongEntity>(Channel.UNLIMITED)
+    private val queuedCovers = HashSet<Long>()
+
+    /** Counts up with every reset, so work cancelled by it can't change the new game's numbers. */
+    private var generation = 0
     private val _session = MutableStateFlow<GameSession?>(null)
     val session: StateFlow<GameSession?> = _session.asStateFlow()
 
@@ -128,6 +149,7 @@ class GameController(
     private var loadedKey: String? = null
 
     init {
+        resetRequests(stopped = false)
         scope.launch(saveDispatcher) { for (session in saves) store.write(session) }
         scope.launch {
             val restoredSession = withContext(saveDispatcher) { store.read() }
@@ -174,6 +196,7 @@ class GameController(
                 val names = runCatching { playlistNames() }.getOrDefault(emptyMap()).filterKeys { it in used }
                 _session.value = GameSession(players, r.state, songs.associate { it.id to SongInfo.from(it) }, names)
                 persist()
+                resetRequests(stopped = false)
                 onAccepted(null, r.state)
                 startBackgroundWork()
                 StartResult.Started
@@ -242,7 +265,7 @@ class GameController(
     }
 
     fun endGame() {
-        candidateJob?.cancel()
+        resetRequests(stopped = false)
         revealTimer.stop()
         audio.stop()
         loadedKey = null
@@ -387,13 +410,15 @@ class GameController(
      * arrives after its song's reveal is only cached.
      */
     private fun prefetch(state: GameState) {
+        if (_requests.value.stopped) return
         val ids = listOfNotNull(state.round?.song?.songId) + state.pool.take(PREFETCH).map { it.songId }
         prefetching.update { it + 1 }
-        scope.launch {
+        val gen = generation
+        requestScope.launch {
             try {
                 val songs = ids.mapNotNull { library.songEntity(it) }
                 // One batched lookup for all of them (DECISIONS.md D-071).
-                musicBrainz.lookupAll(songs.filter { !musicBrainz.checked(it) }) { song, result ->
+                lookUpYears(gen, songs.filter { !musicBrainz.checked(it) }) { song, result ->
                     if (result is LookupResult.Match) applyLookup(song.id, result.year)
                 }
                 songs.forEach(::fetchCover)
@@ -403,8 +428,62 @@ class GameController(
         }
     }
 
+    /** Looks [songs] up, counted in the game's years; songs it didn't get to leave the count (offline, lookups off). */
+    private suspend fun lookUpYears(gen: Int, songs: List<SongEntity>, onResult: suspend (SongEntity, LookupResult) -> Unit): Map<Long, LookupResult> {
+        if (songs.isEmpty()) return emptyMap()
+        updateRequests(gen) { it.copy(yearsTotal = it.yearsTotal + songs.size) }
+        var counted = 0
+        try {
+            return musicBrainz.lookupAll(songs) { song, result ->
+                counted++
+                updateRequests(gen) { it.copy(yearsDone = it.yearsDone + 1) }
+                onResult(song, result)
+            }
+        } finally {
+            val left = songs.size - counted
+            if (left > 0) updateRequests(gen) { it.copy(yearsTotal = it.yearsTotal - left) }
+        }
+    }
+
+    /** Queues [song]'s cover when it needs a request: matched, not asked yet, no file. One download at a time. */
     private fun fetchCover(song: SongEntity) {
-        scope.launch { if (coverArt.ensure(song)) onCover(song.id) }
+        if (_requests.value.stopped || !queuedCovers.add(song.id)) return
+        val gen = generation
+        val queue = coverQueue
+        requestScope.launch {
+            val entry = musicBrainz.cached(song)
+            if (entry?.year == null || entry.coverChecked || coverArt.coverFile(entry) != null) return@launch
+            updateRequests(gen) { it.copy(coversTotal = it.coversTotal + 1) }
+            queue.trySend(song)
+        }
+    }
+
+    private inline fun updateRequests(gen: Int, change: (GameRequests) -> GameRequests) {
+        if (gen == generation) _requests.update(change)
+    }
+
+    /** Stops the game's lookups and covers, those under way too, for the rest of this game (feedback round 48). */
+    fun stopRequests() = resetRequests(stopped = true)
+
+    private fun resetRequests(stopped: Boolean) {
+        generation++
+        requestScope.cancel()
+        requestScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        candidateJob = null
+        queuedCovers.clear()
+        coverQueue.close()
+        val queue = Channel<SongEntity>(Channel.UNLIMITED).also { coverQueue = it }
+        val gen = generation
+        requestScope.launch {
+            for (song in queue) {
+                try {
+                    if (coverArt.ensure(song)) onCover(song.id)
+                } finally {
+                    updateRequests(gen) { it.copy(coversDone = it.coversDone + 1) }
+                }
+            }
+        }
+        _requests.value = GameRequests(stopped = stopped)
     }
 
     /**
@@ -416,8 +495,9 @@ class GameController(
         candidateJob?.cancel()
         val session = _session.value ?: return
         val c = session.state.settings.common
-        if (!c.musicBrainzLookups || session.state.phase == Phase.GAME_OVER) return
-        candidateJob = scope.launch {
+        if (!c.musicBrainzLookups || session.state.phase == Phase.GAME_OVER || _requests.value.stopped) return
+        val gen = generation
+        candidateJob = requestScope.launch {
             session.state.players.flatMap { it.timeline }.forEach { card -> library.songEntity(card.songId)?.let(::fetchCover) }
             // Catch up on covers of the game's songs that were matched but never got one (e.g. after an
             // interrupted run); songs without release info are left to "Load cover art" (D-072).
@@ -434,7 +514,7 @@ class GameController(
                 val now = _session.value ?: return@launch
                 if (now.state.phase == Phase.GAME_OVER) return@launch
                 var offline = false
-                musicBrainz.lookupAll(batch.filter { !musicBrainz.checked(it) }) { song, result ->
+                lookUpYears(gen, batch.filter { !musicBrainz.checked(it) }) { song, result ->
                     when (result) {
                         is LookupResult.Match -> addFoundSong(song)
                         LookupResult.NoMatch -> Unit

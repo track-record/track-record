@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -187,7 +186,7 @@ fun InfoSheet(session: GameSession, onDismiss: () -> Unit) {
     // Felix's phone a sheet reaching the status bar made room for it, grew, and settled again without end.
     AppSheet(stringResource(R.string.info_title), onDismiss = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
-            Modifier.height(sheetHeight()).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            sheetBody().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             SectionCard(stringResource(R.string.info_rules), expanded = rulesOpen, onToggle = { rulesOpen = !rulesOpen }) {

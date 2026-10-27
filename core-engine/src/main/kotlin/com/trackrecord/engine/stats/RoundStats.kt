@@ -5,13 +5,15 @@ import com.trackrecord.engine.GameMode
 import com.trackrecord.engine.GameState
 import com.trackrecord.engine.NamingCallers
 import com.trackrecord.engine.Phase
+import com.trackrecord.engine.TimelineOutcome
 import kotlin.math.abs
 
 /**
  * What one round says about one player, for the player stats (feedback round 47). [played]: their turn in
  * Song Order, their guess in Timeline (Closest Year). [yearsOff]: how far their guess was from the song's
  * year (Closest Year only). [namingChance]: the rules let them name the song and no player calling
- * before them did; [named]: they did.
+ * before them did; [named]: they did. [won]: the card went to them in Song Order (their turn, or their veto), or
+ * they were among the round's winners in Timeline (feedback round 48).
  */
 data class RoundRecord(
     val playerId: String,
@@ -20,6 +22,7 @@ data class RoundRecord(
     val yearsOff: Int?,
     val namingChance: Boolean,
     val named: Boolean,
+    val won: Boolean = false,
 )
 
 object RoundStats {
@@ -37,8 +40,16 @@ object RoundStats {
                 GameMode.CLOSEST_YEAR -> guess != null
             }
             val chance = id in chances
-            if (!played && !chance) return@mapNotNull null
-            RoundRecord(id, year, played, guess?.let { abs(it.year - year) }, chance, chance && round.namedById == id)
+            val won = when (state.mode) {
+                GameMode.TIMELINE -> when (val outcome = round.timelineOutcome) {
+                    is TimelineOutcome.Kept -> outcome.playerId == id
+                    is TimelineOutcome.Stolen -> outcome.playerId == id
+                    TimelineOutcome.Discarded, null -> false
+                }
+                GameMode.CLOSEST_YEAR -> id in round.winnerIds
+            }
+            if (!played && !chance && !won) return@mapNotNull null
+            RoundRecord(id, year, played, guess?.let { abs(it.year - year) }, chance, chance && round.namedById == id, won)
         }
     }
 

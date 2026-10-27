@@ -11,9 +11,9 @@ import com.trackrecord.engine.stats.RoundStats
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Player stats per round (feedback round 47): turns, years off and naming chances. */
+/** Player stats per round (feedback rounds 47 and 48): turns, years off, naming chances and rounds won. */
 class RoundStatsTest {
-    /** Anna active (wrong slot), Cara then Ben veto; Dan doesn't. */
+    /** Anna active (wrong slot), Cara (wrong) then Ben (right) veto; Dan doesn't. */
     private fun songOrder(callers: NamingCallers) = timelineGame(
         listOf("Anna" to listOf(1970, 1980, 1990), "Ben" to listOf(1960), "Cara" to listOf(2010), "Dan" to listOf(2000)),
         song = 1985,
@@ -23,7 +23,19 @@ class RoundStatsTest {
     @Test
     fun `song order - only the active player plays the round, and no years off are recorded`() {
         val records = RoundStats.of(songOrder(NamingCallers.ACTIVE))
-        assertEquals(listOf(RoundRecord("Anna", 1985, played = true, yearsOff = null, namingChance = true, named = false)), records)
+        assertEquals(
+            listOf(
+                RoundRecord("Anna", 1985, played = true, yearsOff = null, namingChance = true, named = false),
+                RoundRecord("Ben", 1985, played = false, yearsOff = null, namingChance = false, named = false, won = true),
+            ),
+            records,
+        )
+    }
+
+    @Test
+    fun `song order - the active player wins the round by keeping the card`() {
+        val s = timelineGame(listOf("Anna" to listOf(1970), "Ben" to listOf(1960)), song = 1985).actAll(SelectSlot(1), LockIn, Reveal)
+        assertEquals(listOf(true), RoundStats.of(s).map { it.won })
     }
 
     @Test
@@ -66,7 +78,7 @@ class RoundStatsTest {
             listOf(
                 RoundRecord("Anna", 1984, played = true, yearsOff = 6, namingChance = false, named = false),
                 RoundRecord("Ben", 1984, played = true, yearsOff = 4, namingChance = true, named = true),
-                RoundRecord("Cara", 1984, played = true, yearsOff = 1, namingChance = false, named = false),
+                RoundRecord("Cara", 1984, played = true, yearsOff = 1, namingChance = false, named = false, won = true),
             ),
             RoundStats.of(s),
         )
@@ -75,7 +87,7 @@ class RoundStatsTest {
     @Test
     fun `closest year - an exact guess ends the round, those who didn't guess have nothing recorded`() {
         val s = closestGame(listOf("Anna", "Ben", "Cara"), 1984, SKIPS).actAll(SubmitGuess(1984))
-        assertEquals(listOf(RoundRecord("Anna", 1984, played = true, yearsOff = 0, namingChance = true, named = false)), RoundStats.of(s))
+        assertEquals(listOf(RoundRecord("Anna", 1984, played = true, yearsOff = 0, namingChance = true, named = false, won = true)), RoundStats.of(s))
     }
 
     @Test

@@ -8,7 +8,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -29,8 +29,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.trackrecord.app.R
 import com.trackrecord.app.game.SectionCard
-import com.trackrecord.app.game.sheetHeight
+import com.trackrecord.app.game.sheetBody
 import com.trackrecord.app.ui.components.AppSheet
+import com.trackrecord.app.ui.components.Button
 
 /**
  * The library's info button (feedback round 45). [highlight] after the first visit's explanation: a
@@ -63,7 +64,7 @@ private const val PULSE_MS = 900
 /** How songs get into the library: own files, Deezer and Spotify, years and verification, playlists (feedback round 45). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LibraryInfoSheet(onDismiss: () -> Unit) {
+fun LibraryInfoSheet(onDismiss: () -> Unit, defaultsMissing: Boolean = true, importing: Boolean = false, onGetDefaults: () -> Unit = {}) {
     val sections = listOf(
         R.string.library_info_files to listOf(R.string.library_info_files_1, R.string.library_info_files_2),
         R.string.library_info_streamed to listOf(R.string.library_info_streamed_1, R.string.library_info_streamed_2, R.string.library_info_streamed_3),
@@ -73,12 +74,18 @@ fun LibraryInfoSheet(onDismiss: () -> Unit) {
     // Fully open at a fixed height, like the game's info sheet (feedback rounds 37 to 39).
     AppSheet(stringResource(R.string.library_info_title), onDismiss = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
-            Modifier.height(sheetHeight()).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            sheetBody().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             for ((title, paragraphs) in sections) {
                 SectionCard(stringResource(title)) {
                     paragraphs.forEach { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
+                    // One playlist of hits per decade from Deezer, for a library to start with (feedback round 48).
+                    if (title == R.string.library_info_playlists) {
+                        Button(onClick = onGetDefaults, enabled = defaultsMissing && !importing, modifier = Modifier.fillMaxWidth()) {
+                            Text(stringResource(if (defaultsMissing) R.string.library_get_defaults else R.string.library_defaults_added))
+                        }
+                    }
                 }
             }
         }

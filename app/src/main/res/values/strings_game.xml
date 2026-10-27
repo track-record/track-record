@@ -487,7 +487,8 @@
     <string name="player_stats_played">Played</string>
     <string name="player_stats_won">Won</string>
     <string name="player_stats_rounds">Rounds</string>
-    <string name="player_stats_rounds_hint">Games count when they are finished. Rounds: turns in Song Order, guesses in Timeline.</string>
+    <string name="player_stats_games_rounds">Games and rounds</string>
+    <string name="player_stats_rounds_hint">Games count when they are finished. Rounds played: turns in Song Order, guesses in Timeline. A round is won when the card went to them in Song Order (also by a veto), or when they won it in Timeline.</string>
     <string name="player_stats_accuracy">Timeline accuracy</string>
     <string name="player_stats_years_off">%1$s years off</string>
     <string name="player_stats_accuracy_hint">On average, from %1$s. Lower is better.</string>
@@ -497,6 +498,9 @@
     </plurals>
     <string name="player_stats_accuracy_none">No Timeline guesses yet.</string>
     <string name="player_stats_by_year">By song year</string>
+    <string name="player_stats_by_decade">By song decade</string>
+    <string name="player_stats_decades">Decades</string>
+    <string name="player_stats_years">Years</string>
     <string name="player_stats_accuracy_scale">Up to %1$s years off</string>
     <string name="player_stats_accuracy_detail">%1$s: %2$s years off, %3$s</string>
     <string name="player_stats_accuracy_description">Average years off per song year from %1$s to %2$s.</string>
@@ -509,4 +513,13 @@
     <string name="player_stats_naming_none">No chances to name a song yet. Naming counts when the game\'s rules reward it.</string>
     <string name="player_stats_naming_detail">%1$s: %2$s, %3$d of %4$s</string>
     <string name="player_stats_naming_description">Share of songs named per song year from %1$s to %2$s.</string>
+    <!-- A game's lookups and covers (feedback round 48) -->
+    <string name="requests_title">Lookups for this game</string>
+    <string name="requests_years">Years: %1$d of %2$d looked up</string>
+    <string name="requests_covers">Covers: %1$d of %2$d loaded</string>
+    <string name="requests_stop">Stop</string>
+    <string name="requests_stop_hint">Stop ends them for the rest of this game.</string>
+    <string name="requests_stopped">Stopped for the rest of this game.</string>
+    <string name="requests_none">Nothing to look up right now.</string>
+    <string name="requests_library_title">A game is looking up songs</string>
 </resources>

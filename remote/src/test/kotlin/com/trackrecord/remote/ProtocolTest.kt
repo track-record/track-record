@@ -55,6 +55,8 @@ class ProtocolTest {
             4 to "4ac3d8d660f7fe3d",
             // Feedback round 44: a co-host's seek bar.
             5 to "eb46b29edf37f162",
+            // Feedback round 48: the game's lookups and covers for the co-host, who can stop them.
+            6 to "8013a8b8725071ef",
         )
     }
 }

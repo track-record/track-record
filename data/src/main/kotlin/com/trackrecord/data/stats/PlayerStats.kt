@@ -8,16 +8,16 @@ import com.trackrecord.engine.stats.RoundRecord
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
-/** Games, wins and rounds in one mode; [games] counts finished games only. */
-data class ModeStats(val games: Int = 0, val wins: Int = 0, val rounds: Int = 0)
+/** Games, wins, rounds and rounds won in one mode; [games] counts finished games only. */
+data class ModeStats(val games: Int = 0, val wins: Int = 0, val rounds: Int = 0, val roundsWon: Int = 0)
 
-/** A year's bar: [value] over [count] rounds, or no bar ([value] null) for a year without any. */
+/** A year's (or decade's, from its first [year]) bar: [value] over [count] rounds, or no bar ([value] null) without any. */
 data class YearBar(val year: Int, val value: Double?, val count: Int)
 
 /**
  * A saved player's stats (feedback round 47): per mode games, wins and rounds; for Timeline (Closest Year) how
  * many years their guesses were off on average; and how often they named the song when they had the chance.
- * The per-year bars run over the song's year, every year from the earliest to the latest included.
+ * The bars run over the song's year, every year (or decade, feedback round 48) from the earliest to the latest included.
  */
 data class PlayerStats(
     val modes: Map<GameMode, ModeStats>,
@@ -27,6 +27,8 @@ data class PlayerStats(
     val namingChances: Int,
     val named: Int,
     val namingByYear: List<YearBar>,
+    val yearsOffByDecade: List<YearBar> = emptyList(),
+    val namingByDecade: List<YearBar> = emptyList(),
 ) {
     val namingRate: Double? get() = if (namingChances == 0) null else named.toDouble() / namingChances
 
@@ -34,29 +36,37 @@ data class PlayerStats(
         fun of(rounds: List<PlayerRoundEntity>, games: List<PlayerGameEntity>): PlayerStats {
             val modes = GameMode.entries.associateWith { mode ->
                 val inMode = games.filter { it.mode == mode.name }
-                ModeStats(inMode.size, inMode.count { it.won }, rounds.count { it.mode == mode.name && it.played })
+                val roundsInMode = rounds.filter { it.mode == mode.name }
+                ModeStats(inMode.size, inMode.count { it.won }, roundsInMode.count { it.played }, roundsInMode.count { it.won })
             }
             val guesses = rounds.filter { it.mode == GameMode.CLOSEST_YEAR.name && it.yearsOff != null }
             val chances = rounds.filter { it.namingChance }
+            val yearsOff = { rows: List<PlayerRoundEntity> -> rows.map { it.yearsOff!! }.average() }
+            val namedShare = { rows: List<PlayerRoundEntity> -> rows.count { it.named }.toDouble() / rows.size }
             return PlayerStats(
                 modes = modes,
                 guesses = guesses.size,
                 meanYearsOff = guesses.takeIf { it.isNotEmpty() }?.map { it.yearsOff!! }?.average(),
-                yearsOffByYear = byYear(guesses) { rows -> rows.map { it.yearsOff!! }.average() },
+                yearsOffByYear = bars(guesses, 1, yearsOff),
                 namingChances = chances.size,
                 named = chances.count { it.named },
-                namingByYear = byYear(chances) { rows -> rows.count { it.named }.toDouble() / rows.size },
+                namingByYear = bars(chances, 1, namedShare),
+                yearsOffByDecade = bars(guesses, DECADE, yearsOff),
+                namingByDecade = bars(chances, DECADE, namedShare),
             )
         }
 
-        private fun byYear(rows: List<PlayerRoundEntity>, value: (List<PlayerRoundEntity>) -> Double): List<YearBar> {
+        /** One bar per [step] years, each starting at a multiple of [step]. */
+        private fun bars(rows: List<PlayerRoundEntity>, step: Int, value: (List<PlayerRoundEntity>) -> Double): List<YearBar> {
             if (rows.isEmpty()) return emptyList()
-            val groups = rows.groupBy { it.year }
-            return (groups.keys.min()..groups.keys.max()).map { year ->
-                val inYear = groups[year].orEmpty()
-                YearBar(year, inYear.takeIf { it.isNotEmpty() }?.let(value), inYear.size)
+            val groups = rows.groupBy { Math.floorDiv(it.year, step) * step }
+            return (groups.keys.min()..groups.keys.max() step step).map { start ->
+                val inBar = groups[start].orEmpty()
+                YearBar(start, inBar.takeIf { it.isNotEmpty() }?.let(value), inBar.size)
             }
         }
+
+        private const val DECADE = 10
     }
 }
 
@@ -72,7 +82,7 @@ class PlayerStatsRepository(private val db: AppDatabase, private val clock: () -
             records.map { (profileId, r) ->
                 PlayerRoundEntity(
                     profileId = profileId, game = game, round = round, mode = mode.name, year = r.year,
-                    played = r.played, yearsOff = r.yearsOff, namingChance = r.namingChance, named = r.named,
+                    played = r.played, yearsOff = r.yearsOff, namingChance = r.namingChance, named = r.named, won = r.won,
                 )
             },
         )

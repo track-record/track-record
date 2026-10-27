@@ -2,7 +2,7 @@
 // share. Bump PROTOCOL when the messages between page and host change.
 export const APP_ID = "trackrecord";
 /** Also RemoteProtocol.VERSION in the app (D-264); 2: the host proves its key (D-260). */
-export const PROTOCOL = 5;
+export const PROTOCOL = 6;
 
 /** The largest message the host's room takes from a guest (Tunnel's limit, D-261). */
 export const MAX_MESSAGE_BYTES = 128 * 1024;
