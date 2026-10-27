@@ -31,7 +31,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -103,7 +102,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
 
     Scaffold(
         topBar = { GameTopBar(stringResource(R.string.round_title, round.number), session, onLeave, onScoreboard = { scoreboard = true }, onAction = vm::dispatch) },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { GameSnackbarHost(snackbar) },
         bottomBar = {
             BottomBarSurface {
                 Button(

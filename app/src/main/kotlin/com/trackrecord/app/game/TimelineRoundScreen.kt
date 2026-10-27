@@ -27,7 +27,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -102,7 +101,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
 
     Scaffold(
         topBar = { GameTopBar(stringResource(R.string.round_title, round.number), session, onLeave, onScoreboard = { scoreboard = true }, onAction = vm::dispatch) },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { GameSnackbarHost(snackbar) },
         bottomBar = {
             BottomBarSurface {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -248,6 +247,11 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
                         }
                         Gap(
                             description = gapDescription(timeline.getOrNull(slot - 1)?.year, timeline.getOrNull(slot)?.year),
+                            edge = when (slot) {
+                                0 -> stringResource(R.string.gap_older)
+                                timeline.size -> stringResource(R.string.gap_newer)
+                                else -> null
+                            },
                             chosenBy = if (chosen) active else null,
                             tapAgain = placing && twice && chosen && !remoteTurn,
                             confirmTwice = twice,
@@ -296,6 +300,8 @@ private fun Gap(
     tapAgain: Boolean = false,
     /** "Tap a gap twice to confirm" is on: a marked veto says "Tap again to veto", else "Veto here?" (LY-04). */
     confirmTwice: Boolean = false,
+    /** The first and last gap say Older and Newer while free, for a sense of direction (feedback round 49). */
+    edge: String? = null,
 ) {
     val owner = chosenBy ?: vetoedBy ?: pendingVetoBy
     val color = owner?.let { PlayerColors.color(it.colorIndex) }
@@ -341,8 +347,12 @@ private fun Gap(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.gap_veto), style = MaterialTheme.typography.titleMedium)
             }
-            enabled -> Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.outline)
-            else -> Spacer(Modifier.size(1.dp))
+            else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                if (enabled) Text("+", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.outline)
+                if (enabled && edge != null) Spacer(Modifier.width(8.dp))
+                if (edge != null) Text(edge, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (!enabled && edge == null) Spacer(Modifier.size(1.dp))
+            }
         }
     }
 }

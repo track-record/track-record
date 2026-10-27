@@ -38,6 +38,13 @@ import com.trackrecord.app.ui.components.KeepScreenOn
 import com.trackrecord.app.ui.components.TextButton
 import com.trackrecord.engine.GameMode
 import com.trackrecord.engine.Phase
+import com.trackrecord.engine.RejectReason
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** Rejections of a year guess: shown briefly, as players try the next year right away. */
+private val BRIEF_REJECTIONS = setOf(RejectReason.YEAR_OUT_OF_RANGE, RejectReason.DUPLICATE_GUESS)
+private const val BRIEF_REJECTION_MS = 1_000L
 
 /** Hosts every in-game screen and switches on the game phase. */
 @Composable
@@ -70,7 +77,12 @@ fun GameScreen(onExit: () -> Unit) {
         }
     }
     LaunchedEffect(vm) {
-        vm.rejections.collect { snackbar.showSnackbar(resources.getString(it.message)) }
+        // The newest rejection replaces the one shown; the year checks of a guess go after a second (feedback round 49).
+        vm.rejections.collectLatest { reason ->
+            val text = resources.getString(reason.message)
+            if (reason in BRIEF_REJECTIONS) withTimeoutOrNull(BRIEF_REJECTION_MS) { snackbar.showSnackbar(text) }
+            else snackbar.showSnackbar(text)
+        }
     }
     BackHandler { confirmLeave = true }
 

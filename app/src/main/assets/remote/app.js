@@ -698,6 +698,9 @@ import { music } from "./music.js";
     let html = `<div class="timeline">`;
     for (let slot = 0; slot <= cards.length; slot++) {
       if (g.gaps.includes(slot)) {
+        // The first and last gap say Older and Newer while free (feedback round 49).
+        const edge = slot === 0 ? T("web_gap_older") : slot === cards.length ? T("web_gap_newer") : null;
+        const edgeLabel = edge ? `<span class="edge">${esc(edge)}</span>` : "";
         const veto = g.vetoes.find((x) => x.slot === slot);
         if (chosenSlot === slot) {
           const again = mode === "select" && confirmTwice();
@@ -713,9 +716,9 @@ import { music } from "./music.js";
           const me = players[S.view.me];
           html += `<button class="gap pending" data-act="veto" data-slot="${slot}" style="border-color:${esc(me.color)}">${avatar(me, 32)}<span class="label">${esc(T(confirmTwice() ? "web_tap_again" : "web_veto_here"))}</span></button>`;
         } else if (mode && !S.busy) {
-          html += `<button class="gap" data-act="${mode}" data-slot="${slot}" aria-label="${esc(T("web_gap_choose"))}">+</button>`;
+          html += `<button class="gap" data-act="${mode}" data-slot="${slot}" aria-label="${esc(T("web_gap_choose"))}">+${edgeLabel}</button>`;
         } else {
-          html += `<div class="gap"></div>`;
+          html += `<div class="gap">${edgeLabel}</div>`;
         }
       }
       if (slot < cards.length) html += card(cards[slot]);

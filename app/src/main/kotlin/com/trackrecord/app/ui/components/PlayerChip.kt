@@ -13,8 +13,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,16 +46,18 @@ import java.io.File
 @Composable
 fun PlayerAvatar(player: GamePlayer, size: Dp = 40.dp, modifier: Modifier = Modifier, ring: Color? = null) {
     // Decoded once per photo for every chip, and off the main thread (REVIEW.md P-04).
+    // Keyed by the path: a chip that changes player (the next guesser) shows the new photo (feedback round 49).
     val path = player.photoPath
-    val photo by produceState(path?.let(Avatars::cached), path) {
-        if (value == null && path != null) value = Avatars.load(path)
+    val photo = remember(path) { mutableStateOf(path?.let(Avatars::cached)) }
+    LaunchedEffect(path) {
+        if (photo.value == null && path != null) photo.value = Avatars.load(path)
     }
     val color = PlayerColors.color(player.colorIndex)
     Box(
         modifier = modifier.size(size).clip(CircleShape).background(color).border(if (ring != null) 2.dp else 3.dp, ring ?: color, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        val image = photo
+        val image = photo.value
         if (image != null) {
             Image(image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(size).clip(CircleShape))
         } else {

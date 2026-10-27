@@ -266,6 +266,7 @@ button.gap[data-act="select"] { touch-action: none; }
 button.gap:active { background: var(--panel-high); }
 .gap .label { font-size: 16px; letter-spacing: 0.15px; line-height: 24px; font-weight: 500; color: var(--on); }
 .gap.chosen .label { color: inherit; font-weight: 700; }
+.gap .edge { font-size: 14px; letter-spacing: 0.1px; line-height: 20px; font-weight: 500; color: var(--on-variant); }
 /* A veto, placed or marked: the player's colour around the gap. */
 .gap.vetoed, .gap.pending { border-width: 1.5px; }
 

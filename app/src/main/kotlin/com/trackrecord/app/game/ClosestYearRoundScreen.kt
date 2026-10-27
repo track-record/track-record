@@ -23,7 +23,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,7 +87,7 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
 
     Scaffold(
         topBar = { GameTopBar(stringResource(R.string.round_title, round.number), session, onLeave, onScoreboard = { scoreboard = true }, onAction = vm::dispatch) },
-        snackbarHost = { SnackbarHost(snackbar) },
+        snackbarHost = { GameSnackbarHost(snackbar) },
         bottomBar = {
             BottomBarSurface {
                 Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

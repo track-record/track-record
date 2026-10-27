@@ -30,6 +30,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -329,3 +332,9 @@ private fun SongDialog(session: GameSession, title: String, card: EngineCard) {
 /** Cover for the reveal screen: MusicBrainz first, then embedded (null if none). */
 @Composable
 fun rememberCover(info: SongInfo?): ImageBitmap? = rememberSongCover(info?.songId)
+
+/** The game's banners: a tap dismisses one (feedback round 49). */
+@Composable
+fun GameSnackbarHost(state: SnackbarHostState) {
+    SnackbarHost(state) { data -> Snackbar(data, Modifier.clickable { data.dismiss() }) }
+}

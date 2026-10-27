@@ -71,7 +71,7 @@
     <string name="reject_nothing_to_undo">Nothing to undo.</string>
     <string name="reject_feature_disabled">That\'s turned off in this game.</string>
     <string name="reject_year_out_of_range">That year is out of range.</string>
-    <string name="reject_duplicate_guess">That year was already guessed.</string>
+    <string name="reject_duplicate_guess">That year is already taken.</string>
     <string name="reject_guesses_incomplete">Everyone has to guess first.</string>
     <string name="reject_all_guessed">Everyone has guessed.</string>
     <string name="reject_song_not_found">Song not found.</string>
@@ -212,6 +212,8 @@
     <string name="gap_chosen_by">chosen by %1$s</string>
     <string name="gap_vetoed_by">vetoed by %1$s</string>
     <string name="gap_here">Here</string>
+    <string name="gap_older">Older</string>
+    <string name="gap_newer">Newer</string>
     <string name="gap_veto">Veto</string>
     <string name="gap_veto_here">Veto here?</string>
     <string name="action_confirm">Confirm</string>

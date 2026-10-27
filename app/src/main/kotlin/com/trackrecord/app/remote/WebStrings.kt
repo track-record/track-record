@@ -68,6 +68,8 @@ object WebStrings {
         "web_gap_here" to R.string.gap_here,
         "web_gap_veto" to R.string.gap_veto,
         "web_gap_choose" to R.string.web_gap_choose,
+        "web_gap_older" to R.string.gap_older,
+        "web_gap_newer" to R.string.gap_newer,
         "web_cancel" to R.string.action_cancel,
         "web_outcome_kept" to R.string.outcome_kept,
         "web_outcome_stolen" to R.string.outcome_stolen,
