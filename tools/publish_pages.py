@@ -1,4 +1,4 @@
-"""Publishes the internet play guest page (app/src/main/assets/remote, SPEC v4) as the organization site of the
+"""Publishes the internet play guest page (web/remote, SPEC v4) as the organization site of the
 "track-record" GitHub organization, served by GitHub Pages at https://track-record.github.io/ (feedback round 28).
 With --dev it goes to https://track-record.github.io/dev/ instead, the page debug builds invite to, so a changed page
 can be tried without a release (feedback round 47). Signs in through Git Credential Manager (Felix confirms in its window / the browser);
@@ -22,9 +22,9 @@ OWNER = "track-record"
 # organization at <owner>.github.io/<repo>/.
 REPO = "dev" if DEV else f"{OWNER}.github.io"
 SITE = f"https://{OWNER}.github.io/dev/" if DEV else f"https://{REPO}/"
-# (source, published path): the app's own guest page (assets/remote; SPEC v4). strings.json is made
+# (source, published path): the app's own guest page (web/remote; SPEC v4). strings.json is made
 # from the app's string resources.
-GAME = "app/src/main/assets/remote"
+GAME = "web/remote"
 FILES = [(f"{GAME}/{f}", f) for f in ("index.html", "app.js", "app.css", "scenes.js", "icon.svg", "http.js", "music.js", "p2p.js", "p2p-common.js",
                                      "vendor/trystero-0.26.0.mjs", "vendor/TRYSTERO-LICENSE", "fonts/roboto.woff2", "fonts/OFL.txt")]
 

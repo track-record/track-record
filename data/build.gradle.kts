@@ -1,63 +1,109 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+// The library, playlists, profiles, settings and the network clients (PLATFORMS.md phase 3): Kotlin Multiplatform for
+// Android and the desktop. commonMain holds what needs neither Java nor a platform; jvmMain, shared by both apps,
+// what needs Java (OkHttp, files, threads); androidMain and desktopMain the rest.
 plugins {
-    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.android.kotlin.multiplatform.library)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
 }
 
-android {
-    namespace = "com.trackrecord.data"
-    compileSdk = 37
-
-    defaultConfig {
+kotlin {
+    android {
+        namespace = "com.trackrecord.data"
+        compileSdk = 37
         minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_17
+        }
+        // Media3's tag mapping, on the JVM (Media3TagReaderTest).
+        withHostTest {}
+        withDeviceTest {
+            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        }
+        // For the device tests' assets (below).
+        androidResources {
+            enable = true
+        }
+    }
+    jvm("desktop") {
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_17
+        }
     }
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+    sourceSets {
+        val jvmMain by creating {
+            dependsOn(commonMain.get())
+        }
+        androidMain.get().dependsOn(jvmMain)
+        getByName("desktopMain").dependsOn(jvmMain)
 
-    testOptions {
-        unitTests.all { it.useJUnitPlatform() }
+        commonMain.dependencies {
+            api(project(":core-engine"))
+            api(libs.room.runtime)
+            implementation(libs.datastore.preferences)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+        }
+        jvmMain.dependencies {
+            implementation(libs.okhttp)
+        }
+        androidMain.dependencies {
+            implementation(libs.kotlinx.coroutines.android)
+            implementation(libs.kotlinx.coroutines.guava)
+            implementation(libs.media3.inspector)
+            implementation(libs.media3.extractor)
+            implementation(libs.media3.exoplayer)
+        }
+        getByName("desktopMain").dependencies {
+            implementation(libs.sqlite.bundled)
+            implementation(libs.jaudiotagger)
+        }
+        getByName("desktopTest").dependencies {
+            implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.kotlin.test)
+            runtimeOnly(libs.junit.platform.launcher)
+        }
+        getByName("androidDeviceTest").dependencies {
+            implementation(libs.androidx.test.runner)
+            implementation(libs.androidx.test.ext.junit)
+            implementation(libs.kotlin.test.junit4)
+            implementation(libs.room.testing)
+        }
     }
 }
 
-// The exported schemas, for the migration tests (REVIEW-2 T-07).
-androidComponents {
-    onVariants { variant ->
-        variant.androidTest?.sources?.assets?.addStaticSourceDirectory("$projectDir/schemas")
-    }
+dependencies {
+    add("kspAndroid", libs.room.compiler)
+    add("kspDesktop", libs.room.compiler)
 }
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-dependencies {
-    api(project(":core-engine"))
-    implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.guava)
+// The device tests' files: the exported schemas for MigrationTest (REVIEW-2 T-07), the test songs for TagReaderDeviceTest.
+androidComponents {
+    onVariants { variant ->
+        variant.deviceTests.values.forEach { test ->
+            test.sources.assets?.addStaticSourceDirectory("$projectDir/schemas")
+            test.sources.assets?.addStaticSourceDirectory("$projectDir/src/androidDeviceTest/assets")
+        }
+    }
+}
 
-    api(libs.room.runtime)
-    implementation(libs.room.ktx)
-    ksp(libs.room.compiler)
-
-    implementation(libs.datastore.preferences)
-    implementation(libs.okhttp)
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.media3.inspector)
-    implementation(libs.media3.extractor)
-    implementation(libs.media3.exoplayer)
-
-    testImplementation(platform(libs.junit.bom))
-    testImplementation(libs.junit.jupiter)
-    testImplementation(libs.kotlin.test)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testRuntimeOnly(libs.junit.platform.launcher)
-
-    androidTestImplementation(libs.androidx.test.runner)
-    androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.kotlin.test.junit4)
-    androidTestImplementation(libs.room.testing)
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    // DesktopLibraryTest reads the device tests' library.
+    systemProperty("trackrecord.testlib", file("src/androidDeviceTest/assets/testlib").path)
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }

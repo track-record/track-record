@@ -1,17 +1,20 @@
 # Track Record
 
-A music party game for Android. A song plays, nobody sees the title, and everyone guesses when it came out.
+A music party game for Android and Windows. A song plays, nobody sees the title, and everyone guesses when it came out.
 
 - **Song Order:** place each song among your own cards, in year order. The other players can veto your placement and steal the card.
 - **Timeline:** everyone guesses the year, and the closest guess wins the round.
 
-The host's phone plays the music from your own files or from Deezer previews. Other players can join from their own phones, in a browser on the same Wi-Fi or over the internet. Nothing needs installing on their side.
+The host's phone or PC plays the music from your own files or from Deezer previews. Other players can join from their own phones, in a browser on the same Wi-Fi or over the internet. Nothing needs installing on their side.
 
 ## Install
 
-Download the APK from the [latest release](https://github.com/track-record/track-record/releases/latest) and open it on your phone. Android asks once to allow installs from your browser or file manager. The app needs Android 8 or newer.
+Both are on the [latest release](https://github.com/track-record/track-record/releases/latest).
 
-The app checks this repository for new releases when it starts (you can turn that off in Settings). Keep it up to date: playing over the internet only works when the app matches the guest page, and the guest page is always the newest version.
+- **Android:** download the APK and open it on your phone. Android asks once to allow installs from your browser or file manager. The app needs Android 8 or newer.
+- **Windows:** download the MSI and open it. It installs for you alone, without admin rights. Windows SmartScreen may say that it protected your PC from an unrecognised app: choose **More info**, then **Run anyway**. The first time guests join over Wi-Fi, Windows asks whether Track Record may use the network: allow it (private networks are enough). Windows 10 or 11, 64-bit.
+
+Both apps check this repository for new releases when they start (you can turn that off in Settings); the Windows app downloads and installs the update itself. Keep it up to date: playing over the internet only works when the app matches the guest page, and the guest page is always the newest version.
 
 ## Songs
 
@@ -27,19 +30,35 @@ You need Android Studio, or JDK 17 and the Android SDK, and the NDK for the fing
 ./gradlew assembleDebug
 ```
 
+The Windows app (`desktopApp/`) runs on the JetBrains Runtime with JCEF, which the build downloads once (about 600 MB):
+
+```
+./gradlew :desktopApp:run
+./gradlew :desktopApp:packageMsi -Prelease
+```
+
 Optional files in the project root. Git ignores both.
 
 - `secrets.properties`: defaults built into the app, such as an AcoustID application key and a contact address for MusicBrainz. Start from `secrets.properties.example`. Without it, lookups stay off until a key and an address are entered in Settings.
 - `keystore.properties`: the release signing key (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`). Without it, release builds are unsigned.
 
-The guest page for remote play is in `app/src/main/assets/remote`. `tools/publish_pages.py` publishes it to GitHub Pages.
+The guest page for remote play is in `web/remote`. `tools/publish_pages.py` publishes it to GitHub Pages.
 
 ## Third-party code
 
 - [Chromaprint](https://github.com/acoustid/chromaprint) (LGPL 2.1) with KissFFT (BSD), in `fingerprint/src/main/cpp/chromaprint`.
 - [minimp3](https://github.com/lieff/minimp3) (CC0), in `fingerprint/src/main/cpp/minimp3`.
-- [Trystero](https://github.com/dmotz/trystero) (MIT), in `app/src/main/assets/remote/vendor`.
-- [Roboto](https://github.com/googlefonts/roboto-3-classic) (SIL Open Font License), in `app/src/main/assets/remote/fonts`.
+- [Trystero](https://github.com/dmotz/trystero) (MIT), in `web/remote/vendor`.
+- [Roboto](https://github.com/googlefonts/roboto-3-classic) (SIL Open Font License), in `web/remote/fonts`.
+
+The Windows app also ships:
+
+- the [JetBrains Runtime](https://github.com/JetBrains/JetBrainsRuntime) with JCEF and Chromium (GPL 2 with the Classpath Exception; Chromium and CEF under BSD-style licenses);
+- [JAAD](https://github.com/Tianscar/jaadec) (Apache 2.0) for AAC;
+- [jaudiotagger](https://bitbucket.org/ijabz/jaudiotagger) (LGPL 2.1) for tags;
+- [LWJGL](https://www.lwjgl.org/) (BSD) with [nativefiledialog-extended](https://github.com/btzy/nativefiledialog-extended) (zlib) for the file dialogs.
+
+Chromaprint's fingerprint is ported to Kotlin for it, in `data/src/commonMain/.../musicbrainz/Chromaprint.kt` (LGPL 2.1, as the original).
 
 Track Record isn't affiliated with any commercial music game or with Deezer, Spotify, MusicBrainz or AcoustID.
 

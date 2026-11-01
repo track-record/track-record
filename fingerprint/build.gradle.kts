@@ -28,6 +28,8 @@ android {
 dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
+    // KotlinChromaprintTest: the desktop's Kotlin port against the native library.
+    androidTestImplementation(project(":data"))
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.kotlin.test.junit4)

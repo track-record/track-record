@@ -21,6 +21,17 @@ browser = "1.8.0"
 webkit = "1.17.1"
 spotless = "8.10.4"
 ktlint = "1.8.0"
+# Desktop and shared code (PLATFORMS.md phase 1): Compose Multiplatform and the JetBrains builds of lifecycle and
+# navigation; sqlite-bundled matches Room's sqlite.
+composeMultiplatform = "1.12.2"
+composeMultiplatformMaterial3 = "1.9.0"
+jetbrainsLifecycle = "2.11.0"
+jetbrainsNavigation = "2.10.0"
+sqlite = "2.6.2"
+buildConfig = "6.1.2"
+jaudiotagger = "3.0.1"
+# The desktop app's file dialogs: Windows' own (nativefiledialog-extended).
+lwjgl = "3.3.6"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
@@ -63,6 +74,26 @@ androidx-browser = { module = "androidx.browser:browser", version.ref = "browser
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "webkit" }
 zxing-core = { module = "com.google.zxing:core", version = "3.5.3" }
 
+# Shared code and the desktop app (PLATFORMS.md).
+cmp-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "composeMultiplatform" }
+cmp-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "composeMultiplatform" }
+cmp-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMultiplatform" }
+cmp-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "composeMultiplatform" }
+cmp-ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
+cmp-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "composeMultiplatformMaterial3" }
+cmp-material-icons-core = { module = "org.jetbrains.compose.material:material-icons-core", version = "1.7.3" }
+cmp-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
+jetbrains-lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "jetbrainsLifecycle" }
+jetbrains-lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "jetbrainsLifecycle" }
+jetbrains-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrainsNavigation" }
+sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "sqlite" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
+jaudiotagger = { module = "net.jthink:jaudiotagger", version.ref = "jaudiotagger" }
+# AAC (m4a) for the desktop, whose Chromium has no AAC decoder: JAAD, maintained fork (Apache 2.0).
+jaad = { module = "com.tianscar.javasound:jaad", version = "0.9.4" }
+lwjgl = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
+lwjgl-nfd = { module = "org.lwjgl:lwjgl-nfd", version.ref = "lwjgl" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
@@ -71,3 +102,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+android-kotlin-multiplatform-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+buildconfig = { id = "com.github.gmazzo.buildconfig", version.ref = "buildConfig" }
