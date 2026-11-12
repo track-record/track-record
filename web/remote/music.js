@@ -112,11 +112,12 @@ export function music({ listenNow, soundOn, transport, fileAddress }) {
     follow: followMusic,
     /**
      * Starts the players inside the tap that allows sound: some browsers let a player start later only if it started
-     * in a tap. Silent until the host's position is applied.
+     * in a tap. Silent until the host's position is applied; when it already is (sound turned on again mid-song, just
+     * applied by [follow] in this tap), it plays as it is: muting it again kept it silent (feedback round 63).
      */
     unlock() {
       streamAudio.play().catch(() => {});
-      if (previewAudio.src) {
+      if (previewAudio.src && !appliedSignal) {
         previewAudio.muted = true;
         previewAudio.play().catch(() => {});
       }

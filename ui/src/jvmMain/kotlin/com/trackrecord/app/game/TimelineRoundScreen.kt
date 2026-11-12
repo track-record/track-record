@@ -173,7 +173,12 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
         topBar = { GameTopBar(stringResource(Res.string.round_title, round.number), session, onLeave, onScoreboard = { scoreboard = true }, onAction = vm::dispatch) },
         snackbarHost = { GameSnackbarHost(snackbar) },
         bottomBar = {
-            BottomBarSurface {
+            // One player on this phone, the others on guest phones: the guests' Veto / Don't veto buttons (feedback
+            // round 16); with several players here, the veto bar, 12 dp from the bar's top as from Reveal (feedback round 65).
+            val local = session.playing.map { it.id }.filter { it !in connectedRemote }
+            val single = local.singleOrNull()
+            val vetoBar = !placing && vetoer == null && single == null
+            BottomBarSurface(top = if (vetoBar) 12.dp else 16.dp) {
                 Column(Modifier.fillMaxWidth()) {
                     if (placing) {
                         Button(
@@ -200,10 +205,6 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
                             }
                         }
                     } else {
-                        // One player on this phone, the others on guest phones: the guests' Veto / Don't veto
-                        // buttons (feedback round 16); with several players here, the veto bar.
-                        val local = session.playing.map { it.id }.filter { it !in connectedRemote }
-                        val single = local.singleOrNull()
                         if (single != null) {
                             SingleVetoChoice(session, single, vetoer, gate, onVeto = { vm.selectVetoer(single) }, onDecline = { vm.declineVeto(single) })
                         } else {
@@ -529,11 +530,12 @@ private fun VetoBar(session: GameSession, selected: String?, remote: Set<String>
         p.id != state.activePlayer.id && ps.vetoes > 0 && round.vetoes.count { it.playerId == p.id } < perSong
     }
     if (eligible.isEmpty()) {
-        Text(stringResource(Res.string.timeline_no_vetoes_left), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 8.dp))
+        // As far from Reveal as from the bar's top edge (feedback rounds 64, 65).
+        Text(stringResource(Res.string.timeline_no_vetoes_left), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
         return
     }
-    // Wrapping, so no name is cut off (DESIGN-REVIEW UX-03).
-    FlowRow(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Wrapping, so no name is cut off (DESIGN-REVIEW UX-03); as far from Reveal as from the bar's top edge (feedback rounds 64, 65).
+    FlowRow(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (p in eligible) {
             val vetoes = state.player(p.id)!!.vetoes
             var detail = pluralStringResource(Res.plurals.vetoes, vetoes, vetoes)

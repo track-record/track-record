@@ -273,10 +273,13 @@ import { music } from "./music.js";
     // The app's note under the bar, only when the song can't be played (feedback round 43).
     const note = (a.error ? `<span class="play-note error">${esc(T("web_playback_error"))}</span>` : "") + (a.preview ? streamedFromDeezer() : "");
     // A co-host's reveal: the host's slider with the time, to jump in the song (feedback round 44).
-    const bar = seekable && a.durationMs > 0
-      ? `<div class="progress-box"><input type="range" class="seek" min="0" max="${a.durationMs}" step="100" value="${Math.round(progressPercent() * a.durationMs / 100)}" style="--seek:${progressPercent()}%" data-seek="1" aria-label="${esc(T("web_seek"))}"><span class="play-time">${esc(playTime())}</span>${note}</div>`
-      : `<div class="progress-box"><div class="progress"><div class="progress-fill" style="width:${progressPercent()}%"></div><div class="progress-track"></div></div>${note}</div>`;
-    return `<div class="play-row">${buttons}${bar}${speaker}</div>${slider}`;
+    const seek = seekable && a.durationMs > 0;
+    const bar = seek
+      ? `<div class="progress-box"><input type="range" class="seek" min="0" max="${a.durationMs}" step="100" value="${Math.round(progressPercent() * a.durationMs / 100)}" style="--seek:${progressPercent()}%" data-seek="1" aria-label="${esc(T("web_seek"))}"></div>`
+      : `<div class="progress-box"><div class="progress"><div class="progress-fill" style="width:${progressPercent()}%"></div><div class="progress-track"></div></div></div>`;
+    // The time, error and Deezer's name below the bar, which stays centred on the buttons (feedback round 65, as on the host).
+    const below = (seek ? `<span class="play-time">${esc(playTime())}</span>` : "") + note;
+    return `<div class="play-row">${buttons}${bar}${below ? `<div class="play-notes">${below}</div>` : ""}${speaker}</div>${slider}`;
   }
 
   /** Deezer's terms: name Deezer with its logo where its music plays (feedback round 50), as on the host. */

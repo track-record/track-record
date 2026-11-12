@@ -50,10 +50,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.SubcomposeLayout
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackrecord.app.LocalAppContainer
@@ -217,26 +219,31 @@ fun PlaybackControls(
         toggle
     }
     Column(modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Play and replay stay round whatever the button radius (feedback round 7).
-            FilledIconButton(onClick = onToggle, modifier = Modifier.size(64.dp), enabled = audio.loaded, shape = CircleShape) {
-                if (audio.isPlaying) Icon(painterResource(Res.drawable.ic_pause), stringResource(Res.string.playback_pause), Modifier.size(36.dp))
-                else Icon(Icons.Default.PlayArrow, stringResource(Res.string.playback_play), Modifier.size(36.dp))
-            }
-            FilledTonalIconButton(onClick = onReplay, modifier = Modifier.size(56.dp), enabled = audio.loaded, shape = CircleShape) {
-                Icon(painterResource(Res.drawable.ic_replay), stringResource(Res.string.playback_replay))
-            }
-            Column(Modifier.weight(1f)) {
-                val duration = audio.clipDurationMs
-                val progress = if (duration > 0) (audio.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
-                if (onSeek != null && duration > 0) {
-                    var dragging by remember { mutableStateOf<Float?>(null) }
+        val duration = audio.clipDurationMs
+        val progress = if (duration > 0) (audio.positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
+        var dragging by remember { mutableStateOf<Float?>(null) }
+        val seekable = onSeek != null && duration > 0
+        BarBesideButtons(
+            buttons = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Play and replay stay round whatever the button radius (feedback round 7).
+                    FilledIconButton(onClick = onToggle, modifier = Modifier.size(64.dp), enabled = audio.loaded, shape = CircleShape) {
+                        if (audio.isPlaying) Icon(painterResource(Res.drawable.ic_pause), stringResource(Res.string.playback_pause), Modifier.size(36.dp))
+                        else Icon(Icons.Default.PlayArrow, stringResource(Res.string.playback_play), Modifier.size(36.dp))
+                    }
+                    FilledTonalIconButton(onClick = onReplay, modifier = Modifier.size(56.dp), enabled = audio.loaded, shape = CircleShape) {
+                        Icon(painterResource(Res.drawable.ic_replay), stringResource(Res.string.playback_replay))
+                    }
+                }
+            },
+            bar = {
+                if (seekable) {
                     val seekLabel = stringResource(Res.string.playback_seek)
                     Slider(
                         value = dragging ?: if (audio.ended) 1f else progress,
                         onValueChange = { dragging = it },
                         onValueChangeFinished = {
-                            dragging?.let { onSeek((it * duration).toLong()) }
+                            dragging?.let { onSeek!!((it * duration).toLong()) }
                             dragging = null
                         },
                         modifier = Modifier.semantics { contentDescription = seekLabel },
@@ -244,20 +251,26 @@ fun PlaybackControls(
                         // around the thumb, which looked like a thick outline (feedback round 8).
                         track = { state -> SliderDefaults.Track(sliderState = state, drawStopIndicator = null, thumbTrackGapSize = 3.dp) },
                     )
-                    Text(
-                        stringResource(Res.string.playback_time, formatDuration(((dragging ?: progress) * duration).toLong()), formatDuration(duration)),
-                        style = MaterialTheme.typography.bodySmall,
-                    )
                 } else {
                     // No stop dot at the end: it looked like an already-played part of the song.
                     LinearProgressIndicator(progress = { if (audio.ended) 1f else progress }, modifier = Modifier.fillMaxWidth(), drawStopIndicator = {})
                 }
-                // Only when it can't play: "Clip finished" and "Preview from Deezer" were noise (feedback round 43).
-                if (audio.error) Text(stringResource(Res.string.playback_error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                // Deezer's terms: name Deezer with its logo where its music plays (feedback round 50).
-                if (preview) StreamedFromDeezer(Modifier.padding(top = 4.dp))
-            }
-        }
+            },
+            notes = {
+                Column {
+                    if (seekable) {
+                        Text(
+                            stringResource(Res.string.playback_time, formatDuration(((dragging ?: progress) * duration).toLong()), formatDuration(duration)),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    // Only when it can't play: "Clip finished" and "Preview from Deezer" were noise (feedback round 43).
+                    if (audio.error) Text(stringResource(Res.string.playback_error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    // Deezer's terms: name Deezer with its logo where its music plays (feedback round 50).
+                    if (preview) StreamedFromDeezer(Modifier.padding(top = 4.dp))
+                }
+            },
+        )
         val fullSong = onFullSong != null && audio.clipped && !audio.fullSong
         if (fullSong || onOpenInDeezer != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -304,6 +317,31 @@ fun TurnRow(
             }
         }.map { it.measure(constraints.copy(minHeight = 0)) }
         layout(constraints.maxWidth, placeables.maxOf { it.height }) { placeables.forEach { it.place(0, 0) } }
+    }
+}
+
+/**
+ * The play buttons with the progress [bar] beside them, centred on the buttons, and [notes] (time, error, "Streamed from
+ * Deezer") right below the bar, so they never move it (feedback round 63). Taller than the buttons only when the bar and
+ * notes need it.
+ */
+@Composable
+private fun BarBesideButtons(buttons: @Composable () -> Unit, bar: @Composable () -> Unit, notes: @Composable () -> Unit) {
+    Layout(contents = listOf(buttons, bar, notes), modifier = Modifier.fillMaxWidth()) { (buttonsM, barM, notesM), constraints ->
+        val gap = 12.dp.roundToPx()
+        val b = buttonsM.first().measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val width = (constraints.maxWidth - b.width - gap).coerceAtLeast(0)
+        val beside = Constraints(minWidth = width, maxWidth = width)
+        val barP = barM.first().measure(beside)
+        val notesP = notesM.first().measure(beside)
+        val center = maxOf(b.height, barP.height) / 2
+        val barTop = center - barP.height / 2
+        val notesTop = barTop + barP.height
+        layout(constraints.maxWidth, maxOf(b.height, barP.height, notesTop + notesP.height)) {
+            b.place(0, center - b.height / 2)
+            barP.place(b.width + gap, barTop)
+            notesP.place(b.width + gap, notesTop)
+        }
     }
 }
 

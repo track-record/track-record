@@ -11,18 +11,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.trackrecord.app.ui.theme.LocalPanels
 
 /**
  * Bottom action bar of a screen, in the solid panel shade like the guest page's (DESIGN-REVIEW TH-02);
  * its content stays above the navigation bar whenever that is visible. The padding is the same on every
- * screen, and its buttons are [BottomBarButtonHeight] tall, so all bars match (feedback round 50).
+ * screen, and its buttons are [BottomBarButtonHeight] tall, so all bars match (feedback round 50); a row of chips
+ * above the buttons takes a smaller [top], to sit as far from it as from the buttons (feedback round 65).
  */
 @Composable
-fun BottomBarSurface(content: @Composable () -> Unit) {
+fun BottomBarSurface(top: Dp = 16.dp, content: @Composable () -> Unit) {
     Surface(color = LocalPanels.current.solid) {
-        Box(Modifier.navigationBarsPadding().fillMaxWidth().padding(16.dp)) { content() }
+        Box(Modifier.navigationBarsPadding().fillMaxWidth().padding(start = 16.dp, top = top, end = 16.dp, bottom = 16.dp)) { content() }
     }
 }
 

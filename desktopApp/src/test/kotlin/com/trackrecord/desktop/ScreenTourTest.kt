@@ -181,6 +181,8 @@ class ScreenTourTest {
         click("Close")
         container.game.dispatch(GameAction.SelectSlot(0))
         container.game.dispatch(GameAction.LockIn)
+        waitUntil(timeoutMillis = 5_000) { container.game.session.value?.state?.phase == Phase.VETOING }
+        shot("vetoing")
         container.game.dispatch(GameAction.Reveal)
         waitUntil(timeoutMillis = 5_000) { container.game.session.value?.state?.phase == Phase.REVEALED }
         shot("reveal")

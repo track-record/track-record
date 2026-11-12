@@ -216,7 +216,15 @@ button.btn.outlined:disabled { background: transparent; border-color: color-mix(
 .bottom-inner { max-width: 528px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
 
 /* ---- Play controls (round, like the app's) ---- */
-.play-row { display: flex; align-items: center; gap: 12px; }
+/*
+ * The buttons beside the bar; the bar in the middle row, centred on them, and the notes (time, error, Deezer) in the
+ * row right below it: the rows above and below are equally high, so notes never move the bar (feedback round 65).
+ */
+.play-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-rows: 1fr auto 1fr; column-gap: 12px; }
+.play-row > .round-button, .play-row > .volume-button { grid-row: 1 / 4; align-self: center; }
+.play-row > .volume-button { grid-column: 4; }
+.play-row > .progress-box { grid-row: 2; grid-column: 3; }
+.play-notes { grid-row: 3; grid-column: 3; align-self: start; display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
 .round-button {
   width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer; padding: 0; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
@@ -226,7 +234,7 @@ button.btn.outlined:disabled { background: transparent; border-color: color-mix(
 .round-button svg { width: 36px; height: 36px; fill: currentColor; }
 .round-button.tonal svg { width: 24px; height: 24px; }
 /* Material's progress bar: the played part, a small gap, the track (LY-05). */
-.progress-box { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.progress-box { min-width: 0; display: flex; flex-direction: column; }
 .progress { display: flex; align-items: center; gap: 4px; height: 4px; overflow: hidden; }
 .progress-fill { flex: none; height: 4px; width: 0; border-radius: 2px; background: var(--primary); }
 .progress-track { flex: 1; height: 4px; border-radius: 2px; background: var(--tonal); }
