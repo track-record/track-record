@@ -134,6 +134,10 @@
     <string name="verify_progress">Checked %1$d of %2$d · %3$d matched</string>
     <string name="find_missing_start">Check missing years</string>
     <string name="find_missing_progress">Looked up %1$d of %2$d songs without a year · %3$d found</string>
+    <plurals name="verify_outdated">
+        <item quantity="one">%1$d song was checked with older lookup rules. Verify your library again to update it.</item>
+        <item quantity="other">%1$d songs were checked with older lookup rules. Verify your library again to update them.</item>
+    </plurals>
     <plurals name="find_missing_no_artist">
         <item quantity="one">%1$d song has no artist tag and was skipped.</item>
         <item quantity="other">%1$d songs have no artist tag and were skipped.</item>

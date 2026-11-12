@@ -1,13 +1,15 @@
-// Track Record guest page, music for internet guests (SPEC v4; D-181). The host says what to play
+// Track Record guest page, music on the guest's phone (SPEC v4; D-181). The host says what to play
 // (view.listen): a Deezer preview, played here at the host's position and kept in step through the
-// host's clock, or its stream of a local file. Wi-Fi guests never get it. Split from app.js (REVIEW.md
-// C-05; D-274).
+// host's clock, or a local file: the room's stream over the internet, or on Wi-Fi the file from the host's
+// server, played like a preview. Wi-Fi guests turn it on themselves (feedback round 59). Split from app.js
+// (REVIEW.md C-05; D-274).
 
 /**
- * The page's players. [listenNow]() is the view's listen info (or null), [soundOn]() whether the browser
- * may play sound yet, [transport]() the way to the host (for its clock).
+ * The page's players. [listenNow]() is the view's listen info (or null), [soundOn]() whether sound is wanted and the
+ * browser may play it yet, [transport]() the way to the host (for its clock), [fileAddress](listen) where a local
+ * file can be loaded from (Wi-Fi), or null where it comes as a stream.
  */
-export function music({ listenNow, soundOn, transport }) {
+export function music({ listenNow, soundOn, transport, fileAddress }) {
   /** A hidden player in the page (findable when checking the page), playing what the host says. */
   function player(id) {
     const element = document.createElement("audio");
@@ -75,7 +77,8 @@ export function music({ listenNow, soundOn, transport }) {
       appliedSignal = "";
       return;
     }
-    if (listen.kind === "stream") {
+    const url = listen.url || fileAddress(listen);
+    if (!url) {
       if (!previewAudio.paused) previewAudio.pause();
       streamAudio.muted = false;
       if (streamAudio.srcObject && streamAudio.paused) streamAudio.play().catch(() => {});
@@ -83,11 +86,11 @@ export function music({ listenNow, soundOn, transport }) {
       return;
     }
     streamAudio.muted = true;
-    const signal = `${listen.url}|${listen.playing}|${listen.positionMs}|${listen.atMs}`;
+    const signal = `${url}|${listen.playing}|${listen.positionMs}|${listen.atMs}`;
     if (signal === appliedSignal) return;
-    if (listen.url && previewAudio.dataset.src !== listen.url) {
-      previewAudio.dataset.src = listen.url;
-      previewAudio.src = listen.url;
+    if (previewAudio.dataset.src !== url) {
+      previewAudio.dataset.src = url;
+      previewAudio.src = url;
     }
     if (previewAudio.readyState < 1) return; // seek once the preview's length is known
     const now = hostNow();
@@ -96,6 +99,7 @@ export function music({ listenNow, soundOn, transport }) {
     const target = listen.playing ? listen.positionMs + (now - listen.atMs) : listen.positionMs;
     previewAudio.playbackRate = 1;
     previewAudio.currentTime = Math.max(0, target / 1000);
+    previewAudio.muted = false;
     if (listen.playing) previewAudio.play().catch(() => {});
     else previewAudio.pause();
   }
@@ -106,8 +110,17 @@ export function music({ listenNow, soundOn, transport }) {
     setVolume,
     syncClock,
     follow: followMusic,
-    /** Starts the stream player inside the tap that allows sound. */
-    unlock: () => streamAudio.play().catch(() => {}),
+    /**
+     * Starts the players inside the tap that allows sound: some browsers let a player start later only if it started
+     * in a tap. Silent until the host's position is applied.
+     */
+    unlock() {
+      streamAudio.play().catch(() => {});
+      if (previewAudio.src) {
+        previewAudio.muted = true;
+        previewAudio.play().catch(() => {});
+      }
+    },
     /** The host's stream of a local file arrived. */
     setStream(stream) {
       streamAudio.srcObject = stream;

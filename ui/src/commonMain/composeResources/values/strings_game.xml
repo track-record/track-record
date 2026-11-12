@@ -135,6 +135,14 @@
     <string name="settings_musicbrainz">MusicBrainz lookups</string>
     <string name="settings_musicbrainz_hint">Check years online while playing</string>
     <string name="settings_year_preference">When sources disagree</string>
+    <string name="settings_song_choice">Song choice</string>
+    <string name="settings_year_balance">Even out the years</string>
+    <string name="settings_year_balance_hint">Chooses songs in a way that tries to represent years more evenly.</string>
+    <string name="year_balance_off_hint">Every song in the playlist is equally likely.</string>
+    <string name="year_balance_gentle">Gentle</string>
+    <string name="year_balance_gentle_hint">Overrepresented years come up less often.</string>
+    <string name="year_balance_strong">Strong</string>
+    <string name="year_balance_strong_hint">Evens out the years as much as possible.</string>
     <string name="year_preference_lowest">Lowest year</string>
     <string name="year_preference_lowest_hint">The earlier of the tag year and MusicBrainz's year.</string>
     <string name="year_preference_musicbrainz">MusicBrainz leads</string>

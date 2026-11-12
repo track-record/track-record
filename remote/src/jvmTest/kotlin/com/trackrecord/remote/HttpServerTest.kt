@@ -202,6 +202,56 @@ class HttpServerTest {
     }
 
     @Test
+    fun `a file is served whole or in the ranges a player asks for`() {
+        val data = ByteArray(200_000) { (it % 251).toByte() }
+        val server = HttpServer(HttpServer.Limits()) {
+            Response.File("audio/mpeg", data.size.toLong()) { offset -> data.inputStream().also { s -> s.skip(offset) } }
+        }
+        val p = server.start(0)
+        fun get(range: String?) = (URI("http://127.0.0.1:$p/song").toURL().openConnection() as HttpURLConnection).apply {
+            if (range != null) setRequestProperty("Range", range)
+        }
+        try {
+            get(null).let {
+                assertEquals(200, it.responseCode)
+                assertEquals("audio/mpeg", it.contentType)
+                assertEquals("bytes", it.getHeaderField("Accept-Ranges"))
+                assertTrue(data.contentEquals(it.inputStream.readBytes()), "the whole file")
+            }
+            get("bytes=150000-").let {
+                assertEquals(206, it.responseCode)
+                assertEquals("bytes 150000-199999/200000", it.getHeaderField("Content-Range"))
+                assertTrue(data.copyOfRange(150_000, 200_000).contentEquals(it.inputStream.readBytes()), "from a position to the end")
+            }
+            get("bytes=10-19").let {
+                assertEquals(206, it.responseCode)
+                assertTrue(data.copyOfRange(10, 20).contentEquals(it.inputStream.readBytes()))
+            }
+            get("bytes=-100").let {
+                assertEquals("bytes 199900-199999/200000", it.getHeaderField("Content-Range"))
+                assertTrue(data.copyOfRange(199_900, 200_000).contentEquals(it.inputStream.readBytes()), "the last bytes")
+            }
+            get("bytes=0-").let {
+                assertEquals(200, it.responseCode, "all of it is no part")
+                assertEquals(data.size, it.inputStream.readBytes().size)
+            }
+            get("bytes=200000-").let {
+                assertEquals(416, it.responseCode)
+                assertEquals("bytes */200000", it.getHeaderField("Content-Range"))
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun `the page may load music from https but nothing else from elsewhere`() {
+        val csp = connect("/x").getHeaderField("Content-Security-Policy")
+        assertTrue("media-src 'self' https:" in csp, csp)
+        assertTrue("default-src 'self'" in csp, csp)
+    }
+
+    @Test
     fun `listens only on the addresses it is given`() {
         val other = java.net.NetworkInterface.getNetworkInterfaces().toList()
             .filter { it.isUp && !it.isLoopback }

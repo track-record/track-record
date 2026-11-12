@@ -17,9 +17,15 @@ object GameEngine {
         return Reducer(state).apply(action)
     }
 
-    /** Shuffles the pool deterministically: same songs and seed give the same order. */
-    fun shufflePool(songs: List<Card>, seed: Long): List<Card> =
-        songs.sortedBy { it.songId }.shuffled(Random(seed))
+    /**
+     * Shuffles the pool deterministically: same songs and seed give the same order. With [balance], songs from
+     * sparse years tend to come first, for a game of about [perGame] songs (YEAR_BALANCE.md).
+     */
+    fun shufflePool(songs: List<Card>, seed: Long, balance: YearBalance = YearBalance.OFF, perGame: Int = 0): List<Card> {
+        val sorted = songs.sortedBy { it.songId }
+        val weights = YearBalancing.weights(sorted, balance, perGame) ?: return sorted.shuffled(Random(seed))
+        return YearBalancing.weightedShuffle(sorted, weights, Random(seed))
+    }
 
     private fun start(action: GameAction.StartGame): ReduceResult {
         fun reject(reason: RejectReason) = ReduceResult.Rejected(null, reason)
@@ -37,7 +43,8 @@ object GameEngine {
         }
         if (action.songs.distinctBy { it.songId }.size < needed) return reject(RejectReason.POOL_TOO_SMALL)
 
-        var pool = shufflePool(action.songs.distinctBy { it.songId }, action.seed)
+        val perGame = YearBalancing.songsPerGame(action.mode, action.settings, ids.size)
+        var pool = shufflePool(action.songs.distinctBy { it.songId }, action.seed, action.settings.common.yearBalance, perGame)
         val settings = when (action.mode) {
             GameMode.TIMELINE -> action.settings
             GameMode.CLOSEST_YEAR -> action.settings.copy(

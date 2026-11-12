@@ -214,6 +214,8 @@ data class CommonSettings(
     /** `null` means no clip limit. */
     val clipLimitSeconds: Int? = null,
     val musicBrainzLookups: Boolean = true,
+    /** How much the shuffle evens out the years (YEAR_BALANCE.md); a game saved before it reads as off. */
+    val yearBalance: YearBalance = YearBalance.OFF,
 ) {
     fun validate(): List<SettingsError> = buildList {
         if (startOffsetSeconds !in 0..60) add(SettingsError.START_OFFSET)

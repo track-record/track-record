@@ -198,6 +198,7 @@ import { music } from "./music.js";
     play: "M8 5v14l11-7z",
     pause: "M6 19h4V5H6v14zm8-14v14h4V5h-4z",
     replay: "M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z",
+    volumeOff: "M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z",
     volume: "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z",
     scores: "M7.5 21H2V9h5.5v12zm7.25-18h-5.5v18h5.5V3zM22 11h-5.5v10H22V11z",
     settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z",
@@ -263,11 +264,12 @@ import { music } from "./music.js";
     const svg = svgIcon;
     const buttons = `<button class="round-button" data-act="togglePlay" aria-label="${esc(T(a.playing ? "web_pause" : "web_play"))}" ${off}>${svg(a.playing ? "pause" : "play")}</button>
          <button class="round-button tonal" data-act="replay" aria-label="${esc(T("web_replay"))}" ${off}>${svg("replay")}</button>`;
-    // Internet guests: the music's volume behind a speaker symbol, so it is easy to find (D-192).
-    const speaker = INTERNET
-      ? `<button class="icon-button volume-button" data-act="volumeToggle" aria-label="${esc(T("web_volume"))}" title="${esc(T("web_volume_open"))}" aria-expanded="${!!S.volumeOpen}">${svg("volume")}</button>`
-      : "";
-    const slider = INTERNET && S.volumeOpen ? volumeSlider() : "";
+    // The music's volume behind a speaker symbol, so it is easy to find (D-192). On Wi-Fi it turns the music on first
+    // (feedback round 59). Crossed out whenever nothing can be heard from this phone.
+    const speakerLabel = INTERNET ? T("web_volume") : T(S.soundOn && localSound() ? "web_sound_turn_off" : "web_sound_turn_on");
+    const speakerTitle = INTERNET ? T("web_volume_open") : speakerLabel;
+    const speaker = `<button class="icon-button volume-button" data-act="volumeToggle" aria-label="${esc(speakerLabel)}" title="${esc(speakerTitle)}" aria-expanded="${!!S.volumeOpen}">${svg(speakerIcon())}</button>`;
+    const slider = S.volumeOpen && (INTERNET || localSound()) ? volumeSlider() : "";
     // The app's note under the bar, only when the song can't be played (feedback round 43).
     const note = (a.error ? `<span class="play-note error">${esc(T("web_playback_error"))}</span>` : "") + (a.preview ? streamedFromDeezer() : "");
     // A co-host's reveal: the host's slider with the time, to jump in the song (feedback round 44).
@@ -314,6 +316,26 @@ import { music } from "./music.js";
     requestAnimationFrame(animateProgress);
   }
   requestAnimationFrame(animateProgress);
+
+  /** On Wi-Fi, this phone's choice to play the music too; off unless chosen, as the host's speaker plays it (feedback round 59). */
+  function localSound() {
+    return readCookie("hl_sound") === "1";
+  }
+
+  function setLocalSound(on) {
+    writeCookie("hl_sound", on ? "1" : "0");
+    if (on) {
+      S.soundOn = true;
+      Music.syncClock();
+    }
+    Music.follow();
+    if (on) Music.unlock();
+  }
+
+  /** The speaker symbol: crossed out while this phone plays nothing (not wanted, not allowed yet, or volume 0). */
+  function speakerIcon() {
+    return S.soundOn && (INTERNET || localSound()) && Music.volume() > 0 ? "volume" : "volumeOff";
+  }
 
   /** The music volume slider (menu, and under the progress bar after tapping the speaker; D-185, D-192). */
   function volumeSlider() {
@@ -1081,8 +1103,8 @@ import { music } from "./music.js";
       // Beside the scoreboard (feedback round 26); a co-host also has the host's clip length (D-191).
       body = `<h2>${esc(T("web_settings"))}</h2>` +
         (v.coHost && v.game.phase !== "GAME_OVER" ? clipStepper(v.game) + offsetStepper(v.game) + requestsPanel(v.requests) : "") +
-        // Internet guests play the music themselves: their own volume (D-185).
-        (INTERNET ? volumeSlider() : "") +
+        // Internet guests play the music themselves: their own volume (D-185). Wi-Fi guests may too (feedback round 59).
+        (INTERNET ? volumeSlider() : toggleRow("toggleLocalSound", T("web_local_sound"), localSound(), T("web_local_sound_hint")) + (localSound() ? volumeSlider() : "")) +
         toggleRow("toggleConfirm", T("web_confirm_twice"), confirmTwice(), T("web_confirm_twice_hint"));
     } else if (S.overlay === "scores" && v && v.game) {
       const g = v.game;
@@ -1141,9 +1163,14 @@ import { music } from "./music.js";
     return songNotice(g, Object.fromEntries(g.players.map((p) => [p.id, p])));
   }
 
-  // ---- Music for internet guests (music.js; SPEC v4; D-181) ----
+  // ---- Music on this phone (music.js; SPEC v4; D-181) ----
   // Browsers only play sound after a tap, so a banner asks for one.
-  const Music = music({ listenNow: () => S.view && S.view.listen, soundOn: () => !!S.soundOn, transport: () => transport });
+  const Music = music({
+    listenNow: () => S.view && S.view.listen,
+    soundOn: () => !!S.soundOn && (INTERNET || localSound()),
+    transport: () => transport,
+    fileAddress: (listen) => (INTERNET || !listen.file ? null : transport.image(`song?f=${encodeURIComponent(listen.file)}`)),
+  });
 
   /**
    * Browsers let a page play sound only after a tap on it. Any first tap does (picking a player, say),
@@ -1152,24 +1179,29 @@ import { music } from "./music.js";
   function enableSound() {
     if (S.soundOn) return;
     S.soundOn = true;
-    Music.unlock();
     Music.syncClock();
     Music.follow();
+    Music.unlock();
   }
-  if (INTERNET) {
-    for (const type of ["click", "keydown"]) {
-      document.addEventListener(type, () => { if (!S.soundOn) { enableSound(); setTimeout(render, 0); } }, true);
-    }
-    // Some browsers allow sound without a tap (e.g. a site played often): then no banner at all.
-    try {
-      const probe = new AudioContext();
-      if (probe.state === "running") S.soundOn = true;
-      probe.close();
-    } catch (e) { /* no Web Audio: the banner stays */ }
+  for (const type of ["click", "keydown"]) {
+    document.addEventListener(type, () => {
+      if (S.soundOn) return;
+      enableSound();
+      // This very tap may be on the speaker: it started the music then, and doesn't also turn it off.
+      S.soundJustAllowed = true;
+      setTimeout(() => { S.soundJustAllowed = false; render(); }, 0);
+    }, true);
   }
+  // Some browsers allow sound without a tap (e.g. a site played often): then no banner at all.
+  try {
+    const probe = new AudioContext();
+    if (probe.state === "running") S.soundOn = true;
+    probe.close();
+  } catch (e) { /* no Web Audio: the banner stays */ }
 
   function soundBanner() {
-    if (!INTERNET || S.soundOn || !(S.view && S.view.me)) return "";
+    // On Wi-Fi only for a phone that chose the music and came back without a tap.
+    if (S.soundOn || !(INTERNET || localSound()) || !(S.view && S.view.me)) return "";
     return `<button class="sound-banner" data-act="sound">${esc(T("web_sound_on"))}</button>`;
   }
 
@@ -1347,7 +1379,11 @@ import { music } from "./music.js";
   document.addEventListener("pointerup", () => { if (S.pressing) setTimeout(releasePress, 0); });
   document.addEventListener("pointercancel", releasePress);
   document.addEventListener("input", (e) => {
-    if (e.target.dataset && e.target.dataset.volume) Music.setVolume(Number(e.target.value) / 100);
+    if (e.target.dataset && e.target.dataset.volume) {
+      Music.setVolume(Number(e.target.value) / 100);
+      // The symbol follows at once: the page doesn't redraw under a finger on the slider.
+      document.querySelectorAll(".volume-button").forEach((b) => { b.innerHTML = svgIcon(speakerIcon()); });
+    }
     // A co-host's slider: the time follows the finger; the host jumps when it is let go.
     if (e.target.dataset && e.target.dataset.seek) {
       S.seekingMs = Number(e.target.value);
@@ -1594,7 +1630,16 @@ import { music } from "./music.js";
         if (Number.isInteger(year)) { S.yearEdit = false; act("hostYear", { year }); }
         break;
       }
-      case "volumeToggle": S.volumeOpen = !S.volumeOpen; render(); break;
+      case "volumeToggle":
+        if (INTERNET) {
+          S.volumeOpen = !S.volumeOpen;
+        } else {
+          if (!(S.soundJustAllowed && localSound())) setLocalSound(!localSound());
+          S.volumeOpen = localSound();
+        }
+        render();
+        break;
+      case "toggleLocalSound": setLocalSound(!localSound()); render(); break;
       case "hostClip": act("hostClip", { year: Number(target.dataset.seconds) }); break;
       case "hostStopLookups": act("hostStopLookups"); break;
       case "hostFavorite": { const r = S.view.game.revealed; if (r) act("hostFavorite", { song: r.songId, favorite: !r.favorite }); break; }

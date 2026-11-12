@@ -100,6 +100,8 @@ class Tunnel(
         }
         when (response) {
             is Response.Bytes -> reply(peer, bytesReply(request.id, response))
+            // Internet guests get a local song as the room's stream; only Wi-Fi guests ask for the file.
+            is Response.File -> reply(peer, bytesReply(request.id, Response.text(404, "Not found")))
             is Response.EventStream -> {
                 val stream = PeerStream(peer)
                 val previous = synchronized(peers) {
@@ -132,7 +134,6 @@ class Tunnel(
         private val listeners = mutableListOf<() -> Unit>()
         @Volatile private var open = true
         override val isOpen: Boolean get() = open
-        override val internet: Boolean get() = true
 
         override fun send(data: String, event: String?): Boolean {
             if (!open) return false

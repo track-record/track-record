@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +32,8 @@ import com.trackrecord.app.resources.game_leave_confirm
 import com.trackrecord.app.resources.game_leave_text
 import com.trackrecord.app.resources.game_leave_title
 import com.trackrecord.app.resources.game_next_song
+import com.trackrecord.app.resources.remote_player_connected
+import com.trackrecord.app.resources.remote_player_lost
 import com.trackrecord.app.ui.Texts
 import com.trackrecord.app.ui.components.BackHandler
 import com.trackrecord.app.ui.components.HideNavigationBar
@@ -55,6 +58,7 @@ fun GameScreen(onExit: () -> Unit) {
     val session by vm.session.collectAsStateWithLifecycle()
     val restored by container.game.restored.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val connections = remember { SnackbarHostState() }
     var confirmLeave by rememberSaveable { mutableStateOf(false) }
 
     KeepScreenOn()
@@ -72,6 +76,15 @@ fun GameScreen(onExit: () -> Unit) {
             val text = Texts.get(reason.message)
             if (reason in BRIEF_REJECTIONS) withTimeoutOrNull(BRIEF_REJECTION_MS) { snackbar.showSnackbar(text) }
             else snackbar.showSnackbar(text)
+        }
+    }
+    LaunchedEffect(vm) {
+        // Guests' devices coming and going (feedback round 60), apart from the other banners: connected briefly, a lost
+        // connection longer. A newer notice replaces the one shown, e.g. a player back after a lost connection.
+        container.remote.connectionNotices.collectLatest { notice ->
+            val name = vm.session.value?.players?.firstOrNull { it.id == notice.player }?.name ?: return@collectLatest
+            val text = Texts.get(if (notice.connected) Res.string.remote_player_connected else Res.string.remote_player_lost, name)
+            connections.showSnackbar(ConnectionVisuals(text, lost = !notice.connected))
         }
     }
     BackHandler { confirmLeave = true }
@@ -98,6 +111,7 @@ fun GameScreen(onExit: () -> Unit) {
         }
     }
     SongEventDialogs(s)
+    Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.TopCenter) { ConnectionNoticeHost(connections) }
 
     if (confirmLeave) {
         AlertDialog(

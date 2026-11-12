@@ -53,6 +53,8 @@ class RemoteHubTest {
         val picking = mutableListOf<Pair<String, Boolean>>()
         override fun vetoPicking(playerId: String, picking: Boolean) { this.picking += playerId to picking }
 
+        override fun songFile(file: String): SongFile? = if (file == "token-1") SongFile("audio/mpeg", 3) { "abc".byteInputStream() } else null
+
         val audio = mutableListOf<String>()
         override fun togglePlay() { audio += "toggle" }
         override fun replay() { audio += "replay" }
@@ -709,5 +711,20 @@ class RemoteHubTest {
         assertEquals(mapOf("ben" to true), clients.last().claimed)
         phone.close()
         assertEquals(mapOf("ben" to false), clients.last().claimed)
+    }
+
+    @Test
+    fun `only the song playing now can be loaded, under its token and with the key`() {
+        val game = HostGame(startTimeline(), players, songs, listen = ListenInfo("stream", null, true, 0, 0, file = "token-1"))
+        val theme = ThemeInfo("LOW_POLY", 4, 4)
+        hub.update(HostSnapshot(game, theme))
+        assertTrue(get("/api/song?k=k123&f=token-1") is Response.File)
+        assertEquals(404, (get("/api/song?k=k123&f=token-2") as Response.Bytes).status, "another token")
+        assertEquals(404, (get("/api/song?k=k123") as Response.Bytes).status, "no token")
+        assertEquals(403, (get("/api/song?f=token-1") as Response.Bytes).status, "no key")
+        hub.update(HostSnapshot(game, theme, paused = true))
+        assertEquals(404, (get("/api/song?k=k123&f=token-1") as Response.Bytes).status, "the host left the game")
+        hub.update(HostSnapshot(game.copy(listen = game.listen?.copy(file = "token-2")), theme))
+        assertEquals(404, (get("/api/song?k=k123&f=token-1") as Response.Bytes).status, "the next song")
     }
 }

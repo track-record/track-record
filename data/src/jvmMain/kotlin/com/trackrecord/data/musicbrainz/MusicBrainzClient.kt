@@ -19,7 +19,12 @@ data class MbRelease(
     val id: String = "",
     val date: String? = null,
     @SerialName("release-group") val releaseGroup: MbReleaseGroup? = null,
-)
+    /** "Official", "Promotion", "Bootleg" …; null when MusicBrainz doesn't say. */
+    val status: String? = null,
+) {
+    /** Unofficial: often a concert taped years after the song came out, dated when it surfaced (feedback round 61). */
+    val bootleg: Boolean get() = status.equals("Bootleg", ignoreCase = true)
+}
 
 @Serializable
 data class MbRecording(
@@ -31,11 +36,22 @@ data class MbRecording(
     @SerialName("artist-credit") val artistCredit: List<MbArtistCredit> = emptyList(),
     val releases: List<MbRelease> = emptyList(),
 ) {
+    /**
+     * The date that counts: [firstReleaseDate], but without bootlegs (feedback round 61): with bootlegs among the
+     * releases, the earliest date of the others, and none when only bootlegs are listed.
+     */
+    val releaseDate: String?
+        get() {
+            val kept = releases.filterNot { it.bootleg }
+            if (kept.size == releases.size) return firstReleaseDate
+            return kept.mapNotNull { r -> r.date?.takeIf { it.isNotBlank() } }.minOrNull()
+        }
+
     fun toCandidate(currentYear: Int) = MbCandidate(
         artist = artistCredit.joinToString("") { it.name + it.joinphrase },
         title = title,
         disambiguation = disambiguation,
-        year = TagYears.parseYear(firstReleaseDate, currentYear),
+        year = TagYears.parseYear(releaseDate, currentYear),
     )
 }
 

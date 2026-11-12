@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -31,9 +32,11 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
 import java.nio.file.Files
+import kotlin.concurrent.thread
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -164,10 +167,11 @@ class DesktopAppTest {
         val export = File(folder, "TrackRecord.trackrecord")
         runOnUiThread { container.libraryTransfer.export(export.path) }
         waitUntil(timeoutMillis = 10_000) { container.libraryTransfer.state.value == TransferState.Exported }
-        assertTrue(runBlocking { container.openFiles(listOf(export.toURI().toString())) })
+        // On the UI thread, as the window hands dropped files over: the app then navigates to Settings.
+        assertTrue(runOnUiThread { runBlocking { container.openFiles(listOf(export.toURI().toString())) } })
         waitUntil(timeoutMillis = 5_000) { container.libraryTransfer.state.value is TransferState.Offered }
         container.libraryTransfer.dismiss()
-        assertTrue(!runBlocking { container.openFiles(listOf(File(folder, "gone.csv").toURI().toString())) }, "a missing file can't be read")
+        assertTrue(!runOnUiThread { runBlocking { container.openFiles(listOf(File(folder, "gone.csv").toURI().toString())) } }, "a missing file can't be read")
 
         // Wi-Fi guests: the server on the LAN address serves the page and its texts.
         val link = container.remote.start()
@@ -177,10 +181,58 @@ class DesktopAppTest {
         assertEquals(200, strings.first)
         assertTrue("\"web_connecting\"" in strings.second)
         assertEquals(200, get("$base/app.js", link).first)
+        // A Wi-Fi guest's sound (feedback round 59): the song playing, under its token, from a position.
+        val uri = assertNotNull(container.game.audio.state.value.uri, "a song is loaded")
+        val key = URI(link).query.removePrefix("k=")
+        var token: String? = null
+        waitUntil(timeoutMillis = 10_000) {
+            token = songToken("$base/api/events?c=test-client-1&k=$key", link)
+            token != null
+        }
+        val file = File(URI(uri))
+        val from = URI("$base/api/song?k=$key&f=$token").toURL().openConnection() as HttpURLConnection
+        from.setRequestProperty("Host", URI(link).authority)
+        from.setRequestProperty("Range", "bytes=1000-")
+        assertEquals(206, from.responseCode)
+        assertTrue(from.contentType.startsWith("audio/"), from.contentType)
+        assertTrue(file.readBytes().copyOfRange(1000, file.length().toInt()).contentEquals(from.inputStream.readBytes()), "the file from that position")
+
+        // Popups for guests' devices (feedback round 60), on the game (the dropped export opened Settings): Ben's phone
+        // connects, then its connection is lost.
+        runOnUiThread { onNodeWithContentDescription("Back").performClick() }
+        waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("Round", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        val claim = URI("$base/api/claim?k=$key").toURL().openConnection() as HttpURLConnection
+        claim.requestMethod = "POST"
+        claim.doOutput = true
+        claim.setRequestProperty("Host", URI(link).authority)
+        claim.setRequestProperty("Content-Type", "application/json")
+        claim.outputStream.use { it.write("""{"client":"test-client-2","player":"b"}""".toByteArray()) }
+        assertEquals(200, claim.responseCode)
+        val phone = URI("$base/api/events?c=test-client-2&k=$key").toURL().openConnection() as HttpURLConnection
+        phone.setRequestProperty("Host", URI(link).authority)
+        thread(isDaemon = true) { runCatching { phone.inputStream.bufferedReader().forEachLine { } } }
+        waitUntil(timeoutMillis = 10_000) { onAllNodesWithText("Ben connected").fetchSemanticsNodes().isNotEmpty() }
+        phone.disconnect()
+        // Noticed at the next ping (15 s), told after the grace time (5 s).
+        waitUntil(timeoutMillis = 30_000) { onAllNodesWithText("Ben lost the connection").fetchSemanticsNodes().isNotEmpty() }
         container.remote.stop()
         container.game.endGame()
         chromium.close()
         onDone()
+    }
+
+    /** The song's token from the first view a guest's event stream sends, once it names one. */
+    private fun songToken(events: String, link: String): String? {
+        val c = URI(events).toURL().openConnection() as HttpURLConnection
+        c.setRequestProperty("Host", URI(link).authority)
+        c.readTimeout = 3000
+        return try {
+            c.inputStream.bufferedReader().useLines { lines ->
+                lines.first { it.startsWith("data: ") }.let { Regex(""""file":"([^"]+)"""").find(it)?.groupValues?.get(1) }
+            }
+        } finally {
+            c.disconnect()
+        }
     }
 
     /** A GET as a guest's browser sends it (the Host header names the server's own address). */

@@ -171,6 +171,10 @@ class ScreenTourTest {
         runBlocking { container.game.start(GameMode.TIMELINE, players, GameSettings()) }
         click("Continue game")
         shot("timeline-round")
+        runOnUiThread { onNodeWithContentDescription("Game info").performClick() }
+        waitUntil(timeoutMillis = 10_000) { runCatching { onNodeWithText("Even out the years").assertExists() }.isSuccess }
+        shot("game-info")
+        click("Close")
         runOnUiThread { onNodeWithContentDescription("Remote players").performClick() }
         waitUntil(timeoutMillis = 10_000) { runCatching { onNodeWithText("Tap to copy the link").assertExists() }.isSuccess }
         shot("remote-players")

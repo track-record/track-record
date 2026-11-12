@@ -34,6 +34,8 @@ data class LibraryUiState(
     val totalSongs: Int = 0,
     val playableSongs: Int = 0,
     val missingYearSongs: Int = 0,
+    /** Playable songs looked up under older rules, for the hint to verify again (feedback round 62). */
+    val outdatedSongs: Int = 0,
     val query: LibraryQuery = LibraryQuery(),
     val scan: ScanState = ScanState.Idle,
     /** Songs without a tag year whose MusicBrainz match waits for confirmation. */
@@ -81,6 +83,7 @@ class LibraryViewModel(
             totalSongs = d.songs.size,
             playableSongs = d.songs.count { it.playable },
             missingYearSongs = d.songs.count { it.missingYear },
+            outdatedSongs = d.songs.count { it.playable && it.checkedByOldRules },
             query = q,
             scan = d.scan,
             playlists = playlists,

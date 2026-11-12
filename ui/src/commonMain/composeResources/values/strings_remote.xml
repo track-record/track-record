@@ -37,6 +37,8 @@
     <string name="remote_none">Nobody has joined yet.</string>
     <string name="remote_status_connected">connected</string>
     <string name="remote_status_away">disconnected</string>
+    <string name="remote_player_connected">%1$s connected</string>
+    <string name="remote_player_lost">%1$s lost the connection</string>
     <string name="remote_disconnect">Disconnect</string>
     <string name="remote_disconnect_a11y">Disconnect %1$s</string>
     <string name="remote_stop">Stop remote play</string>
@@ -103,6 +105,10 @@
     <string name="web_p2p_unreachable">Can't reach the host. Check that the link is complete, or ask the host for a new one.</string>
     <string name="web_sound_on">🔊 Tap to hear the music</string>
     <string name="web_volume">Music volume</string>
+    <string name="web_sound_turn_on">Play the music on this phone too</string>
+    <string name="web_sound_turn_off">Stop the music on this phone</string>
+    <string name="web_local_sound">Music on this phone</string>
+    <string name="web_local_sound_hint">Usually off, as the host's speaker plays it. Both together can echo.</string>
     <string name="web_volume_open">Open volume control</string>
     <string name="web_brief_ok">Got it</string>
     <string name="web_host_more">Add one for %1$s</string>

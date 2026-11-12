@@ -51,13 +51,17 @@ data class LibrarySong(
      */
     val needsNameCheck: Boolean get() = lookup == null || lookup.lookupVersion < MusicBrainzLookup.LOOKUP_VERSION || !lookup.searchedByName
 
+    /** Looked up before, but under older rules (or without the name search): "Verify" brings it up to date (feedback round 62). */
+    val checkedByOldRules: Boolean get() = lookup != null && needsNameCheck
+
     /**
-     * Left for "Verify by fingerprint": a local file not fingerprinted yet. A streamed song has no file; its
-     * check there (ISRC and name, D-276) is the one "Verify by name" makes, so it is left only while that is
-     * (feedback round 47: a fingerprint run after a name run checked 3000 streamed songs again).
+     * Left for "Verify by fingerprint", which does everything "Verify by name" does and more (feedback round 62):
+     * every song left for that, and a local file not fingerprinted yet. A streamed song has no file; its check
+     * there (ISRC and name, D-276) is the one "Verify by name" makes, so it is left only while that is (feedback
+     * round 47: a fingerprint run after a name run checked 3000 streamed songs again).
      */
     val needsFingerprintCheck: Boolean
-        get() = if (song.source == SongSource.LOCAL) lookup?.fingerprintChecked != true else needsNameCheck
+        get() = needsNameCheck || (song.source == SongSource.LOCAL && lookup?.fingerprintChecked != true)
 
     /** Enters game pools: has a usable year, isn't excluded and its folder is reachable. */
     val playable: Boolean get() = resolved.year != null && !excluded && folderAvailable

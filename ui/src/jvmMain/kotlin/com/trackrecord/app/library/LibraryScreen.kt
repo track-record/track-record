@@ -130,6 +130,7 @@ import com.trackrecord.app.resources.verify_fingerprint_all
 import com.trackrecord.app.resources.verify_fingerprint_all_hint
 import com.trackrecord.app.resources.verify_fingerprinted
 import com.trackrecord.app.resources.verify_intro
+import com.trackrecord.app.resources.verify_outdated
 import com.trackrecord.app.resources.verify_preparing
 import com.trackrecord.app.resources.verify_progress
 import com.trackrecord.app.resources.verify_start
@@ -338,6 +339,7 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
                     onCancel = container.verifier::cancel,
                     coversEnabled = appSettings?.loadCovers == true,
                     keyStatus = keyStatus,
+                    outdated = state.outdatedSongs,
                 )
             }
             item {
@@ -536,7 +538,7 @@ private fun FoldersCard(folders: List<FolderEntity>, onAdd: () -> Unit, onRemove
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel: () -> Unit, coversEnabled: Boolean, keyStatus: AcoustIdKeyStatus) {
+private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel: () -> Unit, coversEnabled: Boolean, keyStatus: AcoustIdKeyStatus, outdated: Int) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = PanelGap / 2)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(Res.string.verify_title), style = MaterialTheme.typography.titleMedium)
@@ -578,6 +580,15 @@ private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel
                         }
                     } else {
                         Text(stringResource(Res.string.verify_intro), style = MaterialTheme.typography.bodySmall)
+                    }
+                    // The lookup rules changed since these songs were checked (feedback round 62).
+                    if (outdated > 0) {
+                        Text(
+                            pluralStringResource(Res.plurals.verify_outdated, outdated, outdated),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
                     }
                     // In this order (feedback round 30): missing years, covers, then the two verifications.
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {

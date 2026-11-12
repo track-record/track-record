@@ -63,6 +63,8 @@ class ProtocolTest {
             8 to "97aa518f80028a89",
             // Feedback round 52: the co-host stars the revealed song into Favorites.
             9 to "9b974a2d81c57d08",
+            // Feedback round 59: a local song's token, so Wi-Fi guests can play it on their phone.
+            10 to "3bf602623c409145",
         )
     }
 }

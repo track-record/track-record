@@ -95,12 +95,15 @@ import com.trackrecord.app.resources.settings_starting_skips
 import com.trackrecord.app.resources.settings_starting_vetoes
 import com.trackrecord.app.resources.settings_tie_breaker
 import com.trackrecord.app.resources.settings_vetoes_per_song
+import com.trackrecord.app.resources.settings_year_balance
 import com.trackrecord.app.resources.skips
 import com.trackrecord.app.resources.tie_both
 import com.trackrecord.app.resources.tie_first
 import com.trackrecord.app.resources.value_off
 import com.trackrecord.app.resources.value_on
 import com.trackrecord.app.resources.vetoes
+import com.trackrecord.app.resources.year_balance_gentle
+import com.trackrecord.app.resources.year_balance_strong
 import com.trackrecord.app.ui.Texts
 import com.trackrecord.app.ui.components.AppSheet
 import com.trackrecord.app.ui.components.SectionCard
@@ -111,6 +114,7 @@ import com.trackrecord.engine.GameMode
 import com.trackrecord.engine.GameState
 import com.trackrecord.engine.NamingCallers
 import com.trackrecord.engine.TieBreaker
+import com.trackrecord.engine.YearBalance
 import com.trackrecord.remote.InfoLine
 import com.trackrecord.remote.InfoView
 import org.jetbrains.compose.resources.StringResource
@@ -274,6 +278,7 @@ object GameInfo {
         }
         line(Res.string.settings_clip_limit, common.clipLimitSeconds?.let { Texts.plural(Res.plurals.seconds, it, it) } ?: Texts.get(Res.string.value_off))
         line(Res.string.settings_start_offset, Texts.plural(Res.plurals.seconds, common.startOffsetSeconds, common.startOffsetSeconds))
+        line(Res.string.settings_year_balance, Texts.get(common.yearBalance.label))
     }
 }
 
@@ -282,6 +287,14 @@ val ClosestScoring.label: StringResource
         ClosestScoring.CLOSEST -> Res.string.scoring_closest
         ClosestScoring.RANK -> Res.string.scoring_rank
         ClosestScoring.DISTANCE -> Res.string.scoring_distance
+    }
+
+/** How much the shuffle evened out the years (YEAR_BALANCE.md). */
+val YearBalance.label: StringResource
+    get() = when (this) {
+        YearBalance.OFF -> Res.string.value_off
+        YearBalance.GENTLE -> Res.string.year_balance_gentle
+        YearBalance.STRONG -> Res.string.year_balance_strong
     }
 
 /** "Buy a card", or "Buy points" in Rank and Distance (feedback round 50). */

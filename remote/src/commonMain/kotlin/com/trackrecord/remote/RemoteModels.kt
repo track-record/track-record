@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
  * until both are done and the new shape is recorded.
  */
 object RemoteProtocol {
-    const val VERSION = 9
+    const val VERSION = 10
 
     /** Every action type a page may send to POST /api/action. */
     val ACTIONS: Set<String> = setOf(
@@ -82,9 +82,9 @@ data class InfoView(
 data class InfoLine(val label: String, val value: String)
 
 /**
- * What an internet guest plays (SPEC v4; D-181): a Deezer preview from [url], or the host's stream
- * (local files), at file position [positionMs] as of the host's wall clock [atMs], playing or not.
- * Never sent to Wi-Fi guests, who hear the host's speaker.
+ * What a guest may play (SPEC v4; D-181): a Deezer preview from [url], or a local file, at file position [positionMs]
+ * as of the host's wall clock [atMs], playing or not. Internet guests hear a local file as the room's stream; Wi-Fi
+ * guests, who hear the host's speaker unless they turn the sound on, load it by [file] (feedback round 59).
  */
 @Serializable
 data class ListenInfo(
@@ -94,6 +94,8 @@ data class ListenInfo(
     val playing: Boolean,
     val positionMs: Long,
     val atMs: Long,
+    /** A local song's token for GET /api/song: it says nothing about the song and changes with it. */
+    val file: String? = null,
 )
 
 /**

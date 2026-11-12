@@ -23,6 +23,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -361,6 +364,26 @@ class MusicBrainzTest {
         val before = fetcher.calls.size
         assertEquals(LookupResult.Match(1975), lookup.lookup(queen))
         assertEquals(before, fetcher.calls.size)
+    }
+
+    @Test
+    fun `a result under older rules counts as unchecked, and its fingerprint check isn't carried over`() = runBlocking {
+        // Feedback round 62: games look such songs up again, and "Verify by fingerprint" has them left.
+        val clock = FakeClock()
+        val cache = MemoryCache()
+        val lookup = lookupWith(clock, FakeFetcher(clock, respond = ::fixtureResponses), cache)
+        val key = MusicBrainzLookup.keyOf(queen)
+        cache.map[key] = MbCacheEntity(songKey = key, year = 2011, checkedAt = 0, lookupVersion = 3, fingerprintChecked = true, nameSearched = true)
+        assertTrue(!lookup.checked(queen), "checked under older rules")
+        assertEquals(LookupResult.Match(1975), lookup.lookup(queen))
+        assertTrue(lookup.checked(queen))
+        val redone = cache.map.getValue(key)
+        assertEquals(MusicBrainzLookup.LOOKUP_VERSION, redone.lookupVersion)
+        assertEquals(false, redone.fingerprintChecked, "the old fingerprint check was under older rules")
+        // A fingerprint check under the current rules stays when the song is looked up by name again.
+        cache.map[key] = redone.copy(lookupVersion = MusicBrainzLookup.LOOKUP_VERSION_FINGERPRINT, fingerprintChecked = true)
+        lookup.lookupAll(listOf(queen), force = true, audio = false)
+        assertEquals(true, cache.map.getValue(key).fingerprintChecked)
     }
 
     @Test
@@ -818,6 +841,51 @@ class MusicBrainzTest {
         assertEquals(LookupResult.Match(2010), results[2L])
         assertTrue(cache.map.values.all { it.viaFingerprint })
         assertEquals(2, mb.calls.size, "the ids, then one combined name search")
+    }
+
+    @Test
+    fun `bootlegs give no year, and a co-credited original is found by name`() = runBlocking {
+        // Felix's "Niggas in Paris", listed under Kanye West (feedback round 61): MusicBrainz's real search answer
+        // (2026-11-12). Credited to Kanye West alone are only concert bootlegs (2024, and a 2021 one marked live); the
+        // original is by "Jay‐Z & Kanye West", 2011. AcoustID linked the file to a 2024 bootleg recording.
+        val clock = FakeClock()
+        val acoustId = FakeFetcher(clock, respondPost = batched {
+            """[{"id":"t","score":0.9,"recordings":[{"id":"4bc27ed1-17ef-4b79-8a3b-d025b491309f","title":"Niggas in Paris","artists":[{"name":"Kanye West"}]}]}]"""
+        }) { HttpResponse(404, "") }
+        val search = fixture("search_bootlegs")
+        val mb = FakeFetcher(clock) { url ->
+            val q = decoded(url)
+            when {
+                // The bootleg's own record: only bootleg releases.
+                "rid:(" in q -> HttpResponse(200, """{"count":1,"recordings":[${recordingById(search, "4bc27ed1-17ef-4b79-8a3b-d025b491309f")}]}""")
+                "firstreleasedate" in q -> HttpResponse(200, """{"count":0,"recordings":[]}""")
+                else -> HttpResponse(200, search)
+            }
+        }
+        val cache = MemoryCache()
+        val result = fingerprintLookup(clock, mb, acoustId, cache).lookup(song(1, "Niggas in Paris", "Kanye West", null, null))
+        assertEquals(LookupResult.Match(2011), result)
+        assertEquals(false, cache.map.values.single().viaFingerprint, "the bootleg the audio matched doesn't count")
+    }
+
+    /** One recording's JSON from a search answer. */
+    private fun recordingById(answer: String, id: String): String {
+        val recordings = kotlinx.serialization.json.Json.parseToJsonElement(answer).jsonObject.getValue("recordings").jsonArray
+        return recordings.first { it.jsonObject.getValue("id").jsonPrimitive.content == id }.toString()
+    }
+
+    @Test
+    fun `first release and year leave bootlegs out`() {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        val r = json.decodeFromString(
+            com.trackrecord.data.musicbrainz.MbRecording.serializer(),
+            """{"id":"r","title":"T","first-release-date":"2009","releases":[{"id":"leak","date":"2009","status":"Bootleg"},{"id":"single","date":"2011-09-13","status":"Official"},{"id":"album","date":"2011-08-08"}]}""",
+        )
+        assertEquals("2011-08-08", r.releaseDate, "an early leak doesn't count")
+        assertEquals("album", MusicBrainzLookup.firstRelease(listOf(r))?.id)
+        val onlyBootlegs = r.copy(releases = r.releases.take(1))
+        assertNull(onlyBootlegs.releaseDate)
+        assertEquals("2009", r.copy(releases = emptyList()).releaseDate, "without releases listed, MusicBrainz's first date")
     }
 
     @Test

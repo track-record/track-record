@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackrecord.app.AppConfig
 import com.trackrecord.app.LocalAppContainer
+import com.trackrecord.app.game.label
 import com.trackrecord.app.newgame.PlaybackEditor
 import com.trackrecord.app.newgame.TIMELINE_PRESET_ORDER
 import com.trackrecord.app.newgame.label
@@ -94,12 +95,15 @@ import com.trackrecord.app.resources.settings_reveal_despite_remote
 import com.trackrecord.app.resources.settings_reveal_despite_remote_hint
 import com.trackrecord.app.resources.settings_show_covers
 import com.trackrecord.app.resources.settings_show_covers_hint
+import com.trackrecord.app.resources.settings_song_choice
 import com.trackrecord.app.resources.settings_theme
 import com.trackrecord.app.resources.settings_title
 import com.trackrecord.app.resources.settings_updates
 import com.trackrecord.app.resources.settings_version
 import com.trackrecord.app.resources.settings_veto_time
 import com.trackrecord.app.resources.settings_veto_time_hint
+import com.trackrecord.app.resources.settings_year_balance
+import com.trackrecord.app.resources.settings_year_balance_hint
 import com.trackrecord.app.resources.settings_year_preference
 import com.trackrecord.app.resources.update_available_short
 import com.trackrecord.app.resources.update_checking
@@ -109,6 +113,9 @@ import com.trackrecord.app.resources.update_failed
 import com.trackrecord.app.resources.update_install_failed
 import com.trackrecord.app.resources.update_install_version
 import com.trackrecord.app.resources.update_up_to_date
+import com.trackrecord.app.resources.year_balance_gentle_hint
+import com.trackrecord.app.resources.year_balance_off_hint
+import com.trackrecord.app.resources.year_balance_strong_hint
 import com.trackrecord.app.resources.year_preference_lowest
 import com.trackrecord.app.resources.year_preference_lowest_hint
 import com.trackrecord.app.resources.year_preference_musicbrainz
@@ -129,6 +136,7 @@ import com.trackrecord.data.settings.FULL_RADIUS
 import com.trackrecord.data.settings.ThemeChoice
 import com.trackrecord.engine.ClosestYearPreset
 import com.trackrecord.engine.CommonSettings
+import com.trackrecord.engine.YearBalance
 import com.trackrecord.engine.reveal.AutoReveal
 import com.trackrecord.engine.year.YearPreference
 import kotlinx.coroutines.launch
@@ -187,6 +195,26 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
                 Text(stringResource(Res.string.settings_default_preset_hint), style = MaterialTheme.typography.bodySmall)
+            }
+
+            // Only here, not in New game: every game draws its songs this way (YEAR_BALANCE.md).
+            SectionCard(stringResource(Res.string.settings_song_choice), spacing = 4.dp) {
+                Text(stringResource(Res.string.settings_year_balance), style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(Res.string.settings_year_balance_hint), style = MaterialTheme.typography.bodySmall)
+                for (balance in YearBalance.entries) {
+                    Row(
+                        Modifier.fillMaxWidth().selectable(selected = s.yearBalance == balance, role = Role.RadioButton) {
+                            update { it.copy(yearBalance = balance) }
+                        }.padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = s.yearBalance == balance, onClick = null)
+                        Column(Modifier.padding(start = 8.dp)) {
+                            Text(stringResource(balance.label))
+                            Text(stringResource(balance.hint), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
 
             // Playback defaults reuse the game editor; MusicBrainz has its own section (feedback round 12).
@@ -471,6 +499,13 @@ private fun AppearanceSection(s: AppSettings, update: ((AppSettings) -> AppSetti
         }
     }
 }
+
+private val YearBalance.hint: StringResource
+    get() = when (this) {
+        YearBalance.OFF -> Res.string.year_balance_off_hint
+        YearBalance.GENTLE -> Res.string.year_balance_gentle_hint
+        YearBalance.STRONG -> Res.string.year_balance_strong_hint
+    }
 
 private val YearPreference.label: StringResource
     get() = when (this) {

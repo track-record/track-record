@@ -103,6 +103,9 @@ interface FileAccess {
 
     fun openWrite(file: String): OutputStream?
 
+    /** [file]'s size in bytes, or null if it can't be found out. */
+    fun size(file: String): Long?
+
     /** [file]'s name, or null if it can't be found out. */
     fun displayName(file: String): String?
 }

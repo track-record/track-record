@@ -9,6 +9,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
+import java.io.InputStream
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.Executors
@@ -17,6 +18,9 @@ import java.util.concurrent.TimeUnit
 
 /** A static file of the guest page. */
 class Asset(val contentType: String, val bytes: ByteArray)
+
+/** The local song being played, for Wi-Fi guests who want the sound too (feedback round 59). [open] reads it from an offset. */
+class SongFile(val contentType: String, val length: Long, val open: (offset: Long) -> InputStream?)
 
 /** Errors the hub itself reports to a guest (the engine's own rejections come as [RejectReason]). */
 enum class HubError { NO_GAME, PICK_PLAYER, NOT_YOUR_TURN, STALE, BAD_REQUEST, PAUSED, BLOCKED, NOT_HOST }
@@ -55,6 +59,9 @@ interface RemoteHost {
 
     /** A song's album cover as an image, or null. Only asked for public songs. */
     fun cover(songId: Long): Asset?
+
+    /** The song playing now, if [file] is still [ListenInfo.file]'s token for it. */
+    fun songFile(file: String): SongFile? = null
 }
 
 /**
@@ -216,11 +223,12 @@ class RemoteHub(
         if (!keyMatches(request.query["k"])) return Response.text(403, "Forbidden")
         return when ("${request.method} $path") {
             "GET /api/check" -> reply(true)
-            // The host's wall clock, for internet guests' clock sync (SPEC v4).
+            // The host's wall clock, for keeping guests' music in step (SPEC v4).
             "GET /api/time" -> Response.json("""{"now":${System.currentTimeMillis()}}""")
             "GET /api/events" -> events(request.query["c"])
             "GET /api/photo" -> photo(request.query["p"], request.query["v"])
             "GET /api/cover" -> cover(request.query["s"]?.toLongOrNull())
+            "GET /api/song" -> song(request.query["f"])
             "POST /api/claim" -> body(request, ClaimRequest.serializer())?.let(::claim) ?: badRequest()
             "POST /api/release" -> body(request, ClientRequest.serializer())?.let(::release) ?: badRequest()
             "POST /api/action" -> body(request, ActionRequest.serializer())?.let(::action) ?: badRequest()
@@ -250,6 +258,13 @@ class RemoteHub(
         val public = synchronized(lock) { songId != null && songId in publicSongs }
         val asset = if (public && songId != null) host.cover(songId) else null
         return if (asset == null) Response.text(404, "Not found") else Response.Bytes(200, asset.contentType, asset.bytes, cacheable = true)
+    }
+
+    /** The song playing now, for a Wi-Fi guest's player, under the token the views name it by (feedback round 59). */
+    private fun song(file: String?): Response {
+        val current = synchronized(lock) { file != null && !snapshot.paused && snapshot.game?.listen?.file == file }
+        val song = if (current && file != null) host.songFile(file) else null
+        return if (song == null) Response.text(404, "Not found") else Response.File(song.contentType, song.length, song.open)
     }
 
     private fun events(client: String?): Response {
@@ -452,7 +467,7 @@ class RemoteHub(
     private fun deviceKinds(): Map<String, String> = claims.entries.mapNotNull { (client, player) -> devices[client]?.let { player to it } }.toMap()
 
     /** The view for one phone. Call with [lock] held. */
-    private fun viewFor(client: String, internet: Boolean = false): ClientView {
+    private fun viewFor(client: String): ClientView {
         if (client in blocked) return ClientView(theme = snapshot.theme, game = null, me = null, taken = emptyList(), blocked = true)
         val lobby = snapshot.lobby?.takeIf { snapshot.game == null }
         val inGame = (snapshot.game?.state?.players?.map { it.id } ?: lobby?.map { it.id }).orEmpty().toSet()
@@ -469,7 +484,7 @@ class RemoteHub(
             confirmTwice = snapshot.confirmTwice,
             showCovers = snapshot.showCovers,
             tone = claims[client]?.let { me -> snapshot.game?.state?.let { OutcomeTones.forViewer(it, me) } }?.name,
-            listen = if (internet && snapshot.paused.not()) snapshot.game?.listen else null,
+            listen = if (snapshot.paused.not()) snapshot.game?.listen else null,
             pendingPlayer = pendingTakeovers[client],
             deniedPlayer = deniedTakeovers[client],
             coHost = client == coHost?.client,
@@ -492,7 +507,7 @@ class RemoteHub(
     private fun push(stream: SseStream) {
         val text = synchronized(lock) {
             val client = streams[stream] ?: return
-            val text = json.encodeToString(ClientView.serializer(), viewFor(client, stream.internet))
+            val text = json.encodeToString(ClientView.serializer(), viewFor(client))
             if (lastSent[stream] == text) return
             lastSent[stream] = text
             text

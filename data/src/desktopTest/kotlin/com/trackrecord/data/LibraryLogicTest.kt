@@ -77,6 +77,23 @@ class LibraryLogicTest {
         assertTrue(needs(streamed, byName.copy(nameSearched = false)), "settled by its ISRC without a name search, before feedback round 47")
         assertTrue(needs(streamed, byName.copy(lookupVersion = 0)), "only looked up before verification existed")
         assertFalse(needs(streamed, byName.copy(nameSearched = false, fingerprintChecked = true)), "a fingerprint run always searched by name")
+        // Everything "Verify by name" has left, "Verify by fingerprint" has too (feedback round 62).
+        val oldRules = byName.copy(lookupVersion = 3, fingerprintChecked = true)
+        assertTrue(needs(local, oldRules), "fingerprinted under older rules")
+        assertTrue(needs(local, null), "never checked")
+    }
+
+    @Test
+    fun `songs looked up under older rules are counted for the hint to verify again`() {
+        val s = song(1, "u1", tag = 1990)
+        fun old(lookup: MbCacheEntity?) =
+            LibrarySong.assemble(listOf(s), emptyList(), listOf(FolderEntity(1, "tree", "Music")), year, lookups = listOfNotNull(lookup).associateBy { MusicBrainzLookup.keyOf(s) }).single().checkedByOldRules
+        val current = MbCacheEntity(songKey = "k", year = 1990, checkedAt = 0, lookupVersion = MusicBrainzLookup.LOOKUP_VERSION, nameSearched = true)
+        assertFalse(old(null), "never checked: not a re-check")
+        assertFalse(old(current))
+        assertFalse(old(current.copy(lookupVersion = MusicBrainzLookup.LOOKUP_VERSION_FINGERPRINT, fingerprintChecked = true)))
+        assertTrue(old(current.copy(lookupVersion = 3, fingerprintChecked = true)), "before feedback round 61")
+        assertTrue(old(current.copy(nameSearched = false)), "without the name search")
     }
 
     @Test

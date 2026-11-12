@@ -143,6 +143,8 @@ import com.trackrecord.app.resources.web_invalid_link_internet
 import com.trackrecord.app.resources.web_left
 import com.trackrecord.app.resources.web_lobby_text
 import com.trackrecord.app.resources.web_lobby_title
+import com.trackrecord.app.resources.web_local_sound
+import com.trackrecord.app.resources.web_local_sound_hint
 import com.trackrecord.app.resources.web_menu
 import com.trackrecord.app.resources.web_my_cards
 import com.trackrecord.app.resources.web_my_songs
@@ -156,6 +158,8 @@ import com.trackrecord.app.resources.web_pick_title
 import com.trackrecord.app.resources.web_placing
 import com.trackrecord.app.resources.web_reconnecting
 import com.trackrecord.app.resources.web_sound_on
+import com.trackrecord.app.resources.web_sound_turn_off
+import com.trackrecord.app.resources.web_sound_turn_on
 import com.trackrecord.app.resources.web_switch_player
 import com.trackrecord.app.resources.web_taken
 import com.trackrecord.app.resources.web_takeover_confirm
@@ -289,6 +293,10 @@ object WebStrings {
         "web_outdated" to Res.string.web_outdated,
         "web_sound_on" to Res.string.web_sound_on,
         "web_volume" to Res.string.web_volume,
+        "web_sound_turn_on" to Res.string.web_sound_turn_on,
+        "web_sound_turn_off" to Res.string.web_sound_turn_off,
+        "web_local_sound" to Res.string.web_local_sound,
+        "web_local_sound_hint" to Res.string.web_local_sound_hint,
         "web_volume_open" to Res.string.web_volume_open,
         "web_brief_ok" to Res.string.web_brief_ok,
         "web_favorite_add" to Res.string.result_favorite_add,

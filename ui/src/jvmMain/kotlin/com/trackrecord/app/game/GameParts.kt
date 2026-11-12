@@ -29,8 +29,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -400,4 +402,27 @@ fun rememberCover(info: SongInfo?): ImageBitmap? = rememberSongCover(info?.songI
 @Composable
 fun GameSnackbarHost(state: SnackbarHostState) {
     SnackbarHost(state) { data -> Snackbar(data, Modifier.clickable { data.dismiss() }) }
+}
+
+/** A popup about a guest's device (feedback round 60): connected briefly, a [lost] connection longer and in red. */
+class ConnectionVisuals(override val message: String, val lost: Boolean) : SnackbarVisuals {
+    override val actionLabel: String? = null
+    override val withDismissAction = false
+    override val duration = if (lost) SnackbarDuration.Long else SnackbarDuration.Short
+}
+
+/** A lost connection's popup: a mild red, the same in every theme, so it is noticed (feedback round 60). */
+private val LostContainer = Color(0xFFF6CDC9)
+private val OnLost = Color(0xFF5C1712)
+
+/** The popups about guests' devices, at the top of the screen (feedback round 60); a tap dismisses one. */
+@Composable
+fun ConnectionNoticeHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
+    SnackbarHost(state, modifier) { data ->
+        if ((data.visuals as? ConnectionVisuals)?.lost == true) {
+            Snackbar(data, Modifier.clickable { data.dismiss() }, containerColor = LostContainer, contentColor = OnLost)
+        } else {
+            Snackbar(data, Modifier.clickable { data.dismiss() })
+        }
+    }
 }

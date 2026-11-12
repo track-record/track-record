@@ -82,6 +82,8 @@ class DesktopPlatform(private val folder: File, private val chromium: Chromium, 
 
         override fun openWrite(file: String): OutputStream? = runCatching { fileOf(file).outputStream() }.getOrNull()
 
+        override fun size(file: String): Long? = runCatching { fileOf(file).takeIf { it.isFile }?.length() }.getOrNull()
+
         override fun displayName(file: String): String = fileOf(file).name
     }
 

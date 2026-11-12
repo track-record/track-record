@@ -42,6 +42,9 @@ sealed interface Response {
     /** A Server-Sent Events stream: [onOpen] gets the stream once the headers are written. */
     class EventStream(val onOpen: (SseStream) -> Unit) : Response
 
+    /** A file of [length] bytes, served in the ranges a browser's player asks for; [open] reads it from an offset. */
+    class File(val contentType: String, val length: Long, val open: (offset: Long) -> InputStream?) : Response
+
     companion object {
         fun text(status: Int, text: String, contentType: String = "text/plain; charset=utf-8") =
             Bytes(status, contentType, text.toByteArray(Charsets.UTF_8))
@@ -57,9 +60,6 @@ sealed interface Response {
  */
 interface SseStream {
     val isOpen: Boolean
-
-    /** A guest over the internet (SPEC v4): it plays the music itself and gets [ClientView.listen]. */
-    val internet: Boolean get() = false
 
     fun send(data: String, event: String? = null): Boolean
 
@@ -248,11 +248,46 @@ class HttpServer(
             when (response) {
                 is Response.Bytes -> write(output, if (request.method == "HEAD") Response.Bytes(response.status, response.contentType, ByteArray(0)) else response)
                 is Response.EventStream -> stream(connection, input, output, response)
+                is Response.File -> file(connection, request, output, response)
             }
         } catch (_: IOException) {
             // The browser went away mid-request, or the watchdog closed the connection.
         } finally {
             release(connection)
+        }
+    }
+
+    /**
+     * A file or the range asked for. A browser's player may read slowly, so the deadline is per chunk; one that stops
+     * reading (its buffer is full) is cut off, and asks again from where it needs when it goes on.
+     */
+    private fun file(connection: Connection, request: Request, output: OutputStream, response: Response.File) {
+        val range = byteRange(request.headers["range"], response.length)
+        if (range == null) {
+            output.write(head(416, response.contentType, 0, false, listOf("Content-Range: bytes */${response.length}")))
+            return
+        }
+        val input = response.open(range.first)
+        if (input == null) {
+            write(output, Response.text(404, "Not found"))
+            return
+        }
+        input.use {
+            val partial = request.headers.containsKey("range") && range.last - range.first + 1 != response.length
+            val size = range.last - range.first + 1
+            val extra = listOf("Accept-Ranges: bytes") + if (partial) listOf("Content-Range: bytes ${range.first}-${range.last}/${response.length}") else emptyList()
+            output.write(head(if (partial) 206 else 200, response.contentType, size, false, extra))
+            if (request.method == "HEAD") return
+            val buffer = ByteArray(FILE_CHUNK)
+            var left = size
+            while (left > 0) {
+                connection.expireIn(limits.writeTimeoutMs)
+                val n = it.read(buffer, 0, minOf(left, buffer.size.toLong()).toInt())
+                if (n < 0) break
+                output.write(buffer, 0, n)
+                left -= n
+            }
+            output.flush()
         }
     }
 
@@ -419,7 +454,10 @@ class HttpServer(
          * sets colours and positions per element.
          */
         private const val CSP = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
-            "font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+            "font-src 'self'; connect-src 'self'; media-src 'self' https:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+
+        /** How much of a file goes out per write; the write deadline counts from each. */
+        private const val FILE_CHUNK = 64 * 1024
 
         /** "No deadline": far enough ahead to never pass, small enough not to overflow nanoTime arithmetic. */
         private val NO_DEADLINE_NS = TimeUnit.DAYS.toNanos(365)
@@ -478,20 +516,42 @@ class HttpServer(
             s
         }
 
-        private fun write(output: OutputStream, response: Response.Bytes) {
-            val head = buildString {
-                append("HTTP/1.1 ").append(response.status).append(' ').append(reason(response.status)).append("\r\n")
-                append("Content-Type: ").append(response.contentType).append("\r\n")
-                append("Content-Length: ").append(response.body.size).append("\r\n")
-                append(if (response.cacheable) "Cache-Control: max-age=3600\r\n" else "Cache-Control: no-store\r\n")
-                append("X-Content-Type-Options: nosniff\r\n")
-                append("Content-Security-Policy: ").append(CSP).append("\r\n")
-                append("X-Frame-Options: DENY\r\n")
-                append("Referrer-Policy: no-referrer\r\n")
-                append("Connection: close\r\n\r\n")
+        /**
+         * The bytes a Range header asks of a file of [length]: all of it without one (or with a form this server doesn't
+         * do, as several ranges), null if it asks for what isn't there.
+         */
+        internal fun byteRange(header: String?, length: Long): LongRange? {
+            val all = 0L until length
+            val m = header?.let { RANGE.matchEntire(it.trim()) } ?: return all
+            val (first, last) = m.destructured
+            if (first.isEmpty()) {
+                val suffix = last.toLongOrNull() ?: return all
+                return if (suffix == 0L || length == 0L) null else (length - suffix).coerceAtLeast(0) until length
             }
+            val start = first.toLongOrNull() ?: return all
+            if (start >= length) return null
+            val end = last.toLongOrNull()?.coerceAtMost(length - 1) ?: (length - 1)
+            return if (end < start) null else start..end
+        }
+
+        private val RANGE = Regex("""bytes=(\d*)-(\d*)""")
+
+        private fun head(status: Int, contentType: String, length: Long, cacheable: Boolean, extra: List<String> = emptyList()): ByteArray = buildString {
+            append("HTTP/1.1 ").append(status).append(' ').append(reason(status)).append("\r\n")
+            append("Content-Type: ").append(contentType).append("\r\n")
+            append("Content-Length: ").append(length).append("\r\n")
+            extra.forEach { append(it).append("\r\n") }
+            append(if (cacheable) "Cache-Control: max-age=3600\r\n" else "Cache-Control: no-store\r\n")
+            append("X-Content-Type-Options: nosniff\r\n")
+            append("Content-Security-Policy: ").append(CSP).append("\r\n")
+            append("X-Frame-Options: DENY\r\n")
+            append("Referrer-Policy: no-referrer\r\n")
+            append("Connection: close\r\n\r\n")
+        }.toByteArray(Charsets.US_ASCII)
+
+        private fun write(output: OutputStream, response: Response.Bytes) {
             try {
-                output.write(head.toByteArray(Charsets.US_ASCII))
+                output.write(head(response.status, response.contentType, response.body.size.toLong(), response.cacheable))
                 output.write(response.body)
                 output.flush()
             } catch (_: SocketException) {
@@ -500,12 +560,14 @@ class HttpServer(
 
         private fun reason(status: Int) = when (status) {
             200 -> "OK"
+            206 -> "Partial Content"
             400 -> "Bad Request"
             403 -> "Forbidden"
             404 -> "Not Found"
             405 -> "Method Not Allowed"
             409 -> "Conflict"
             413 -> "Payload Too Large"
+            416 -> "Range Not Satisfiable"
             431 -> "Request Header Fields Too Large"
             503 -> "Service Unavailable"
             else -> if (status >= 500) "Internal Server Error" else "Status"

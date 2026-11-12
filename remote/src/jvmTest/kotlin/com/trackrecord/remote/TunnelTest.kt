@@ -127,13 +127,13 @@ class TunnelTest {
     }
 
     @Test
-    fun `only internet guests learn what to play, and they can ask the host's time`() {
+    fun `guests learn what to play, on Wi-Fi too, and they can ask the host's time`() {
         startGame()
         val listen = ListenInfo("preview", "https://cdn.example/preview.mp3", playing = true, positionMs = 1200, atMs = 1000)
         hub.update(HostSnapshot(HostGame(host.state!!, players, emptyMap(), listen = listen), ThemeInfo("LOW_POLY", 4, 4)))
         reply("p1", request("p1", "GET", "/api/events", mapOf("c" to "client-1234")))
         assertEquals(listen, generateSequence { view("p1") }.first { it.listen != null }.listen)
-        // A Wi-Fi guest's stream (not internet) gets no audio to play.
+        // A Wi-Fi guest's stream gets it too: it plays only if that phone turns the sound on (feedback round 59).
         val wifi = java.util.concurrent.LinkedBlockingQueue<String>()
         val stream = object : SseStream {
             override val isOpen = true
@@ -144,7 +144,7 @@ class TunnelTest {
         }
         (hub.handle(Request("GET", "/api/events", mapOf("k" to hub.key, "c" to "wifi-client-1"), emptyMap(), ByteArray(0))) as Response.EventStream).onOpen(stream)
         val wifiView = json.decodeFromString(ClientView.serializer(), wifi.poll(3, TimeUnit.SECONDS)!!)
-        assertEquals(null, wifiView.listen)
+        assertEquals(listen, wifiView.listen)
         val time = reply("p1", request("p1", "GET", "/api/time"))
         assertTrue(Regex(""""now":\d{13}""").containsMatchIn(time.text!!), time.text)
     }

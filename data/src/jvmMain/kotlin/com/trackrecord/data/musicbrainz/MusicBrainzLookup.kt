@@ -435,7 +435,9 @@ class MusicBrainzLookup(
                 releaseGroupId = first?.releaseGroup?.id,
                 lookupVersion = version,
                 viaFingerprint = year != null && earliestYear(fromAudio) == year,
-                fingerprintChecked = w.fingerprinted || hit?.fingerprintChecked == true,
+                // An earlier fingerprint check counts only under the current rules: a song checked by fingerprint under
+                // older ones and redone by name is left for "Verify by fingerprint" again (feedback round 62).
+                fingerprintChecked = w.fingerprinted || (hit?.fingerprintChecked == true && hit.lookupVersion >= LOOKUP_VERSION_FINGERPRINT),
                 nameSearched = searched,
             ),
         )
@@ -444,11 +446,15 @@ class MusicBrainzLookup(
 
     private fun earliestYear(recordings: List<MbRecording>): Int? = recordings.minOfOrNull { it.toCandidate(currentYear()).year!! }
 
-    /** Accepted candidates; [audio] candidates (linked to the song's fingerprint) use the looser names rule (D-076). */
+    /**
+     * Accepted candidates; [audio] candidates (linked to the song's fingerprint) use the looser names rule (D-076). Others
+     * need the same title, and the song's artist among the credited ones: "Kanye West" is part of "Jay‐Z & Kanye
+     * West" (feedback round 61).
+     */
     private fun acceptedOf(recordings: List<MbRecording>, artist: String, title: String, audio: Boolean = false): List<MbRecording> =
         recordings.filter { r ->
             val c = r.toCandidate(currentYear())
-            c.year != null && if (audio) MatchAcceptance.acceptsAudioMatch(artist, title, c) else MatchAcceptance.accepts(artist, title, c)
+            c.year != null && if (audio) MatchAcceptance.acceptsAudioMatch(artist, title, c) else MatchAcceptance.acceptsCredited(artist, title, c)
         }
 
     /**
@@ -518,8 +524,12 @@ class MusicBrainzLookup(
         return found
     }
 
-    /** Whether MusicBrainz was ever asked about this song (a "no match" counts too). */
-    suspend fun checked(song: SongEntity): Boolean = cache.get(keyOf(song)) != null
+    /**
+     * Whether MusicBrainz was asked about this song under the current rules, with the name search (a "no match"
+     * counts too). A result under older rules counts as unchecked, so a game looks the song up again (feedback round 62).
+     */
+    suspend fun checked(song: SongEntity): Boolean =
+        cache.get(keyOf(song))?.let { it.lookupVersion >= LOOKUP_VERSION && it.searchedByName } == true
 
     /** Records that the Cover Art Archive was asked for this song's release. */
     suspend fun markCoverChecked(song: SongEntity) {
@@ -550,18 +560,21 @@ class MusicBrainzLookup(
          */
         const val MAX_FAILURES_IN_ROW = 8
 
-        /** 1 = searches narrowed to earlier releases (feedback round 3). */
-        const val LOOKUP_VERSION = 1
+        /**
+         * 1 = searches narrowed to earlier releases (feedback round 3); 4 = bootlegs left out, and co-credited
+         * artists accepted by name (feedback round 61; above the fingerprint version 3, so those are redone too).
+         */
+        const val LOOKUP_VERSION = 4
 
         /**
          * Also matched by audio fingerprint, only used while fingerprint matching is on: 2 = D-075,
-         * 3 = looser names for audio matches (D-076).
+         * 3 = looser names for audio matches (D-076), 5 = as [LOOKUP_VERSION] 4.
          */
-        const val LOOKUP_VERSION_FINGERPRINT = 3
+        const val LOOKUP_VERSION_FINGERPRINT = 5
 
-        /** The release with the earliest date among the accepted recordings (undated releases last). */
+        /** The release with the earliest date among the accepted recordings (undated releases last; no bootlegs). */
         fun firstRelease(recordings: List<MbRecording>): MbRelease? =
-            recordings.flatMap { it.releases }.filter { it.id.isNotBlank() }.minByOrNull { it.date?.takeIf(String::isNotBlank) ?: "9999" }
+            recordings.flatMap { it.releases }.filter { it.id.isNotBlank() && !it.bootleg }.minByOrNull { it.date?.takeIf(String::isNotBlank) ?: "9999" }
 
         /** Stable across rescans: normalized artist and title plus the tagged ids. */
         fun keyOf(song: SongEntity): String = keyOf(song.artist, song.title, song.mbRecordingId, song.isrc)

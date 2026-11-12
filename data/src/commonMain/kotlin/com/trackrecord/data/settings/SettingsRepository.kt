@@ -11,6 +11,7 @@ import com.trackrecord.engine.GameMode
 import com.trackrecord.engine.GameSettings
 import com.trackrecord.engine.TimelinePreset
 import com.trackrecord.engine.TimelineSettings
+import com.trackrecord.engine.YearBalance
 import com.trackrecord.engine.reveal.AutoReveal
 import com.trackrecord.engine.year.YearPreference
 import kotlinx.coroutines.flow.Flow
@@ -27,6 +28,8 @@ data class AppSettings(
     /** Closest Year preset a fresh setup starts from (feedback round 13); a removed preset reads as Closest (round 36). */
     val defaultClosestPreset: ClosestYearPreset = ClosestYearPreset.CLOSEST,
     val musicBrainzEnabled: Boolean = true,
+    /** How much each game's shuffle evens out the years; Gentle unless changed (YEAR_BALANCE.md). Only set here. */
+    val yearBalance: YearBalance = YearBalance.GENTLE,
     /** Contact email for the MusicBrainz User-Agent; lookups stay off while it is blank. */
     val contactEmail: String = "",
     /** AcoustID application key for fingerprint matching; off while blank (DECISIONS.md D-075). */
@@ -88,6 +91,7 @@ data class AppSettings(
             startOffsetSeconds = startOffsetSeconds,
             clipLimitSeconds = clipLimitSeconds,
             musicBrainzLookups = musicBrainzEnabled,
+            yearBalance = yearBalance,
         ),
     )
 }

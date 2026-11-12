@@ -408,8 +408,8 @@ class GameController(
 
     /**
      * While a round plays, look up the current song and the next 2 in the pool so reveal never waits on
-     * the network, but only songs never checked before (DECISIONS.md D-048, D-064). A result that
-     * arrives after its song's reveal is only cached.
+     * the network, but only songs not checked under the current rules: never, or under older ones (DECISIONS.md
+     * D-048, D-064; feedback round 62). A result that arrives after its song's reveal is only cached.
      */
     private fun prefetch(state: GameState) {
         if (_requests.value.stopped) return

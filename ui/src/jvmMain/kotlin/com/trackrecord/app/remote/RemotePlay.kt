@@ -43,6 +43,7 @@ import com.trackrecord.remote.RemoteHost
 import com.trackrecord.remote.RemoteHub
 import com.trackrecord.remote.RequestsView
 import com.trackrecord.remote.RevealInfo
+import com.trackrecord.remote.SongFile
 import com.trackrecord.remote.SongText
 import com.trackrecord.remote.ThemeInfo
 import com.trackrecord.remote.Tunnel
@@ -53,6 +54,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,7 +67,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import java.io.InputStream
 import java.net.InetAddress
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
@@ -122,6 +126,11 @@ class RemotePlay(
 
     private val _state = MutableStateFlow<RemoteState>(RemoteState.Off)
     val state: StateFlow<RemoteState> = _state.asStateFlow()
+
+    private val notices = ConnectionNotices(scope)
+
+    /** A guest's device connected or lost its connection, for the host's popups (feedback round 60). */
+    val connectionNotices: SharedFlow<ConnectionNotice> get() = notices.events
 
     /**
      * The guest link for the QR code, starting the server if it isn't running. Null when this phone
@@ -200,6 +209,7 @@ class RemotePlay(
         boundAddress = null
         platform.holdNetwork(false)
         remotePlayers.value = emptySet()
+        notices.reset()
         _state.value = RemoteState.Off
     }
 
@@ -237,6 +247,7 @@ class RemotePlay(
             val gone = (_state.value as? RemoteState.On)?.clients?.claimed.orEmpty().keys.filter { clients.claimed[it] != true }
             if (gone.isNotEmpty()) scope.launch(Dispatchers.Main) { gone.forEach { game.setVetoPicking(it, false) } }
             remotePlayers.value = clients.players
+            notices.update(clients.claimed)
             _state.update { (it as? RemoteState.On)?.copy(clients = clients) ?: it }
         }
         hub = newHub
@@ -297,6 +308,9 @@ class RemotePlay(
     private var lastAudioAt = 0L
     @Volatile private var lastAudioUri: String? = null
 
+    /** The local song playing and its token for Wi-Fi guests (feedback round 59): random, so it tells them nothing. */
+    @Volatile private var songToken: Pair<String, String>? = null
+
     /** The player as guests see it, and what internet guests play themselves (SPEC v4). */
     private data class AudioSample(val info: AudioInfo, val listen: ListenInfo?)
 
@@ -321,8 +335,8 @@ class RemotePlay(
     }
 
     /**
-     * What internet guests play (SPEC v4; D-181): a Deezer preview themselves, from its URL, or else
-     * the room's stream of the local file; at the file position, as of the host's wall clock.
+     * What guests play (SPEC v4; D-181): a Deezer preview themselves, from its URL, or else the local file, as the
+     * room's stream over the internet or from this server on Wi-Fi; at the file position, as of the host's wall clock.
      */
     private fun listenOf(a: AudioState, info: AudioInfo): ListenInfo? {
         val uri = a.uri ?: return null
@@ -331,10 +345,18 @@ class RemotePlay(
         return ListenInfo(
             kind = if (preview) "preview" else "stream",
             url = uri.takeIf { preview },
+            file = if (preview) null else tokenOf(uri),
             playing = a.isPlaying,
             positionMs = a.fileStartMs + info.positionMs,
             atMs = System.currentTimeMillis(),
         )
+    }
+
+    private fun tokenOf(uri: String): String {
+        songToken?.takeIf { it.first == uri }?.let { return it.second }
+        val token = UUID.randomUUID().toString()
+        songToken = uri to token
+        return token
     }
 
     private var infoFor: Pair<Any, InfoView>? = null
@@ -462,6 +484,13 @@ class RemotePlay(
             return platform.webAsset(path)?.let { Asset(type, it) }
         }
 
+        override fun songFile(file: String): SongFile? {
+            val uri = songToken?.takeIf { it.second == file }?.first ?: return null
+            val length = platform.files.size(uri) ?: return null
+            val type = AUDIO_TYPES[platform.files.displayName(uri).orEmpty().substringAfterLast('.').lowercase()] ?: "application/octet-stream"
+            return SongFile(type, length) { offset -> platform.files.openRead(uri)?.also { it.skipExactly(offset) } }
+        }
+
         /** Recently sent covers, so re-renders on the guest phones don't re-encode them. */
         private val coverCache = object : LinkedHashMap<Long, Asset>(32, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, Asset>?) = size > 48
@@ -503,6 +532,16 @@ class RemotePlay(
         /** A position this far off what the page expects is a seek or replay. */
         const val JUMP_MS = 1500L
         const val JPEG_QUALITY = 85
+
+        /** The library's formats (FolderScanner), as a guest's browser must be told them. */
+        val AUDIO_TYPES = mapOf(
+            "mp3" to "audio/mpeg",
+            "m4a" to "audio/mp4",
+            "aac" to "audio/aac",
+            "flac" to "audio/flac",
+            "ogg" to "audio/ogg",
+            "opus" to "audio/ogg",
+        )
         val CONTENT_TYPES = mapOf(
             "html" to "text/html; charset=utf-8",
             "js" to "text/javascript; charset=utf-8",
@@ -512,5 +551,13 @@ class RemotePlay(
             "woff2" to "font/woff2",
             "txt" to "text/plain; charset=utf-8",
         )
+    }
+}
+
+private fun InputStream.skipExactly(count: Long) {
+    var left = count
+    while (left > 0) {
+        val skipped = skip(left)
+        if (skipped > 0) left -= skipped else if (read() < 0) return else left--
     }
 }

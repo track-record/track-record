@@ -92,6 +92,10 @@ class AndroidPlatform(context: Context) : PlatformServices {
 
         override fun openWrite(file: String): OutputStream? = runCatching { resolver.openOutputStream(Uri.parse(file), "wt") }.getOrNull()
 
+        override fun size(file: String): Long? = runCatching {
+            resolver.openAssetFileDescriptor(Uri.parse(file), "r")?.use { it.length.takeIf { n -> n >= 0 } }
+        }.getOrNull()
+
         override fun displayName(file: String): String? = runCatching {
             resolver.query(Uri.parse(file), arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull()
