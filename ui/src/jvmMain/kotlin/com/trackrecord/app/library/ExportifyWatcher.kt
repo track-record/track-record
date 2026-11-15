@@ -10,11 +10,11 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 /**
- * Imports Exportify's downloads by themselves (feedback round 32), when the app may read the Download
+ * Imports Exportify's downloads by themselves, when the app may read the Download
  * folder: "All files access" from Android 11 on, the storage permission before. From [start] (Exportify
- * opened) for [WATCH_MS], the folder is checked every [POLL_MS], also while the browser is in front
- * (feedback round 33), and every new Exportify CSV or ZIP is imported once it has finished downloading. Then the
- * watch ends and [import] brings the app back, which closes the browser (feedback round 34). Without the permission nothing happens and the
+ * opened) for [WATCH_MS], the folder is checked every [POLL_MS], also while the browser is in front,
+ * and every new Exportify CSV or ZIP is imported once it has finished downloading. Then the
+ * watch ends and [import] brings the app back, which closes the browser. Without the permission nothing happens and the
  * user opens the file with the app, as before.
  */
 class ExportifyWatcher(
@@ -84,7 +84,7 @@ class ExportifyWatcher(
         /** Watches this long after Exportify opened. */
         const val WATCH_MS = 30 * 60_000L
 
-        /** How often Download is checked meanwhile: about three times a second, so the import starts at once (feedback round 33). */
+        /** How often Download is checked meanwhile: about three times a second, so the import starts at once. */
         const val POLL_MS = 350L
 
         /** File times are coarse on some storage. */

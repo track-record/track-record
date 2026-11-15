@@ -41,7 +41,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Files dropped onto the window open as on Android when they are sent to the app (PLATFORMS.md phase 7): song lists
  * (CSV, text or ZIP) are imported, and a library export goes to Settings. While files are dragged over, a hint shows.
- * Files [opened] with the app (a double-clicked export; feedback round 55) open the same way, the window brought to the
+ * Files [opened] with the app (a double-clicked export) open the same way, the window brought to the
  * front; an empty list only brings it to the front.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)

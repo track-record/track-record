@@ -56,7 +56,7 @@ fun AppNavHost() {
     // A guest's takeover request reaches the host on any screen (D-182).
     TakeoverPrompt()
     // The home screen shows the theme's scene at full strength; the dim follows the destination at once,
-    // not after the home screen's exit animation (feedback round 27).
+    // not after the home screen's exit animation.
     val backdrop = LocalBackdrop.current
     val entry by nav.currentBackStackEntryAsState()
     val onHome = entry?.destination?.hasRoute<HomeRoute>() ?: true

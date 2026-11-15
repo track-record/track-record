@@ -1,8 +1,8 @@
 package com.trackrecord.data.update
 
 import com.trackrecord.data.net.Http
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.trackrecord.data.net.await
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -19,21 +19,23 @@ data class AppRelease(val versionCode: Int, val versionName: String, val pageUrl
 data class ReleasePackage(val name: String, val url: String, val sha256: String?)
 
 /**
- * Asks GitHub for the newest release of the public repo (feedback round 47). Internet play needs the app and
+ * Asks GitHub for the newest release of the public repo. Internet play needs the app and
  * the guest page, which always has the newest version, to speak the same protocol, so an outdated app is told.
  */
 class UpdateChecker(private val repo: String = REPO) {
     private val client by lazy { Http.client.newBuilder().callTimeout(15, TimeUnit.SECONDS).build() }
 
     /** The newest release, or null when GitHub can't be reached or has none. */
-    suspend fun latest(): AppRelease? = withContext(Dispatchers.IO) {
-        runCatching {
-            val request = Request.Builder()
-                .url("https://api.github.com/repos/$repo/releases/latest")
-                .header("Accept", "application/vnd.github+json")
-                .build()
-            client.newCall(request).execute().use { r -> if (r.isSuccessful) parse(r.body.string()) else null }
-        }.getOrNull()
+    suspend fun latest(): AppRelease? = try {
+        val request = Request.Builder()
+            .url("https://api.github.com/repos/$repo/releases/latest")
+            .header("Accept", "application/vnd.github+json")
+            .build()
+        client.newCall(request).await { r -> if (r.isSuccessful) parse(r.body.string()) else null }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     @Serializable

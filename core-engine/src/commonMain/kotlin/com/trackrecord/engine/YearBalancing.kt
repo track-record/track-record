@@ -35,7 +35,8 @@ object YearBalancing {
      * (water-filling). Null when the pool is too small for that: then the shuffle stays plain.
      */
     fun targets(perYear: Map<Int, Int>, perGame: Int, cap: Double): Map<Int, Double>? {
-        if (perYear.isEmpty() || cap * perYear.values.sum() <= perGame) return null
+        // No game estimate (REVIEW-3 C-16): every weight would be 0, and the "shuffle" the songs in id order.
+        if (perYear.isEmpty() || perGame <= 0 || cap * perYear.values.sum() <= perGame) return null
         var low = 0.0
         var high = perYear.values.max().toDouble()
         repeat(60) {

@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The keyboard's shortcuts (PLATFORMS.md phase 7; feedback round 55). */
+/** The keyboard's shortcuts (PLATFORMS.md phase 7). */
 class KeyShortcutsTest {
     private val keys = KeyShortcuts()
     private val pressed = mutableListOf<String>()

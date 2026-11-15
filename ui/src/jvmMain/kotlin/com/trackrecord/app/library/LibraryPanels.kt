@@ -200,7 +200,7 @@ fun PlaylistsCard(
                     },
                 )
             }
-            // Three equal actions, one per row (feedback round 5: the Deezer button looked bigger).
+            // Three equal actions, one per row (the Deezer button looked bigger).
             Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 PlaylistAction(Icons.Default.Add, stringResource(Res.string.playlist_new), enabled = true) { creating = true }
                 PlaylistAction(Icons.Default.Add, stringResource(Res.string.deezer_add), enabled = deezer !is DeezerImportState.Running) { addingDeezer = true }
@@ -375,7 +375,7 @@ fun PlaylistNameDialog(initial: String?, onDismiss: () -> Unit, onConfirm: (Stri
 /**
  * Choose a playlist to add the selection to (or a new one), or to remove it from. With [excluded] (the
  * button's label), "Excluded songs" comes first as a red-outlined button; the playlists follow under
- * [playlistsLabel] (feedback rounds 28, 30, 31).
+ * [playlistsLabel].
  */
 @Composable
 fun PlaylistPickerDialog(
@@ -460,7 +460,7 @@ fun FilterPane(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            // Stats for what the filters currently list (feedback round 5: "besides the filters").
+            // Stats for what the filters currently list ("besides the filters").
             TextButton(onClick = onStats) { Text(stringResource(Res.string.stats_button)) }
             Icon(
                 if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -475,7 +475,7 @@ fun FilterPane(
                 onClick = { onChange { it.copy(status = SongStatus.ALL) } },
                 label = { Text(stringResource(SongStatus.ALL.label)) },
             )
-            // One state at a time, grouped by what it says about the song (feedback round 5).
+            // One state at a time, grouped by what it says about the song.
             for (category in StatusCategory.entries) {
                 Text(stringResource(category.label), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

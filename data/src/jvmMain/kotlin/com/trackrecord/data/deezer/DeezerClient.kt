@@ -109,7 +109,7 @@ class DeezerClient(private val queue: RateLimitedQueue, private val root: String
         private const val QUOTA = 4
         private const val NO_DATA = 800
 
-        /** About 9 requests per second, just under Deezer's documented 50 per 5 seconds (feedback round 19). */
+        /** About 9 requests per second, just under Deezer's documented 50 per 5 seconds. */
         const val SPACING_MS = 110L
     }
 }

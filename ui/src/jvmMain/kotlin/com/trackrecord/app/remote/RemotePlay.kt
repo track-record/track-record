@@ -8,6 +8,7 @@ import com.trackrecord.app.game.ActionSource
 import com.trackrecord.app.game.GameController
 import com.trackrecord.app.game.GameInfo
 import com.trackrecord.app.game.GamePlayer
+import com.trackrecord.app.game.GameRequests
 import com.trackrecord.app.game.GameSession
 import com.trackrecord.app.game.PlayerColors
 import com.trackrecord.app.game.SongInfo
@@ -21,6 +22,7 @@ import com.trackrecord.app.resources.playlist_favorites
 import com.trackrecord.app.resources.web_error_reveal_locked
 import com.trackrecord.app.ui.Texts
 import com.trackrecord.app.ui.components.CoverLoader
+import com.trackrecord.data.musicbrainz.AcoustIdKeyStatus
 import com.trackrecord.data.playlists.PlaylistRepository
 import com.trackrecord.data.settings.AppSettings
 import com.trackrecord.engine.GameAction
@@ -47,6 +49,7 @@ import com.trackrecord.remote.SongFile
 import com.trackrecord.remote.SongText
 import com.trackrecord.remote.ThemeInfo
 import com.trackrecord.remote.Tunnel
+import com.trackrecord.remote.YearDetailsView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -101,10 +104,12 @@ class RemotePlay(
     private val settings: Flow<AppSettings>,
     /** Shared with the game's reveal timer: who plays from a guest phone. */
     private val remotePlayers: MutableStateFlow<Set<String>>,
-    /** The app's covers (MusicBrainz, embedded, Deezer), sent to guests as JPEG (feedback round 12). */
+    /** The app's covers (MusicBrainz, embedded, Deezer), sent to guests as JPEG. */
     private val covers: CoverLoader,
-    /** Favorites, which the host and a co-host fill from the reveal (feedback round 52). */
+    /** Favorites, which the host and a co-host fill from the reveal. */
     private val playlists: PlaylistRepository,
+    /** AcoustID's answer to the key, for a co-host's Look up (D-385). */
+    private val keyStatus: Flow<AcoustIdKeyStatus>,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var server: HttpServer? = null
@@ -129,8 +134,11 @@ class RemotePlay(
 
     private val notices = ConnectionNotices(scope)
 
-    /** A guest's device connected or lost its connection, for the host's popups (feedback round 60). */
+    /** A guest's device connected or lost its connection, for the host's popups. */
     val connectionNotices: SharedFlow<ConnectionNotice> get() = notices.events
+
+    /** Lost connections while no game screen showed them, of players still away (REVIEW-3 B-22). */
+    fun missedConnectionNotices(): List<ConnectionNotice> = notices.takeMissed()
 
     /**
      * The guest link for the QR code, starting the server if it isn't running. Null when this phone
@@ -178,7 +186,7 @@ class RemotePlay(
         return inviteOverInternet()
     }
 
-    /** The kept room with "Keep the same internet link" (made and kept the first time), else a new one (feedback round 50). */
+    /** The kept room with "Keep the same internet link" (made and kept the first time), else a new one. */
     private fun roomIdentity(): RoomIdentity {
         if (!keepLink.value) {
             keptRoom.clear()
@@ -254,10 +262,13 @@ class RemotePlay(
         feed = scope.launch {
             val audio = game.audio.state.map(::audioChange).filterNotNull()
             val sessionOrLobby = combine(game.session, game.lobby) { session, lobby -> session to lobby }
-            val onGameAndRequests = combine(game.hostOnGame, game.requests, playlists.favorites) { onGame, requests, favorites -> Triple(onGame, requests, favorites) }
-            combine(sessionOrLobby, game.revealStatus, settings, audio, onGameAndRequests) { (session, lobby), reveal, app, player, (onGame, requests, favorites) ->
-                // While the host sets up a new game, guests see its players, not an earlier game (feedback round 32).
-                snapshot(session.takeIf { lobby == null }, reveal, app, player, favorites)
+            val yearDetails = combine(game.revealYear, keyStatus, settings) { year, key, app -> year?.let { YearDetailsViews.of(it, key, app) } }
+            val onGameAndRequests = combine(game.hostOnGame, game.requests, playlists.favorites, yearDetails) { onGame, requests, favorites, year ->
+                GameExtras(onGame, requests, favorites, year)
+            }
+            combine(sessionOrLobby, game.revealStatus, settings, audio, onGameAndRequests) { (session, lobby), reveal, app, player, (onGame, requests, favorites, year) ->
+                // While the host sets up a new game, guests see its players, not an earlier game.
+                snapshot(session.takeIf { lobby == null }, reveal, app, player, favorites, year)
                     .copy(
                         paused = !onGame, confirmTwice = app.confirmByTappingTwice, showCovers = app.showCovers, lobby = lobby?.map(::playerInfo),
                         requests = RequestsView(requests.yearsDone, requests.yearsTotal, requests.coversDone, requests.coversTotal, requests.stopped),
@@ -308,7 +319,7 @@ class RemotePlay(
     private var lastAudioAt = 0L
     @Volatile private var lastAudioUri: String? = null
 
-    /** The local song playing and its token for Wi-Fi guests (feedback round 59): random, so it tells them nothing. */
+    /** The local song playing and its token for Wi-Fi guests: random, so it tells them nothing. */
     @Volatile private var songToken: Pair<String, String>? = null
 
     /** The player as guests see it, and what internet guests play themselves (SPEC v4). */
@@ -316,7 +327,7 @@ class RemotePlay(
 
     /**
      * The player for the guests' progress bars, only when it changed in a way the page can't work out
-     * by itself: play/pause, a new clip, or a jump (seek, replay). Null otherwise (feedback round 11).
+     * by itself: play/pause, a new clip, or a jump (seek, replay). Null otherwise.
      */
     private fun audioChange(a: AudioState): AudioSample? {
         val now = monotonicMs()
@@ -361,7 +372,7 @@ class RemotePlay(
 
     private var infoFor: Pair<Any, InfoView>? = null
 
-    /** The info sheet (feedback round 36), worded again only when what it shows changes. */
+    /** The info sheet, worded again only when what it shows changes. */
     private fun info(s: GameSession): InfoView {
         val key = listOf(s.state.mode, s.state.settings, s.state.seats, s.playlistNames)
         infoFor?.takeIf { it.first == key }?.let { return it.second }
@@ -371,7 +382,9 @@ class RemotePlay(
     private var songsFor: Map<Long, SongInfo>? = null
     private var songTexts: Map<Long, SongText> = emptyMap()
 
-    private fun snapshot(session: GameSession?, reveal: RevealStatus?, app: AppSettings, audio: AudioSample, favorites: Set<Long>): HostSnapshot {
+    private data class GameExtras(val onGame: Boolean, val requests: GameRequests, val favorites: Set<Long>, val yearDetails: YearDetailsView?)
+
+    private fun snapshot(session: GameSession?, reveal: RevealStatus?, app: AppSettings, audio: AudioSample, favorites: Set<Long>, yearDetails: YearDetailsView?): HostSnapshot {
         val theme = ThemeInfo(app.theme.name, app.cornerRadiusDp, app.buttonCornerRadiusDp, WebTheme.palettes)
         val game = session?.let { s ->
             HostGame(
@@ -383,6 +396,7 @@ class RemotePlay(
                 listen = audio.listen,
                 info = info(s),
                 favorite = s.state.round?.song?.songId in favorites,
+                yearDetails = yearDetails,
             )
         }
         return HostSnapshot(game, theme)
@@ -457,6 +471,12 @@ class RemotePlay(
                 is HostCommand.Remove -> game.tryDispatch(GameAction.RemovePlayer(command.playerId), ActionSource.REMOTE)
                 HostCommand.StopLookups -> {
                     game.stopRequests()
+                    null
+                }
+                is HostCommand.LookUp -> {
+                    // Only the revealed song, as on the host's year card.
+                    if (state.phase != Phase.REVEALED || state.round?.song?.songId != command.songId) return@runBlocking Texts.get(HubError.NOT_YOUR_TURN.text)
+                    game.lookUp(command.songId)
                     null
                 }
                 is HostCommand.Favorite -> {

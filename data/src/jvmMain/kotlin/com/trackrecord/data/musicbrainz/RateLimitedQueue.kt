@@ -1,10 +1,13 @@
 package com.trackrecord.data.musicbrainz
 
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.io.InterruptedIOException
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
 
 data class HttpResponse(val code: Int, val body: String)
 
@@ -16,6 +19,14 @@ fun interface HttpFetcher {
     suspend fun post(url: String, form: Map<String, String>): HttpResponse = throw UnsupportedOperationException("POST")
 }
 
+/**
+ * Requests made in a coroutine with this element go before the others waiting in a [RateLimitedQueue]: a lookup
+ * someone is waiting for, such as "Look up" in a song's details or at the reveal (D-382).
+ */
+object UrgentRequests : AbstractCoroutineContextElement(Key) {
+    object Key : CoroutineContext.Key<UrgentRequests>
+}
+
 /** A request failed in a way worth retrying later: rate limited, server trouble or a timeout. */
 class ServiceUnavailableException(message: String) : Exception(message)
 
@@ -25,9 +36,9 @@ class ServiceUnavailableException(message: String) : Exception(message)
  * one attempt. A rate limit (HTTP 503/429), server error or timeout throws [ServiceUnavailableException], so
  * the caller can put the work at the end of its queue (DECISIONS.md D-074). Only the starts are spaced: up to
  * [maxInFlight] requests wait for their answers at once, so a slow answer doesn't hold up the next start
- * (feedback round 48; MusicBrainz answers in about a second, at times in seven).
+ * (MusicBrainz answers in about a second, at times in seven).
  *
- * The spacing adapts (feedback rounds 28, 29): it starts at [minIntervalMs], the fastest the service
+ * The spacing adapts: it starts at [minIntervalMs], the fastest the service
  * allows, and only grows once something fails, doubling per failure (2 s, 4 s, 8 s … at most
  * [maxBackoffMs]). It doesn't jump back, since other phones on the same network may share the limit: every
  * [PROBE_AFTER] successes in a row it halves, testing whether a faster pace works again (feedback round 47:
@@ -35,20 +46,27 @@ class ServiceUnavailableException(message: String) : Exception(message)
  * as MusicBrainz refuses now and then under load, and waiting to recover cost more time than the refusals).
  * After [IDLE_RESET_MS] without requests the next run starts at the minimum again. Clock and sleep are
  * injected for tests.
+ *
+ * [UrgentRequests] go first (D-382): they don't wait for a place among the requests in flight, and start next but
+ * for at most one other request already waiting, as the other requests queue for their start one at a time. The
+ * spacing holds for them too.
  */
 class RateLimitedQueue(
     private val fetcher: HttpFetcher,
     private val clock: () -> Long,
     private val sleep: suspend (Long) -> Unit,
     private val minIntervalMs: Long = 1_000,
-    /** At most 10 s between requests, however often they fail (feedback round 47; was 30 s). */
+    /** At most 10 s between requests, however often they fail (was 30 s). */
     private val maxBackoffMs: Long = 10_000,
     /** Requests waiting for their answers at once; 1 makes each wait for the one before. */
     maxInFlight: Int = 3,
 ) {
     private val mutex = Mutex()
 
-    /** Requests under way: the next starts on time without waiting for the answers before it (feedback round 48). */
+    /** The requests that aren't urgent take turns here, so at most one of them waits for [mutex] ahead of an urgent one. */
+    private val ordinary = Mutex()
+
+    /** Requests under way: the next starts on time without waiting for the answers before it. */
     private val inFlight = Semaphore(maxInFlight)
     private var lastStart: Long? = null
     private var intervalMs = minIntervalMs
@@ -64,12 +82,12 @@ class RateLimitedQueue(
 
     suspend fun post(url: String, form: Map<String, String>): HttpResponse = request { fetcher.post(url, form) }
 
-    private suspend fun request(send: suspend () -> HttpResponse): HttpResponse = inFlight.withPermit {
+    private suspend fun request(send: suspend () -> HttpResponse): HttpResponse =
+        if (currentCoroutineContext()[UrgentRequests.Key] != null) attempt(send, urgent = true) else inFlight.withPermit { attempt(send, urgent = false) }
+
+    private suspend fun attempt(send: suspend () -> HttpResponse, urgent: Boolean): HttpResponse {
         // Only the starts are spaced out; the answer is awaited outside the lock.
-        val started = mutex.withLock {
-            waitForSlot()
-            clock().also { lastStart = it }
-        }
+        val started = if (urgent) start() else ordinary.withLock { start() }
         val response = try {
             send()
         } catch (e: InterruptedIOException) {
@@ -87,7 +105,13 @@ class RateLimitedQueue(
                 intervalMs = maxOf(minIntervalMs, intervalMs / 2)
             }
         }
-        response
+        return response
+    }
+
+    /** Waits for the next start (the lock is fair: first come, first served) and returns its time. */
+    private suspend fun start(): Long = mutex.withLock {
+        waitForSlot()
+        clock().also { lastStart = it }
     }
 
     /**

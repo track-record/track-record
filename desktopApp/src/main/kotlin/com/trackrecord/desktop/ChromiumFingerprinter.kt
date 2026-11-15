@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * AcoustID fingerprints on the desktop (feedback round 55): Chromium decodes the song (desktop/decoder.js; AAC through
+ * AcoustID fingerprints on the desktop: Chromium decodes the song (desktop/decoder.js; AAC through
  * [AacToWav]) to mono at Chromaprint's rate, and the Kotlin [Chromaprint] fingerprints the first [seconds], as `fpcalc`
  * and the Android app do. One song at a time: the decoded audio is large.
  */
@@ -34,8 +34,16 @@ class ChromiumFingerprinter(private val chromium: Chromium, private val seconds:
     private val ids = AtomicInteger()
     private val one = Mutex()
 
-    /** The decoder page, opened the first time a song is fingerprinted. */
-    private val port by lazy { PagePort("decoder", ::received).also { chromium.open("desktop/decoder.html", it) } }
+    /**
+     * The decoder page, opened the first time a song is fingerprinted. If it dies, the songs it was decoding fail at once
+     * instead of waiting out [TIMEOUT_MS] (REVIEW-3 B-19), and the next goes to the page opened again.
+     */
+    private val port by lazy {
+        PagePort("decoder", ::received).also { port ->
+            port.onRestart = { pending.values.forEach { it.done.complete(null) } }
+            chromium.open("desktop/decoder.html", port)
+        }
+    }
 
     private class Decoding {
         val parts = StringBuilder()

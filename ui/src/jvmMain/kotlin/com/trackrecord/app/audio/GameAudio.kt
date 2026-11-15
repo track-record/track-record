@@ -68,7 +68,7 @@ interface GameAudio {
     suspend fun playFullSong(title: String, artist: String?)
 
     /**
-     * A new clip length limit for the song loaded now (feedback round 25; D-191): the clip is rebuilt at the same
+     * A new clip length limit for the song loaded now (D-191): the clip is rebuilt at the same
      * position, playing or not as before. The whole song (reveal) only remembers it.
      */
     fun changeClipLimit(clipLimitMs: Long?)

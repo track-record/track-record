@@ -151,7 +151,7 @@ class DesktopAppTest {
         runOnUiThread { assertTrue(keys.press(Key.Enter), "Enter is used") }
         waitUntil(timeoutMillis = 5_000) { container.game.session.value?.state?.phase != Phase.PLACING }
         runOnUiThread { assertTrue(!keys.press(Key.A), "other keys stay unused") }
-        // A veto with the keyboard (feedback round 56): Ben picks, Down marks the first free gap, Enter places it.
+        // A veto with the keyboard: Ben picks, Down marks the first free gap, Enter places it.
         runOnUiThread { onNodeWithText("Ben", substring = true).performClick() }
         waitForIdle()
         keys.release(Key.DirectionDown)
@@ -181,7 +181,7 @@ class DesktopAppTest {
         assertEquals(200, strings.first)
         assertTrue("\"web_connecting\"" in strings.second)
         assertEquals(200, get("$base/app.js", link).first)
-        // A Wi-Fi guest's sound (feedback round 59): the song playing, under its token, from a position.
+        // A Wi-Fi guest's sound: the song playing, under its token, from a position.
         val uri = assertNotNull(container.game.audio.state.value.uri, "a song is loaded")
         val key = URI(link).query.removePrefix("k=")
         var token: String? = null
@@ -197,7 +197,7 @@ class DesktopAppTest {
         assertTrue(from.contentType.startsWith("audio/"), from.contentType)
         assertTrue(file.readBytes().copyOfRange(1000, file.length().toInt()).contentEquals(from.inputStream.readBytes()), "the file from that position")
 
-        // Popups for guests' devices (feedback round 60), on the game (the dropped export opened Settings): Ben's phone
+        // Popups for guests' devices, on the game (the dropped export opened Settings): Ben's phone
         // connects, then its connection is lost.
         runOnUiThread { onNodeWithContentDescription("Back").performClick() }
         waitUntil(timeoutMillis = 5_000) { onAllNodesWithText("Round", substring = true).fetchSemanticsNodes().isNotEmpty() }

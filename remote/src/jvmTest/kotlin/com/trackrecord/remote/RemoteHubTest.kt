@@ -26,15 +26,16 @@ class RemoteHubTest {
     /** Plays the host: applies actions through the engine and hands every new state back to the hub. */
     private inner class FakeHost : RemoteHost {
         var state: GameState? = null
-        /** The players of a game being set up (feedback round 32). */
+        /** The players of a game being set up. */
         var lobby: List<PlayerInfo>? = null
+        var yearDetails: YearDetailsView? = null
 
-        /** The game's lookups and covers, for the co-host (feedback round 48). */
+        /** The game's lookups and covers, for the co-host. */
         var requests: RequestsView? = null
         val declined = mutableListOf<String>()
         lateinit var hub: RemoteHub
 
-        fun publish() = hub.update(HostSnapshot(state?.let { HostGame(it, players, songs) }, ThemeInfo("VINYL", 4, 25), lobby = lobby, requests = requests))
+        fun publish() = hub.update(HostSnapshot(state?.let { HostGame(it, players, songs, yearDetails = yearDetails) }, ThemeInfo("VINYL", 4, 25), lobby = lobby, requests = requests))
 
         override fun dispatch(action: GameAction): RejectReason? =
             when (val r = GameEngine.reduce(state, action)) {
@@ -72,7 +73,7 @@ class RemoteHubTest {
                 is HostCommand.ClipLimit -> GameAction.SetClipLimit(command.seconds)
                 is HostCommand.StartOffset -> GameAction.SetStartOffset(command.seconds)
                 is HostCommand.Remove -> GameAction.RemovePlayer(command.playerId)
-                HostCommand.WholeSong, is HostCommand.Seek, HostCommand.StopLookups, is HostCommand.Favorite -> return null
+                HostCommand.WholeSong, is HostCommand.Seek, HostCommand.StopLookups, is HostCommand.Favorite, is HostCommand.LookUp -> return null
             }
             return dispatch(action)?.let(::rejectText)
         }
@@ -230,7 +231,7 @@ class RemoteHubTest {
         startTimeline()
         val view = stream.latest()
         assertNull(view.lobby)
-        assertEquals("ben", view.me, "the pick carries into the game (feedback round 32)")
+        assertEquals("ben", view.me, "the pick carries into the game")
     }
 
     @Test
@@ -256,6 +257,31 @@ class RemoteHubTest {
 
         hub.disconnect("ben")
         assertEquals(emptyMap(), clients.last().claimed)
+    }
+
+    @Test
+    fun `guests see whether a game is solo`() {
+        // D-380: the page then says jokers and doesn't wait for vetoes.
+        startTimeline()
+        assertFalse(open("phone-0001").latest().game!!.solo)
+        val alone = GameEngine.reduce(
+            null,
+            GameAction.StartGame(GameMode.TIMELINE, listOf("anna"), (1L..5L).map { Card(it, 1970 + it.toInt()) }, GameSettings(), seed = 1, currentYear = 2026),
+        ) as ReduceResult.Accepted
+        host.state = (GameEngine.reduce(alone.state, GameAction.Draw) as ReduceResult.Accepted).state
+        host.publish()
+        assertTrue(open("phone-0002").latest().game!!.solo)
+    }
+
+    @Test
+    fun `only the newest takeover request per player waits for the host`() {
+        // REVIEW-3, on S-14: a guest with the link could line up questions under any number of made-up ids.
+        startTimeline()
+        val ben = open("phone-ben1")
+        assertTrue(claim("phone-ben1", "ben").ok)
+        assertEquals("ben", ben.latest().me)
+        for (i in 1..100) assertTrue(claim("phone-fake$i", "ben", takeover = true).pending)
+        assertEquals(listOf(Takeover("phone-fake100", "ben")), clients.last().takeovers)
     }
 
     @Test
@@ -356,6 +382,24 @@ class RemoteHubTest {
     }
 
     @Test
+    fun `alone, the phone that takes the player is co-host from the start`() {
+        // D-385: a solo game, or a setup with one player, has nobody else to run it.
+        host.lobby = players.take(1)
+        host.publish()
+        open("phone-anna")
+        assertTrue(claim("phone-anna", players.first().id).ok)
+        assertEquals(players.first().id, clients.last().coHost)
+        hub.setCoHost(null)
+        assertNull(clients.last().coHost, "the host can take the controls back")
+
+        host.lobby = players
+        host.publish()
+        hub.disconnect(players.first().id)
+        assertTrue(claim("phone-anna", players.first().id).ok)
+        assertNull(clients.last().coHost, "with more players, only the host gives them")
+    }
+
+    @Test
     fun `a co-host phone gets the host controls, other phones don't`() {
         startTimeline()
         claim("phone-anna", "anna")
@@ -412,6 +456,30 @@ class RemoteHubTest {
         assertTrue(act("phone-ben1", "hostFavorite", version = -1, extraJson = ",\"song\":$song,\"favorite\":true").ok)
         assertEquals(HostCommand.Favorite(song, true), host.commands.last())
         assertFalse(act("phone-ben1", "hostFavorite", version = -1).ok, "names the song and the star")
+    }
+
+    @Test
+    fun `the co-host's year card comes with the reveal, and its Look up reaches the host whatever they saw`() {
+        // D-385: the year card as on the host.
+        startTimeline()
+        claim("phone-anna", "anna")
+        claim("phone-ben1", "ben")
+        hub.setCoHost("ben")
+        val ben = open("phone-ben1")
+        host.dispatch(GameAction.SelectSlot(1))
+        host.dispatch(GameAction.LockIn)
+        host.dispatch(GameAction.Reveal)
+        val version = generateSequence { ben.latest() }.first { it.game?.revealed != null }.game!!.version
+        host.yearDetails = YearDetailsView("1971", verification = "Not verified on MusicBrainz yet", lookUp = true)
+        host.publish()
+        val view = generateSequence { ben.latest() }.first { it.game?.revealed?.details != null }.game!!
+        assertEquals("1971", view.revealed!!.details!!.year)
+        assertEquals(version, view.version, "a Look up finishing doesn't make a year correction stale")
+        val song = host.state!!.round!!.song.songId
+        assertEquals("error:NOT_HOST", act("phone-anna", "hostLookUp", extraJson = ",\"song\":$song").error)
+        assertTrue(act("phone-ben1", "hostLookUp", version = -1, extraJson = ",\"song\":$song").ok)
+        assertEquals(HostCommand.LookUp(song), host.commands.last())
+        assertFalse(act("phone-ben1", "hostLookUp", version = -1).ok, "names the song")
     }
 
     @Test

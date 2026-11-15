@@ -19,7 +19,7 @@ import java.io.File
 import java.util.UUID
 
 /**
- * Players' photos on the desktop (feedback round 55), as ProfilePhotos does on Android: a picture upright and scaled
+ * Players' photos on the desktop, as ProfilePhotos does on Android: a picture upright and scaled
  * down for the crop dialog, and the chosen square saved as a round 256 px PNG in [folder].
  */
 class DesktopPhotos(private val folder: File) {

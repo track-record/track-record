@@ -40,13 +40,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.cef.browser.CefBrowser
 import org.jetbrains.compose.resources.stringResource
 import java.util.Base64
 import org.jetbrains.skia.Image as SkiaImage
 
 /**
- * The webcam for a player's photo (feedback round 55): desktop/camera.js in a hidden browser, opened for as long as
+ * The webcam for a player's photo: desktop/camera.js in a hidden browser, opened for as long as
  * the dialog shows, so the camera is on only then. Its frames come as small JPEGs for the preview; [take] asks for one
  * at full size, which goes to [onPhoto].
  */
@@ -56,12 +55,12 @@ private class CameraSession(private val chromium: Chromium, private val onPhoto:
     private val _failed = MutableStateFlow(false)
     val failed: StateFlow<Boolean> = _failed.asStateFlow()
 
-    private val port = PagePort("camera", ::received)
-    private val browser: CefBrowser = chromium.open("desktop/camera.html", port)
+    // A page opened again after a crash starts the camera again by itself.
+    private val port = PagePort("camera", ::received).also { chromium.open("desktop/camera.html", it) }
 
     fun take() = port.send("""{"t":"take"}""")
 
-    fun close() = chromium.close(browser)
+    fun close() = chromium.close(port)
 
     private fun received(text: String) {
         val m = runCatching { Json.parseToJsonElement(text) as JsonObject }.getOrNull() ?: return

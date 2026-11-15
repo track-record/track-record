@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** The host's popups about guests' devices (feedback round 60). */
+/** The host's popups about guests' devices. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConnectionNoticesTest {
     private val grace = ConnectionNotices.LOST_GRACE_MS
@@ -36,6 +36,19 @@ class ConnectionNoticesTest {
         notices.update(mapOf("anna" to true, "ben" to false))
         assertEquals(ConnectionNotice("anna", true), seen.last(), "back after a lost connection")
         assertEquals(3, seen.size)
+    }
+
+    @Test
+    fun `a lost connection nobody was shown is kept until the player is back`() = runTest {
+        // REVIEW-3 B-22: while the host was on another screen, the popup went nowhere.
+        val notices = ConnectionNotices(backgroundScope)
+        notices.update(mapOf("anna" to true, "ben" to true))
+        notices.update(mapOf("anna" to false, "ben" to false))
+        advanceTimeBy(grace + 1)
+        runCurrent()
+        notices.update(mapOf("anna" to false, "ben" to true))
+        assertEquals(listOf(ConnectionNotice("anna", false)), notices.takeMissed(), "Ben is back")
+        assertEquals(emptyList(), notices.takeMissed(), "handed out once")
     }
 
     @Test

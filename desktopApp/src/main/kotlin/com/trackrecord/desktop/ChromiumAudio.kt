@@ -24,14 +24,32 @@ import java.net.URI
 /** What player.js reports. */
 private data class PageState(val loaded: Boolean, val playing: Boolean, val ended: Boolean, val positionMs: Long, val clipDurationMs: Long, val error: Boolean)
 
-/** One hidden player page (desktop/player.js): commands out, its state back. */
-private class PlayerPage(private val chromium: Chromium, name: String, volume: Double, private val onState: (PageState) -> Unit) {
+/**
+ * One hidden player page (desktop/player.js): commands out, its state back. If the page dies, it opens again with its
+ * volume, and [onRestart] lets its owner load the song again (REVIEW-3 B-19).
+ */
+private class PlayerPage(
+    private val chromium: Chromium,
+    name: String,
+    private val volume: Double,
+    private val onRestart: () -> Unit = {},
+    private val onState: (PageState) -> Unit,
+) {
     private val port = PagePort(name) { text -> received(text) }
 
+    /** The address the page plays now, taken back when the next song loads (REVIEW-3 P-08). */
+    private var published: String? = null
+
     init {
+        port.onRestart = {
+            setUp()
+            onRestart()
+        }
         chromium.open("desktop/player.html", port)
-        send("volume") { put("v", volume) }
+        setUp()
     }
+
+    private fun setUp() = send("volume") { put("v", volume) }
 
     fun send(type: String, fill: JsonObjectBuilder.() -> Unit = {}) = port.send(
         buildJsonObject {
@@ -41,7 +59,13 @@ private class PlayerPage(private val chromium: Chromium, name: String, volume: D
     )
 
     /** A local file (file: URI) is served to the page at an address of its own; preview URLs as they are. */
-    fun source(uri: String): String = if (uri.startsWith("file:")) chromium.publish(File(URI(uri))) else uri
+    @Synchronized
+    fun source(uri: String): String {
+        published?.let(chromium::unpublish)
+        published = null
+        if (!uri.startsWith("file:")) return uri
+        return chromium.publish(File(URI(uri))).also { published = it }
+    }
 
     private fun received(text: String) {
         val m = runCatching { Json.parseToJsonElement(text) as JsonObject }.getOrNull() ?: return
@@ -70,7 +94,7 @@ class ChromiumAudio(chromium: Chromium, volume: Double) : GameAudio {
     override val state: StateFlow<AudioState> = _state.asStateFlow()
     private var lastRequest: TrackRequest? = null
     private var fullSong = false
-    private val page = PlayerPage(chromium, "game-audio", volume) { s ->
+    private val page = PlayerPage(chromium, "game-audio", volume, onRestart = ::reload) { s ->
         val request = lastRequest
         _state.value = AudioState(
             connected = true,
@@ -98,6 +122,22 @@ class ChromiumAudio(chromium: Chromium, volume: Double) : GameAudio {
             put("startMs", window.startMs)
             window.endMs?.let { put("endMs", it) } ?: put("endMs", JsonNull)
             put("play", request.autoPlay)
+        }
+    }
+
+    /**
+     * The player page opened again after it died (REVIEW-3 B-19): the song is loaded again, paused at its start, so the
+     * host can play on instead of the music staying silent for the rest of the session.
+     */
+    private fun reload() {
+        val request = lastRequest ?: return
+        _state.value = AudioState(connected = true, uri = request.uri)
+        val window = if (fullSong) null else ClipPlanner.window(request.startOffsetMs, request.clipLimitMs, request.durationMs)
+        page.send("load") {
+            put("src", page.source(request.uri))
+            put("startMs", window?.startMs ?: 0)
+            window?.endMs?.let { put("endMs", it) } ?: put("endMs", JsonNull)
+            put("play", false)
         }
     }
 

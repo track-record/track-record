@@ -7,7 +7,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 
 // Light and Dark. Fixed colours instead of the wallpaper's (Material You), so every phone and every
-// guest page shows the same (Felix, DESIGN-REVIEW TH-01; D-277): the ones Felix's phone gave the app on
+// guest page shows the same (DESIGN-REVIEW TH-01; D-277): the ones the developer's phone gave the app on
 // 2026-10-26, read with the instrumented DynamicColorsDump.
 
 private val LightColors: ColorScheme = lightColorScheme(

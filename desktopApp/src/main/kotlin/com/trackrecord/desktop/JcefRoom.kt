@@ -10,7 +10,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import org.cef.browser.CefBrowser
 import java.io.File
 import java.net.URI
 import java.security.MessageDigest
@@ -32,8 +31,8 @@ class JcefRoom(
     private val key = identity.key
     override val link: String = "${AppConfig.current.guestPage}#n.$roomId.$secret.${keyId(key.public.encoded)}"
 
-    private var browser: CefBrowser? = null
-    private val port = PagePort("room") { text -> received(text) }
+    private var opened = false
+    private val port = PagePort("room") { text -> received(text) }.apply { onRestart = ::rejoin }
     private val peers = HashSet<String>()
     private var song: String? = null
     private var songUrl: String? = null
@@ -41,24 +40,43 @@ class JcefRoom(
 
     @Synchronized
     override fun open() {
-        if (browser != null) return
-        browser = chromium.open("desktop/room.html", port)
+        if (opened) return
+        opened = true
+        chromium.open("desktop/room.html", port)
+        port.send(join())
+    }
+
+    private fun join(): String {
         val b64 = Base64.getEncoder()
-        port.send(
-            buildJsonObject {
-                put("t", "join")
-                put("room", roomId)
-                put("secret", secret)
-                put("key", b64.encodeToString(key.private.encoded))
-                put("pub", b64.encodeToString(key.public.encoded))
-            }.toString(),
-        )
+        return buildJsonObject {
+            put("t", "join")
+            put("room", roomId)
+            put("secret", secret)
+            put("key", b64.encodeToString(key.private.encoded))
+            put("pub", b64.encodeToString(key.public.encoded))
+        }.toString()
+    }
+
+    /**
+     * The room's page died and opens again (REVIEW-3 B-19; as on Android, D-263): its guests are let go, and the new page
+     * joins the same room with the same secret and key, where their pages find it again by themselves.
+     */
+    private fun rejoin() {
+        val gone = synchronized(peers) { peers.toList().also { peers.clear() } }
+        gone.forEach(onLeave)
+        synchronized(this) {
+            if (!opened) return
+            port.send(join())
+            lastFollow?.let(port::send)
+        }
     }
 
     @Synchronized
     override fun follow(listen: ListenInfo?, uri: String?) {
         val stream = listen?.takeIf { it.kind == "stream" && uri != null && uri.startsWith("file:") }
         if (stream != null && uri != song) {
+            // The previous song's address is taken back (REVIEW-3 P-08).
+            songUrl?.let(chromium::unpublish)
             song = uri
             songUrl = chromium.publish(File(URI(uri!!)))
         }
@@ -89,8 +107,12 @@ class JcefRoom(
     @Synchronized
     override fun close() {
         port.send(buildJsonObject { put("t", "leave") }.toString())
-        browser?.let(chromium::close)
-        browser = null
+        chromium.close(port)
+        opened = false
+        songUrl?.let(chromium::unpublish)
+        song = null
+        songUrl = null
+        lastFollow = null
         val gone = synchronized(peers) { peers.toList().also { peers.clear() } }
         gone.forEach(onLeave)
     }

@@ -1,7 +1,7 @@
 """Publishes the internet play guest page (web/remote, SPEC v4) as the organization site of the
-"track-record" GitHub organization, served by GitHub Pages at https://track-record.github.io/ (feedback round 28).
+"track-record" GitHub organization, served by GitHub Pages at https://track-record.github.io/.
 With --dev it goes to https://track-record.github.io/dev/ instead, the page debug builds invite to, so a changed page
-can be tried without a release (feedback round 47). Signs in through Git Credential Manager (Felix confirms in its window / the browser);
+can be tried without a release. Signs in through Git Credential Manager (confirmed in its window or the browser);
 the token stays in memory and in GCM's own store, never in a file or the output.
 Run from anywhere; publishes the files listed in FILES.
 Usage: publish_pages.py <project-root> <work-dir> [--dev]"""

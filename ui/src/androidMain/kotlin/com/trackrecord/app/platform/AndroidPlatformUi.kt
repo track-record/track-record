@@ -57,7 +57,7 @@ class AndroidPlatformUi(private val context: Context) : PlatformUi {
     @Composable
     override fun rememberListPicker(onPicked: (file: String) -> Unit): () -> Unit {
         val launcher = rememberLauncherForActivityResult(OpenInDownloads()) { uri: Uri? -> uri?.let { onPicked(it.toString()) } }
-        // Only CSV files in the picker (feedback round 20); text lists and Exportify's ZIP still import when opened
+        // Only CSV files in the picker; text lists and Exportify's ZIP still import when opened
         // from a file manager or the download message.
         return { launcher.launch(LIST_TYPES) }
     }
@@ -106,7 +106,7 @@ class AndroidPlatformUi(private val context: Context) : PlatformUi {
 
     override val photoButtons: @Composable (onPhoto: (path: String) -> Unit) -> Unit = { onPhoto ->
         val scope = rememberCoroutineScope()
-        // A new photo first goes through the crop dialog (feedback round 16).
+        // A new photo first goes through the crop dialog.
         var cropping by remember { mutableStateOf<Bitmap?>(null) }
         val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
             if (bitmap != null) cropping = bitmap
@@ -133,7 +133,7 @@ class AndroidPlatformUi(private val context: Context) : PlatformUi {
 
     /**
      * Opens the picker in "Downloads" (the downloads provider, as in the picker's menu), which lists files of the
-     * accepted types first, rather than the storage folder Download, which lists everything mixed (feedback round 20).
+     * accepted types first, rather than the storage folder Download, which lists everything mixed.
      */
     private class OpenInDownloads : ActivityResultContracts.OpenDocument() {
         override fun createIntent(context: Context, input: Array<String>): Intent =

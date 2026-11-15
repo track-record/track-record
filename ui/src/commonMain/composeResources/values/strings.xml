@@ -34,7 +34,7 @@
     <string name="library_search">Search title, artist, album</string>
     <string name="library_empty">No songs yet.</string>
     <string name="library_no_matches">No songs match.</string>
-    <!-- The library's info sheet (feedback round 45) -->
+    <!-- The library's info sheet -->
     <string name="library_info_title">How the library works</string>
     <string name="library_info_hint">Tap the info button at the top to read this again.</string>
     <string name="library_info_files">Your own music files</string>
@@ -170,6 +170,8 @@
     <string name="song_verified_fingerprint">Verified on MusicBrainz by fingerprint</string>
     <string name="song_checked_name_no_match">Checked on MusicBrainz by name: no match</string>
     <string name="song_checked_fingerprint_no_match">Checked on MusicBrainz by fingerprint: no match</string>
+    <string name="song_verified_old_version">Verified on MusicBrainz under an older version of the lookup</string>
+    <string name="song_checked_old_version_no_match">Checked on MusicBrainz under an older version of the lookup: no match</string>
     <string name="excluded_add">Add to excluded songs</string>
     <string name="excluded_remove">Remove from excluded songs</string>
     <string name="add_to_playlist">Add to a playlist</string>
@@ -279,7 +281,7 @@
     <string name="covers_start">Load cover art</string>
     <string name="covers_progress">Loading covers: %1$d of %2$d · %3$d found</string>
     <string name="covers_done">Found covers for %1$d of %2$d songs.</string>
-    <!-- Updates (feedback round 47) -->
+    <!-- Updates -->
     <string name="update_title">Update available</string>
     <string name="update_text">Track Record %1$s is out; you have %2$s. Please update: playing over the internet only works when the app matches the guest page, which is always the newest version.</string>
     <string name="update_download">Download</string>
@@ -287,6 +289,7 @@
     <string name="update_install">Update</string>
     <string name="update_downloading">Downloading the update…</string>
     <string name="update_install_failed">The update couldn't be downloaded. Try again later.</string>
+    <string name="update_not_installed">The last update couldn't be installed, so this is still the old version. Try again, or download the update from its release page.</string>
     <!-- Backup and move: library export and import (PLATFORMS.md section 5) -->
     <string name="settings_backup">Backup and move</string>
     <string name="settings_backup_hint">Your playlists, streamed songs, year corrections, MusicBrainz results, players and settings in one file: keep it as a backup, or open it on another phone or a PC. Music files aren't included; the other device finds its own.</string>

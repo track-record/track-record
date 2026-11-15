@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.map
 
 /** Playlists the app provides itself; they are never stored and can't be edited. */
 object BuiltInPlaylists {
-    /** Every local file (feedback round 5). Songs carry it in their playlist ids, so pools and filters just work. */
+    /** Every local file. Songs carry it in their playlist ids, so pools and filters just work. */
     const val LOCAL_FILES = -2L
 
-    /** Every streamed (Deezer) song, from playlists and imported lists alike (feedback round 10). */
+    /** Every streamed (Deezer) song, from playlists and imported lists alike. */
     const val STREAMED = -3L
 
     /**
-     * "Excluded songs" (feedback round 28): stored like a playlist (kind EXCLUDED) and reached through this
+     * "Excluded songs": stored like a playlist (kind EXCLUDED) and reached through this
      * id, so filters and pools treat it like the other built-ins. Never listed with the user's playlists.
      */
     const val EXCLUDED = -4L
@@ -55,7 +55,7 @@ class PlaylistRepository(private val db: AppDatabase, private val clock: () -> L
         songIds.chunked(500).forEach { db.playlists().removeSongs(id, it) }
     }
 
-    /** The songs starred on a reveal (feedback round 52). */
+    /** The songs starred on a reveal. */
     val favorites: Flow<Set<Long>> = db.playlists().observeFavorites().map { it.toSet() }
 
     /** Stars or unstars [songId]; the Favorites playlist is created as [name] when there is none (any more). */

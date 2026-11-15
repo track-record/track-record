@@ -20,10 +20,14 @@ import com.trackrecord.data.settings.SettingsRepository
 import com.trackrecord.data.sources.AudioRef
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FilterInputStream
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
@@ -61,9 +65,13 @@ class LibraryBackup(
     private val photoFolder: File,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false }
+    // Unknown values (a theme or preset of a newer version) fall back to their defaults, as in SettingsRepository.
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = false; coerceInputValues = true }
 
-    /** Writes the library to [out]; [onProgress] gets done and total steps. */
+    /**
+     * Writes the library to [out]; [onProgress] gets done and total steps. The settings go without the contact address
+     * and the AcoustID key typed in Settings: an export is made to be passed on (REVIEW-3 S-18).
+     */
     suspend fun export(out: OutputStream, source: BackupSource, withSettings: Boolean, onProgress: (Int, Int) -> Unit = { _, _ -> }) {
         val total = 4
         onProgress(0, total)
@@ -112,7 +120,7 @@ class LibraryBackup(
             years = years,
             lookups = db.mbCache().getAll().map(BackupLookup::from),
             players = players,
-            settings = if (withSettings) json.encodeToString(AppSettings.serializer(), settings.current()) else null,
+            settings = if (withSettings) json.encodeToString(AppSettings.serializer(), settings.current().copy(contactEmail = "", acoustIdKey = "")) else null,
         )
         val manifest = BackupManifest(FORMAT, source.appVersion, clock(), source.device)
         ZipOutputStream(out).use { zip ->
@@ -183,10 +191,11 @@ class LibraryBackup(
                     step()
                 }
 
-                // MusicBrainz results, by song key; the newer one wins.
+                // MusicBrainz results, by song key: the one under newer rules wins, then the newer one (REVIEW-3 B-24).
                 for (l in library.lookups) {
                     val here = db.mbCache().get(l.songKey)
-                    if (here == null || here.checkedAt < l.checkedAt) db.mbCache().put(l.toEntity())
+                    val theirs = l.toEntity()
+                    if (here == null || LOOKUP_ORDER.compare(theirs, here) > 0) db.mbCache().put(theirs)
                     step()
                 }
 
@@ -211,8 +220,9 @@ class LibraryBackup(
             written.forEach { it.delete() }
             throw e
         }
+        // Within the allowed ranges, and this device keeps its own contact address and AcoustID key (REVIEW-3 S-18, S-19).
         val imported = library.settings?.takeIf { withSettings }?.let { runCatching { json.decodeFromString(AppSettings.serializer(), it) }.getOrNull() }
-        if (imported != null) settings.update { imported }
+        if (imported != null) settings.update { mine -> imported.sanitized().copy(contactEmail = mine.contactEmail, acoustIdKey = mine.acoustIdKey) }
         onProgress(total, total)
         return summary.copy(settings = imported != null)
     }
@@ -229,7 +239,7 @@ class LibraryBackup(
                 val entry = zip.nextEntry ?: break
                 when {
                     entry.name == MANIFEST -> manifest = runCatching { json.decodeFromString(BackupManifest.serializer(), zip.readLimited(MAX_JSON).decodeToString()) }.getOrNull()
-                    entry.name == LIBRARY -> library = json.decodeFromString(BackupLibrary.serializer(), zip.readLimited(MAX_JSON).decodeToString())
+                    entry.name == LIBRARY -> library = decodeLibrary(zip)
                     PHOTO.matches(entry.name) && photos.size < MAX_PHOTOS -> photos[entry.name] = zip.readLimited(MAX_PHOTO)
                 }
             }
@@ -237,6 +247,35 @@ class LibraryBackup(
         val m = manifest ?: throw BackupFormatException("no manifest")
         if (m.format > FORMAT) throw BackupFormatException("format ${m.format} is newer than $FORMAT")
         return (library ?: throw BackupFormatException("no library")) to photos
+    }
+
+    /**
+     * The library entry, decoded as it is read (no copy of it in memory first), at most [MAX_JSON] bytes. A file that
+     * isn't a library's is "not an export", not a failed import (REVIEW-3 S-19, B-24).
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun decodeLibrary(zip: ZipInputStream): BackupLibrary = try {
+        json.decodeFromStream(BackupLibrary.serializer(), Limited(zip, MAX_JSON.toLong()))
+    } catch (e: SerializationException) {
+        throw BackupFormatException("library.json can't be read: ${e.message?.take(100)}")
+    } catch (e: IllegalArgumentException) {
+        throw BackupFormatException("library.json can't be read: ${e.message?.take(100)}")
+    }
+
+    /** Reads at most [max] bytes of [input] (a file from elsewhere could claim anything), never closing it. */
+    private class Limited(input: InputStream, private val max: Long) : FilterInputStream(input) {
+        private var count = 0L
+
+        override fun read(): Int = super.read().also { if (it >= 0) counted(1) }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) counted(it) }
+
+        private fun counted(n: Int) {
+            count += n
+            if (count > max) throw BackupFormatException("an entry is too large")
+        }
+
+        override fun close() = Unit
     }
 
     /** Writes a photo into the photo folder if it's a PNG or JPEG; returns its path. */
@@ -262,12 +301,16 @@ class LibraryBackup(
         private const val MANIFEST = "manifest.json"
         private const val LIBRARY = "library.json"
         private val PHOTO = Regex("""photos/\d{1,6}\.(png|jpg)""")
-        private const val MAX_JSON = 256 * 1024 * 1024
+        /** Far more than a library of tens of thousands of songs with years of statistics needs. */
+        private const val MAX_JSON = 64 * 1024 * 1024
         private const val MAX_PHOTO = 8 * 1024 * 1024
         private const val MAX_PHOTOS = 1000
         private const val PROGRESS_STEP = 50
 
         private fun keyOf(song: SongEntity) = LibrarySong.matchKey(song.artist, song.title, song.durationMs)
+
+        /** Which of two MusicBrainz results for a song counts: newer rules, then with the name search, then newer. */
+        private val LOOKUP_ORDER = compareBy<MbCacheEntity>({ it.lookupVersion }, { it.nameSearched || it.fingerprintChecked }, { it.checkedAt })
 
         private fun ZipOutputStream.put(name: String, bytes: ByteArray) {
             putNextEntry(ZipEntry(name))

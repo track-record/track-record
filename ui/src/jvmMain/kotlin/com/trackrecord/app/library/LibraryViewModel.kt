@@ -34,7 +34,7 @@ data class LibraryUiState(
     val totalSongs: Int = 0,
     val playableSongs: Int = 0,
     val missingYearSongs: Int = 0,
-    /** Playable songs looked up under older rules, for the hint to verify again (feedback round 62). */
+    /** Playable songs looked up under older rules, for the hint to verify again. */
     val outdatedSongs: Int = 0,
     val query: LibraryQuery = LibraryQuery(),
     val scan: ScanState = ScanState.Idle,
@@ -47,7 +47,7 @@ data class LibraryUiState(
     val selection: Set<Long> = emptySet(),
     /** Playlists holding at least one selected song ("Remove from" offers only these). */
     val selectionPlaylists: List<PlaylistWithCount> = emptyList(),
-    /** A selected song is on "Excluded songs" (feedback round 28). */
+    /** A selected song is on "Excluded songs". */
     val selectionExcluded: Boolean = false,
 ) {
     val selecting: Boolean get() = selection.isNotEmpty()
@@ -93,7 +93,7 @@ class LibraryViewModel(
             selectionExcluded = BuiltInPlaylists.EXCLUDED in onSelected,
         )
     }
-        // Filtering thousands of songs on every keystroke or tap: not on the main thread (feedback round 29).
+        // Filtering thousands of songs on every keystroke or tap: not on the main thread.
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
 

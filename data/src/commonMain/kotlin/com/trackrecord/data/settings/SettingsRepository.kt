@@ -23,9 +23,9 @@ import kotlinx.serialization.json.Json
 /** App-wide defaults from the Settings screen. */
 @Serializable
 data class AppSettings(
-    /** Preset a fresh setup starts from: Classic unless changed in Settings (feedback round 46). */
+    /** Preset a fresh setup starts from: Classic unless changed in Settings. */
     val defaultPreset: TimelinePreset = TimelinePreset.CLASSIC,
-    /** Closest Year preset a fresh setup starts from (feedback round 13); a removed preset reads as Closest (round 36). */
+    /** Closest Year preset a fresh setup starts from; a removed preset reads as Closest (round 36). */
     val defaultClosestPreset: ClosestYearPreset = ClosestYearPreset.CLOSEST,
     val musicBrainzEnabled: Boolean = true,
     /** How much each game's shuffle evens out the years; Gentle unless changed (YEAR_BALANCE.md). Only set here. */
@@ -36,15 +36,15 @@ data class AppSettings(
     val acoustIdKey: String = "",
     val autoPlay: Boolean = true,
     val startOffsetSeconds: Int = 0,
-    /** 20 s unless changed (feedback round 48). */
+    /** 20 s unless changed. */
     val clipLimitSeconds: Int? = DEFAULT_CLIP_LIMIT_S,
     /** Download the first release's cover from the Cover Art Archive for MusicBrainz matches. */
     val loadCovers: Boolean = true,
-    /** Show covers at all (reveal, timeline cards, song details); off = plain colours (feedback round 6). */
+    /** Show covers at all (reveal, timeline cards, song details); off = plain colours. */
     val showCovers: Boolean = true,
     /** Language tag; only "en" in v1. */
     val language: String = "en",
-    /** App look (feedback round 6). */
+    /** App look. */
     val theme: ThemeChoice = ThemeChoice.LOW_POLY,
     /** Corner radius of buttons, cards, dialogs, fields (internal setting); 4 dp like the search box. */
     val cornerRadiusDp: Int = 4,
@@ -57,27 +57,27 @@ data class AppSettings(
      * A new name in feedback round 32, so the new default of 10 s applies.
      */
     val minVetoTimeSeconds: Int = 10,
-    /** Auto-reveal despite outstanding remote vetoes, after [minVetoTimeSeconds] (feedback round 32). */
+    /** Auto-reveal despite outstanding remote vetoes, after [minVetoTimeSeconds]. */
     val autoRevealDespiteRemote: Boolean = false,
-    /** Auto-reveal also in Song Order games where everyone may call out song and artist (feedback round 50). */
+    /** Auto-reveal also in Song Order games where everyone may call out song and artist. */
     val autoRevealWhenAllName: Boolean = false,
-    /** Internet players keep one link for every game, also after a restart (feedback round 50). */
+    /** Internet players keep one link for every game, also after a restart. */
     val keepInternetLink: Boolean = false,
     /**
-     * Tapping the chosen gap again locks in or places the veto (feedback round 11). The host's choice
+     * Tapping the chosen gap again locks in or places the veto. The host's choice
      * is the guests' default; each guest phone can change it.
      */
     val confirmByTappingTwice: Boolean = false,
     /**
-     * Which year counts when the tags and MusicBrainz disagree (feedback round 28). A new name in
+     * Which year counts when the tags and MusicBrainz disagree. A new name in
      * feedback round 32, so the default goes back to MusicBrainz.
      */
     val sourcesDisagree: YearPreference = YearPreference.MUSICBRAINZ,
-    /** Rules the user saved under a name in New game (feedback round 27). */
+    /** Rules the user saved under a name in New game. */
     val customPresets: List<CustomPreset> = emptyList(),
-    /** The library's explanation was shown once; it opens by itself on the first visit (feedback round 45). */
+    /** The library's explanation was shown once; it opens by itself on the first visit. */
     val libraryInfoSeen: Boolean = false,
-    /** Ask GitHub for a newer release at start (feedback round 47). */
+    /** Ask GitHub for a newer release at start. */
     val checkForUpdates: Boolean = true,
     /** The invite sheet explained Windows' firewall prompt once (PLATFORMS.md phase 7). */
     val networkAccessHintSeen: Boolean = false,
@@ -94,9 +94,24 @@ data class AppSettings(
             yearBalance = yearBalance,
         ),
     )
+
+    /**
+     * Within what Settings and New game allow, for settings from elsewhere (a library import; REVIEW-3 S-19): numbers
+     * are moved into their ranges, and saved rules that New game would refuse are left out.
+     */
+    fun sanitized(): AppSettings = copy(
+        startOffsetSeconds = startOffsetSeconds.coerceIn(0, MAX_START_OFFSET_S),
+        clipLimitSeconds = clipLimitSeconds?.coerceIn(MIN_CLIP_LIMIT_S, MAX_CLIP_LIMIT_S),
+        minVetoTimeSeconds = minVetoTimeSeconds.coerceIn(0, MAX_VETO_TIME_S),
+        cornerRadiusDp = cornerRadiusDp.coerceIn(0, MAX_CORNER_RADIUS),
+        buttonCornerRadiusDp = buttonCornerRadiusDp.coerceIn(0, FULL_RADIUS),
+        customPresets = customPresets.filter { p ->
+            (p.timeline == null) != (p.closestYear == null) && p.timeline?.validate().isNullOrEmpty() && p.closestYear?.validate().isNullOrEmpty()
+        },
+    )
 }
 
-/** Rules saved under a name (feedback round 27): Timeline rules or Closest Year rules, never both. */
+/** Rules saved under a name: Timeline rules or Closest Year rules, never both. */
 @Serializable
 data class CustomPreset(
     val name: String,
@@ -108,6 +123,17 @@ data class CustomPreset(
 
 /** Button radius value meaning "fully rounded" (pill). */
 const val FULL_RADIUS = 25
+
+/** The largest corner radius the Settings slider offers. */
+const val MAX_CORNER_RADIUS = 24
+
+/** The longest minimum veto time the Settings slider offers. */
+const val MAX_VETO_TIME_S = 20
+
+/** The ranges `CommonSettings.validate` allows. */
+const val MAX_START_OFFSET_S = 60
+const val MIN_CLIP_LIMIT_S = 10
+const val MAX_CLIP_LIMIT_S = 120
 
 /** The clip limit of a fresh install, in seconds. */
 const val DEFAULT_CLIP_LIMIT_S = 20

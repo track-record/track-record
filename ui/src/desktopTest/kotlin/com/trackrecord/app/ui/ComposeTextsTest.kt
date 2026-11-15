@@ -28,6 +28,7 @@ class ComposeTextsTest {
         assertEquals("3 cards", getPluralString(Res.allPluralStringResources.getValue("cards"), 3, 3))
         assertEquals("Anna, 2 vetoes", getString(Res.allStringResources.getValue("a11y_with_detail"), "Anna", "2 vetoes"))
         assertEquals(", ", Texts.get(Res.allStringResources.getValue("list_separator")))
+        assertEquals(" · ", Texts.get(Res.allStringResources.getValue("result_sources_separator")), "spaces kept on both sides")
     }
 
     private companion object {

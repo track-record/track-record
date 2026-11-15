@@ -6,6 +6,7 @@ import com.trackrecord.data.db.SongSource
 import com.trackrecord.data.db.searchedByName
 import com.trackrecord.engine.musicbrainz.MatchAcceptance
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -29,11 +30,11 @@ sealed interface LookupResult {
     /** Lookups are switched off (or, in a build without a built-in contact, no contact email is set). */
     data object Skipped : LookupResult
 
-    /** The phone couldn't reach the service: no connection (feedback round 47; was part of [Skipped]). */
+    /** The phone couldn't reach the service: no connection (was part of [Skipped]). */
     data object Offline : LookupResult
 
     /**
-     * [service] kept turning requests away, also at the slowest pace, and the run stopped (feedback round 47):
+     * [service] kept turning requests away, also at the slowest pace, and the run stopped:
      * it seems to be unavailable for now, worth trying again later.
      */
     data class Unavailable(val service: LookupService) : LookupResult
@@ -61,7 +62,7 @@ class MusicBrainzLookup(
     private val clock: () -> Long = System::currentTimeMillis,
     private val noMatchRetryMs: Long = 30L * 24 * 60 * 60 * 1000,
     private val fingerprints: FingerprintMatcher? = null,
-    /** Lookup steps under way at once (feedback round 48); 1 runs them one after another. */
+    /** Lookup steps under way at once; 1 runs them one after another. */
     private val parallel: Int = PARALLEL,
 ) {
     /** Cached result without touching the network; null if never looked up. */
@@ -72,6 +73,13 @@ class MusicBrainzLookup(
 
     suspend fun lookup(song: SongEntity, force: Boolean = false): LookupResult =
         lookupAll(listOf(song), force)[song.id] ?: LookupResult.Skipped
+
+    /**
+     * "Look up" for a song someone waits for (its details, the reveal): asks again, ignoring the cache, by fingerprint
+     * as well when that is on, and before the other lookups under way (D-382).
+     */
+    suspend fun lookUpNow(song: SongEntity): LookupResult =
+        lookupAll(listOf(song), force = true, byFingerprint = currentVersion() == LOOKUP_VERSION_FINGERPRINT, urgent = true)[song.id] ?: LookupResult.Skipped
 
     /** One song on its way through [lookupAll]. */
     private class Work(val song: SongEntity, val hit: MbCacheEntity?) {
@@ -116,13 +124,32 @@ class MusicBrainzLookup(
         byFingerprint: Boolean = false,
         /** False: by name (and id tags) only, without fingerprints ("Verify by name", feedback round 30). */
         audio: Boolean = true,
-        /** A song's audio was fingerprinted (or couldn't be decoded): progress before its result (feedback round 29). */
+        /** A song's audio was fingerprinted (or couldn't be decoded): progress before its result. */
         onFingerprint: suspend (SongEntity) -> Unit = {},
+        /**
+         * Someone waits for it (D-382): its requests go before those of the other runs, and it doesn't wait for another
+         * run that has the song further back in its queue.
+         */
+        urgent: Boolean = false,
         onResult: suspend (SongEntity, LookupResult) -> Unit = { _, _ -> },
+    ): Map<Long, LookupResult> = if (urgent) {
+        withContext(UrgentRequests) { lookupClaimed(songs, force, byFingerprint, audio, onFingerprint, urgent = true, onResult) }
+    } else {
+        lookupClaimed(songs, force, byFingerprint, audio, onFingerprint, urgent = false, onResult)
+    }
+
+    private suspend fun lookupClaimed(
+        songs: List<SongEntity>,
+        force: Boolean,
+        byFingerprint: Boolean,
+        audio: Boolean,
+        onFingerprint: suspend (SongEntity) -> Unit,
+        urgent: Boolean,
+        onResult: suspend (SongEntity, LookupResult) -> Unit,
     ): Map<Long, LookupResult> {
         // A song another run is looking up right now, at least as thoroughly, isn't asked for twice: this run waits
-        // for that result instead (feedback round 48: a game's lookups and a library verification at once).
-        val (mine, waiting) = claims.claim(songs.distinctBy { it.id }, audio, byFingerprint)
+        // for that result instead (a game's lookups and a library verification at once). An urgent run asks itself.
+        val (mine, waiting) = claims.claim(songs.distinctBy { it.id }, audio, byFingerprint, wait = !urgent)
         val results = LinkedHashMap<Long, LookupResult>()
         val claimOf = mine.associate { (song, claim) -> song.id to claim }
         // The run works on a thread of its own (D-321); results reach the caller on its thread, e.g. a game's main thread.
@@ -146,7 +173,7 @@ class MusicBrainzLookup(
             results[song.id] = result
             onResult(song, result)
         }
-        if (again.isNotEmpty()) results += lookupAll(again, force, byFingerprint, audio, onFingerprint, onResult)
+        if (again.isNotEmpty()) results += lookupClaimed(again, force, byFingerprint, audio, onFingerprint, urgent, onResult)
         return results
     }
 
@@ -163,15 +190,18 @@ class MusicBrainzLookup(
 
         private val claims = HashMap<String, Claim>()
 
-        /** Claims the songs nobody looks up as thoroughly yet; the rest come with the claim to wait for. */
-        fun claim(songs: List<SongEntity>, audio: Boolean, byFingerprint: Boolean): Pair<List<Pair<SongEntity, Claim>>, List<Pair<SongEntity, Claim>>> =
+        /**
+         * Claims the songs nobody looks up as thoroughly yet; the rest come with the claim to wait for. Without [wait]
+         * every song is the caller's, and the other run's claim stays for those waiting on it.
+         */
+        fun claim(songs: List<SongEntity>, audio: Boolean, byFingerprint: Boolean, wait: Boolean): Pair<List<Pair<SongEntity, Claim>>, List<Pair<SongEntity, Claim>>> =
             synchronized(this) {
                 val mine = mutableListOf<Pair<SongEntity, Claim>>()
                 val waiting = mutableListOf<Pair<SongEntity, Claim>>()
                 for (song in songs) {
                     val key = keyOf(song)
                     val other = claims[key]
-                    if (other != null && other.audio >= audio && other.byFingerprint >= byFingerprint) {
+                    if (wait && other != null && other.audio >= audio && other.byFingerprint >= byFingerprint) {
                         waiting += song to other
                     } else {
                         val claim = Claim(audio, byFingerprint)
@@ -199,80 +229,139 @@ class MusicBrainzLookup(
         audio: Boolean,
         onFingerprint: suspend (SongEntity) -> Unit,
         onResult: suspend (SongEntity, LookupResult) -> Unit,
-    ): Map<Long, LookupResult> = coroutineScope {
-        val results = LinkedHashMap<Long, LookupResult>()
-        suspend fun done(song: SongEntity, result: LookupResult) {
+    ): Map<Long, LookupResult> = LookupRun(byFingerprint, onFingerprint, onResult).run(songs, force, audio)
+
+    /**
+     * One run of [lookupAll] (REVIEW-3 C-13: formerly one long function with its steps nested in it). Its state is
+     * shared by the steps, which run on one thread and take turns whenever one waits.
+     */
+    private inner class LookupRun(
+        private val byFingerprint: Boolean,
+        private val onFingerprint: suspend (SongEntity) -> Unit,
+        private val onResult: suspend (SongEntity, LookupResult) -> Unit,
+    ) {
+        private val results = LinkedHashMap<Long, LookupResult>()
+        private val todo = ArrayDeque<Work>()
+        private var version = LOOKUP_VERSION
+        private var useFingerprints = false
+        private var failuresInRow = 0
+        private var stop = false
+
+        /** The service whose refusals stopped the run; null when it stopped because the phone is offline. */
+        private var refusedBy: LookupService? = null
+
+        /** The service that refused the last failed request. */
+        private var lastRefused = LookupService.MUSICBRAINZ
+
+        // Fingerprints are pure computation: they are prepared ahead while the network work goes on.
+        private val pending = HashMap<Long, Deferred<String?>>()
+
+        // "Check all by fingerprint" works in AcoustID-sized groups, so the first results come within seconds.
+        private val groupSize = if (byFingerprint) AcoustIdClient.BATCH else GROUP
+
+        suspend fun run(songs: List<SongEntity>, force: Boolean, audio: Boolean): Map<Long, LookupResult> = coroutineScope {
+            version = if (audio) currentVersion() else LOOKUP_VERSION
+            for (song in songs.distinctBy { it.id }) {
+                val hit = cache.get(keyOf(song))
+                val fresh = hit != null && !force && !byFingerprint && isCurrent(hit, song, version)
+                when {
+                    fresh && hit!!.year != null -> done(song, LookupResult.Match(hit.year!!))
+                    fresh && clock() - hit!!.checkedAt < noMatchRetryMs -> done(song, LookupResult.NoMatch)
+                    else -> todo += Work(song, hit)
+                }
+            }
+            if (todo.isEmpty()) return@coroutineScope results
+            val unfinished = todo.map { it.song }
+            if (!enabled()) {
+                unfinished.forEach { done(it, LookupResult.Skipped) }
+                return@coroutineScope results
+            }
+            useFingerprints = fingerprints != null && version == LOOKUP_VERSION_FINGERPRINT
+            if (byFingerprint && !useFingerprints) {
+                unfinished.forEach { done(it, LookupResult.Skipped) }
+                return@coroutineScope results
+            }
+            steps(this)
+            pending.values.forEach { it.cancel() }
+            val left = refusedBy?.let { LookupResult.Unavailable(it) } ?: LookupResult.Offline
+            unfinished.filter { it.id !in results }.forEach { done(it, left) }
+            results
+        }
+
+        /**
+         * Up to [parallel] steps at a time, so the queue starts the next request while answers are still on their way.
+         * The steps share this run's lists and counters: they run on one thread and take turns whenever one waits. A step
+         * taken after the run stopped does nothing; its songs end like the rest.
+         */
+        private suspend fun steps(scope: CoroutineScope) = withContext(Dispatchers.Default.limitedParallelism(1)) {
+            val slots = Semaphore(parallel)
+            val stepEnded = Channel<Unit>(Channel.CONFLATED)
+            var active = 0
+            while (!stop) {
+                computeAhead(scope)
+                if (todo.isEmpty()) {
+                    if (active == 0) break
+                    stepEnded.receive() // a running step may put songs back
+                    continue
+                }
+                slots.acquire()
+                if (stop || todo.isEmpty()) {
+                    slots.release()
+                    continue
+                }
+                val step = nextStep()
+                active++
+                launch {
+                    try {
+                        if (!stop) step()
+                    } finally {
+                        active--
+                        slots.release()
+                        stepEnded.trySend(Unit)
+                    }
+                }
+            }
+        }
+
+        private suspend fun done(song: SongEntity, result: LookupResult) {
             results[song.id] = result
             onResult(song, result)
         }
 
-        val version = if (audio) currentVersion() else LOOKUP_VERSION
-        val todo = ArrayDeque<Work>()
-        for (song in songs.distinctBy { it.id }) {
-            val hit = cache.get(keyOf(song))
-            val fresh = hit != null && !force && !byFingerprint && hit.lookupVersion >= version && hit.searchedByName
-            when {
-                fresh && hit!!.year != null -> done(song, LookupResult.Match(hit.year!!))
-                fresh && clock() - hit!!.checkedAt < noMatchRetryMs -> done(song, LookupResult.NoMatch)
-                else -> todo += Work(song, hit)
-            }
-        }
-        if (todo.isEmpty()) return@coroutineScope results
-        val unfinished = todo.map { it.song }
-        if (!enabled()) {
-            unfinished.forEach { done(it, LookupResult.Skipped) }
-            return@coroutineScope results
-        }
-
-        var useFingerprints = fingerprints != null && version == LOOKUP_VERSION_FINGERPRINT
-        if (byFingerprint && !useFingerprints) {
-            unfinished.forEach { done(it, LookupResult.Skipped) }
-            return@coroutineScope results
-        }
-        var failuresInRow = 0
-        var stop = false
-        /** The service whose refusals stopped the run; null when it stopped because the phone is offline. */
-        var refusedBy: LookupService? = null
-        /** The service that refused the last failed request. */
-        var lastRefused = LookupService.MUSICBRAINZ
-
         /** Runs one network step; null if it failed (the caller then requeues, unless [stop] is set). */
-        suspend fun <T : Any> net(service: LookupService, step: suspend () -> T): T? = try {
+        private suspend fun <T : Any> net(service: LookupService, step: suspend () -> T): T? = try {
             step().also { failuresInRow = 0 }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: AcoustIdKeyException) {
             throw e
-        } catch (e: ServiceUnavailableException) {
+        } catch (e: java.io.IOException) {
+            stop = true // no connection
+            null
+        } catch (e: Exception) {
+            // Refused, or an answer that can't be read (the service misbehaves, the phone is online): that request's songs
+            // go back in the queue, and only several in a row end the run (REVIEW-3 B-21: one odd answer ended it).
+            if (e !is ServiceUnavailableException) NetLog.w("${service.name}: an answer that can't be read: $e")
             lastRefused = service
             if (++failuresInRow >= MAX_FAILURES_IN_ROW) {
                 stop = true
                 refusedBy = service
             }
             null
-        } catch (e: java.io.IOException) {
-            stop = true // no connection
-            null
-        } catch (e: Exception) {
-            // An answer that can't be read: the service misbehaves, the phone is online.
-            stop = true
-            refusedBy = service
-            null
         }
 
-        suspend fun requeue(work: Work) {
+        private suspend fun requeue(work: Work) {
             // Only refusals requeue: a song refused this often found the service unavailable too.
             if (++work.retries > MAX_RETRIES) done(work.song, LookupResult.Unavailable(lastRefused)) else todo.addLast(work)
         }
 
-        // Fingerprints are pure computation: they are prepared ahead while the network work goes on.
-        val pending = HashMap<Long, Deferred<String?>>()
-        fun wantsFingerprint(w: Work) =
+        private fun wantsFingerprint(w: Work) =
             useFingerprints && w.fingerprintIds == null && (byFingerprint || w.song.mbRecordingId == null) && !w.song.artist.isNullOrBlank() &&
                 w.song.source == SongSource.LOCAL // previews are only 30 s; streamed songs have an ISRC
-        fun computeAhead() {
+
+        private fun computeAhead(scope: CoroutineScope) {
             todo.asSequence().filter { wantsFingerprint(it) && it.fingerprint == null }.take(FINGERPRINT_AHEAD).forEach { w ->
-                pending.getOrPut(w.song.id) { async { fingerprintOf(w.song) } }
+                pending.getOrPut(w.song.id) { scope.async { fingerprintOf(w.song) } }
             }
         }
 
@@ -280,7 +369,7 @@ class MusicBrainzLookup(
          * Fingerprint ids (AcoustID, [AcoustIdClient.BATCH] songs per request, D-077), then one batched
          * request for the group's recording ids and ISRCs.
          */
-        suspend fun prepare(group: List<Work>) {
+        private suspend fun prepare(group: List<Work>) {
             val asking = mutableListOf<Work>()
             for (w in group) {
                 // Streamed songs have no file to fingerprint: in "Verify by fingerprint" their ISRC and the
@@ -330,9 +419,16 @@ class MusicBrainzLookup(
                     w.settled = true
                     continue
                 }
+                // The tagged recording id and the recordings carrying the song's ISRC are the song's own recording, so their
+                // names only have to fit loosely, as for audio matches (D-381): MusicBrainz calls ABC's "The Look Of Love,
+                // Pt.1" (1982) just "The Look of Love". Other recordings in the answer need the strict names.
                 val fromTags = buildList {
-                    w.song.mbRecordingId?.let { id -> byId[id.lowercase()]?.let { addAll(acceptedOf(listOf(it), artist, w.song.title)) } }
-                    if (w.song.isrc != null) addAll(acceptedOf(fetched.second, artist, w.song.title))
+                    w.song.mbRecordingId?.let { id -> byId[id.lowercase()]?.let { addAll(acceptedOf(listOf(it), artist, w.song.title, audio = true)) } }
+                    w.song.isrc?.let { isrc ->
+                        val (own, others) = fetched.second.partition { it.carries(isrc) }
+                        addAll(acceptedOf(own, artist, w.song.title, audio = true))
+                        addAll(acceptedOf(others, artist, w.song.title))
+                    }
                 }
                 val fromAudio = acceptedOf(w.fingerprintIds.orEmpty().mapNotNull { byId[it] }, artist, w.song.title, audio = true)
                 w.accepted = fromTags + fromAudio
@@ -340,17 +436,17 @@ class MusicBrainzLookup(
             }
             // Songs without an artist can't be searched and are done now. Every song is searched by name too (D-309), so
             // each group's name searches come right after its fast steps: the progress moves on steadily instead of
-            // staying at 0 until every song's ISRC or file was handled (feedback rounds 27 and 48), and an interrupted
-            // run keeps what it finished.
+            // staying at 0 until every song's ISRC or file was handled, and an interrupted run keeps what it finished.
             val searchNext = mutableListOf<Work>()
             for (w in ready) {
-                if (w.settled) done(w.song, store(w, w.accepted!!, version)) else searchNext += w
+                // A song without an artist has nothing to search by name: its check is complete (REVIEW-3 B-16).
+                if (w.settled) done(w.song, store(w, w.accepted!!, version, searched = true)) else searchNext += w
             }
             searchNext.asReversed().forEach { todo.addFirst(it) }
         }
 
         /** Name searches, [SEARCH_BATCH] songs per request. */
-        suspend fun search(batch: List<Work>) {
+        private suspend fun search(batch: List<Work>) {
             val found = net(LookupService.MUSICBRAINZ) {
                 searchAll(batch.map { NameQuery.of(it.song.artist!!, it.song.title, it.song.tagOriginalYear ?: it.song.tagYear, it.accepted!!, ::earliestYear) })
             }
@@ -361,54 +457,14 @@ class MusicBrainzLookup(
             batch.zip(found) { w, more -> done(w.song, store(w, w.accepted!! + more, version, searched = true)) }
         }
 
-        // "Check all by fingerprint" works in AcoustID-sized groups, so the first results come within seconds.
-        val groupSize = if (byFingerprint) AcoustIdClient.BATCH else GROUP
-
         /** The next step: a group's fast steps, or a batch of name searches. */
-        fun nextStep(): suspend () -> Unit {
+        private fun nextStep(): suspend () -> Unit {
             val takeGroup = todo.first().accepted == null
             val limit = if (takeGroup) groupSize else SEARCH_BATCH
             val taken = mutableListOf<Work>()
             while (todo.isNotEmpty() && (todo.first().accepted == null) == takeGroup && taken.size < limit) taken += todo.removeFirst()
             return if (takeGroup) ({ prepare(taken) }) else ({ search(taken) })
         }
-
-        // Up to [parallel] steps at a time, so the queue starts the next request while answers are still on their way
-        // (feedback round 48). The steps share this run's lists and counters: they run on one thread and take turns
-        // whenever one waits. A step taken after the run stopped does nothing; its songs end like the rest.
-        withContext(Dispatchers.Default.limitedParallelism(1)) {
-            val slots = Semaphore(parallel)
-            val stepEnded = Channel<Unit>(Channel.CONFLATED)
-            var active = 0
-            while (!stop) {
-                computeAhead()
-                if (todo.isEmpty()) {
-                    if (active == 0) break
-                    stepEnded.receive() // a running step may put songs back
-                    continue
-                }
-                slots.acquire()
-                if (stop || todo.isEmpty()) {
-                    slots.release()
-                    continue
-                }
-                val step = nextStep()
-                active++
-                launch {
-                    try {
-                        if (!stop) step()
-                    } finally {
-                        active--
-                        slots.release()
-                        stepEnded.trySend(Unit)
-                    }
-                }
-            }
-        }
-        pending.values.forEach { it.cancel() }
-        val left = refusedBy?.let { LookupResult.Unavailable(it) } ?: LookupResult.Offline
-        unfinished.filter { it.id !in results }.forEach { done(it, left) }
-        results
     }
 
     /** A song's fingerprint; null when the file can't be decoded (a failure never ends the lookup). */
@@ -436,8 +492,8 @@ class MusicBrainzLookup(
                 lookupVersion = version,
                 viaFingerprint = year != null && earliestYear(fromAudio) == year,
                 // An earlier fingerprint check counts only under the current rules: a song checked by fingerprint under
-                // older ones and redone by name is left for "Verify by fingerprint" again (feedback round 62).
-                fingerprintChecked = w.fingerprinted || (hit?.fingerprintChecked == true && hit.lookupVersion >= LOOKUP_VERSION_FINGERPRINT),
+                // older ones and redone by name is left for "Verify by fingerprint" again.
+                fingerprintChecked = w.fingerprinted || (hit?.fingerprintChecked == true && rulesVersion(hit, song) >= LOOKUP_VERSION_FINGERPRINT),
                 nameSearched = searched,
             ),
         )
@@ -447,9 +503,10 @@ class MusicBrainzLookup(
     private fun earliestYear(recordings: List<MbRecording>): Int? = recordings.minOfOrNull { it.toCandidate(currentYear()).year!! }
 
     /**
-     * Accepted candidates; [audio] candidates (linked to the song's fingerprint) use the looser names rule (D-076). Others
+     * Accepted candidates; [audio] candidates (linked to the song's fingerprint, or its own recording by id or ISRC, D-381)
+     * use the looser names rule (D-076). Others
      * need the same title, and the song's artist among the credited ones: "Kanye West" is part of "Jay‐Z & Kanye
-     * West" (feedback round 61).
+     * West".
      */
     private fun acceptedOf(recordings: List<MbRecording>, artist: String, title: String, audio: Boolean = false): List<MbRecording> =
         recordings.filter { r ->
@@ -526,10 +583,9 @@ class MusicBrainzLookup(
 
     /**
      * Whether MusicBrainz was asked about this song under the current rules, with the name search (a "no match"
-     * counts too). A result under older rules counts as unchecked, so a game looks the song up again (feedback round 62).
+     * counts too). A result under older rules counts as unchecked, so a game looks the song up again.
      */
-    suspend fun checked(song: SongEntity): Boolean =
-        cache.get(keyOf(song))?.let { it.lookupVersion >= LOOKUP_VERSION && it.searchedByName } == true
+    suspend fun checked(song: SongEntity): Boolean = cache.get(keyOf(song))?.let { isCurrent(it, song) } == true
 
     /** Records that the Cover Art Archive was asked for this song's release. */
     suspend fun markCoverChecked(song: SongEntity) {
@@ -538,6 +594,27 @@ class MusicBrainzLookup(
     }
 
     companion object {
+        /**
+         * Whether [hit] is a check of [song] under the current rules ([version] or newer, with the name search). A song
+         * without an artist can't be searched by name, so it needs only the version (REVIEW-3 B-16): otherwise it would
+         * count as unchecked for ever, as Verify leaves such songs out.
+         */
+        fun isCurrent(hit: MbCacheEntity, song: SongEntity, version: Int = LOOKUP_VERSION): Boolean =
+            rulesVersion(hit, song) >= version && (hit.searchedByName || song.artist.isNullOrBlank())
+
+        /**
+         * The rules [hit] counts as checked under, for [song]. Versions 6 and 7 changed only how a song's ISRC and
+         * recording id are judged (D-381), so for a song with neither a result from 4 or 5 is as good as 6 or 7: those
+         * songs aren't looked up (or fingerprinted) again.
+         */
+        fun rulesVersion(hit: MbCacheEntity, song: SongEntity): Int =
+            if (song.isrc == null && song.mbRecordingId == null && hit.lookupVersion in UNCHANGED_WITHOUT_IDS) hit.lookupVersion + 2 else hit.lookupVersion
+
+        /** Whether [hit] was made under older rules than [version] for [song]: "Verify" brings it up to date. */
+        fun outdated(hit: MbCacheEntity, song: SongEntity, version: Int = LOOKUP_VERSION): Boolean = rulesVersion(hit, song) < version
+
+        private val UNCHANGED_WITHOUT_IDS = 4..5
+
         private const val MAX_NARROWING = 3
 
         /** Steps at once: as many as requests the queue lets wait for answers ([RateLimitedQueue] maxInFlight). */
@@ -556,21 +633,22 @@ class MusicBrainzLookup(
         /**
          * Failed requests in a row after which MusicBrainz or AcoustID counts as unavailable for this run
          * ([LookupResult.Unavailable]). With the spacing doubling per failure (2, 4, 8 s, then 10 s, D-307) the
-         * last five come at the slowest pace, about a minute of refusals (feedback rounds 29, 47).
+         * last five come at the slowest pace, about a minute of refusals.
          */
         const val MAX_FAILURES_IN_ROW = 8
 
         /**
-         * 1 = searches narrowed to earlier releases (feedback round 3); 4 = bootlegs left out, and co-credited
-         * artists accepted by name (feedback round 61; above the fingerprint version 3, so those are redone too).
+         * 1 = searches narrowed to earlier releases; 4 = bootlegs left out, and co-credited
+         * artists accepted by name (above the fingerprint version 3, so those are redone too);
+         * 6 = the song's own recording by ISRC or id judged by the looser names (D-381; see [rulesVersion]).
          */
-        const val LOOKUP_VERSION = 4
+        const val LOOKUP_VERSION = 6
 
         /**
          * Also matched by audio fingerprint, only used while fingerprint matching is on: 2 = D-075,
-         * 3 = looser names for audio matches (D-076), 5 = as [LOOKUP_VERSION] 4.
+         * 3 = looser names for audio matches (D-076), 5 = as [LOOKUP_VERSION] 4, 7 = as 6.
          */
-        const val LOOKUP_VERSION_FINGERPRINT = 5
+        const val LOOKUP_VERSION_FINGERPRINT = 7
 
         /** The release with the earliest date among the accepted recordings (undated releases last; no bootlegs). */
         fun firstRelease(recordings: List<MbRecording>): MbRelease? =

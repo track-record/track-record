@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 enum class BulkTask {
-    /** "Verify by name": playable songs never checked, by name and id tags only (feedback round 30). */
+    /** "Verify by name": playable songs never checked, by name and id tags only. */
     VERIFY,
 
     /** "Check missing years": songs without a usable year. */
@@ -46,7 +46,7 @@ sealed interface VerifyState {
     data class Running(val task: BulkTask, val done: Int, val total: Int, val matched: Int, val fingerprinted: Int = 0, val toFingerprint: Int = 0) : VerifyState
 
     /**
-     * A finished run (feedback round 29): [failed] songs couldn't be checked (offline or a busy service),
+     * A finished run: [failed] songs couldn't be checked (offline or a busy service),
      * [newYears] songs without a year got one, and [earlier] got an earlier year than before.
      */
     data class Finished(
@@ -58,11 +58,11 @@ sealed interface VerifyState {
         val failed: Int = 0,
         val newYears: Int = 0,
         val earlier: Int = 0,
-        /** The service that kept refusing and stopped the run (feedback round 47), or null. */
+        /** The service that kept refusing and stopped the run, or null. */
         val unavailable: LookupService? = null,
-        /** Stopped because the phone is offline; [skipped] alone: lookups are switched off (feedback round 47). */
+        /** Stopped because the phone is offline; [skipped] alone: lookups are switched off. */
         val offline: Boolean = false,
-        /** Cancelled: the run had this many songs, [total] of them were done (feedback round 48). */
+        /** Cancelled: the run had this many songs, [total] of them were done. */
         val cancelledOf: Int? = null,
     ) : VerifyState
 }
@@ -70,7 +70,7 @@ sealed interface VerifyState {
 /**
  * Bulk MusicBrainz work through the shared queue: "Verify library", "Find missing years" and "Load cover
  * art". Lookups are batched (DECISIONS.md D-071). Each run makes only its own requests, shown with its progress
- * and stopped by Cancel; a lookup doesn't fetch covers (feedback round 48).
+ * and stopped by Cancel; a lookup doesn't fetch covers.
  */
 class LibraryVerifier(
     private val library: LibraryRepository,
@@ -85,7 +85,7 @@ class LibraryVerifier(
 
     fun start(task: BulkTask) {
         if (job?.isActive == true) return
-        // Shown at once, while the songs are picked (feedback round 29: covers looked unresponsive).
+        // Shown at once, while the songs are picked (covers looked unresponsive).
         _state.value = VerifyState.Running(task, 0, 0, 0)
         job = scope.launch {
             val candidates = when (task) {
@@ -116,7 +116,7 @@ class LibraryVerifier(
         _state.value = VerifyState.Running(task, 0, songs.size, 0, toFingerprint = toFingerprint)
         val doneIds = mutableListOf<Long>()
 
-        /** What changed, from the years before and after (feedback round 29), for the songs done so far. */
+        /** What changed, from the years before and after, for the songs done so far. */
         suspend fun finish(cancelled: Boolean) {
             val after = library.resolvedYears()
             _state.value = VerifyState.Finished(
@@ -142,7 +142,7 @@ class LibraryVerifier(
             done++
             doneIds += song.id
             when (result) {
-                // No covers here: every request belongs to the run on screen, which Cancel stops (feedback round 48).
+                // No covers here: every request belongs to the run on screen, which Cancel stops.
                 // "Load cover art" fetches them.
                 is LookupResult.Match -> matched++
                 LookupResult.NoMatch -> Unit
@@ -159,7 +159,7 @@ class LibraryVerifier(
             _state.value = VerifyState.Running(task, done, songs.size, matched, fingerprinted, toFingerprint)
         }
         } catch (e: CancellationException) {
-            // Cancelled: still the summary of the songs done so far (feedback round 48).
+            // Cancelled: still the summary of the songs done so far.
             withContext(NonCancellable) { finish(cancelled = true) }
             throw e
         }
@@ -179,7 +179,7 @@ class LibraryVerifier(
         _state.value = VerifyState.Finished(BulkTask.LOAD_COVERS, songs.size, found, false, noArtist)
     }
 
-    /** Stops the run; a lookup ends with the summary of what it did (feedback round 48), anything else goes back to idle. */
+    /** Stops the run; a lookup ends with the summary of what it did, anything else goes back to idle. */
     fun cancel() {
         val running = job ?: return
         running.cancel()

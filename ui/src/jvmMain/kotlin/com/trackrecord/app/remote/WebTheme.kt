@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.toArgb
 import com.trackrecord.app.ui.theme.CardColors
 import com.trackrecord.app.ui.theme.SCENE_DIM
 import com.trackrecord.app.ui.theme.ThemePalette
+import com.trackrecord.app.ui.theme.caution
 import com.trackrecord.app.ui.theme.palette
 import com.trackrecord.data.settings.ThemeChoice
 import com.trackrecord.remote.WebPalette
@@ -34,6 +35,7 @@ object WebTheme {
             "--outline" to css(c.outline),
             "--outline-variant" to css(c.outlineVariant),
             "--error" to css(c.error),
+            "--caution" to css(c.caution),
             "--inverse" to css(c.inverseSurface),
             "--on-inverse" to css(c.inverseOnSurface),
             "--dim" to css(p.dimColor ?: Color.Transparent),

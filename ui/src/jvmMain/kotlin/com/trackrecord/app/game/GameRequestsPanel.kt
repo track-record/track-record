@@ -24,7 +24,7 @@ import com.trackrecord.app.ui.components.OutlinedButton
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * A game's lookups and covers (feedback round 48): what is done of what is queued, and Stop, which ends them for the
+ * A game's lookups and covers: what is done of what is queued, and Stop, which ends them for the
  * rest of the game. In the game's settings and, while they run, in the library; the co-host has the same.
  */
 @Composable

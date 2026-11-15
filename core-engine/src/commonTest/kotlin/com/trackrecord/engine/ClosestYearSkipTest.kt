@@ -9,7 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** Closest Year skips and their presets (Felix, feedback round 11). */
+/** Closest Year skips and their presets. */
 class ClosestYearSkipTest {
     private val three = listOf("Anna", "Ben", "Cara")
 
@@ -106,7 +106,7 @@ class ClosestYearSkipTest {
         assertEquals(ClosestYearPreset.CLOSEST, ClosestYearSettings().preset)
         assertEquals(ClosestYearPreset.RANKING, ClosestYearSettings.RANKING.preset)
         assertEquals(ClosestYearPreset.CUSTOM, ClosestYearSettings.CLOSEST.copy(startingSkips = 2).preset)
-        // The engine-set lowest guessable year doesn't change the preset, nor do hidden guesses (feedback round 36).
+        // The engine-set lowest guessable year doesn't change the preset, nor do hidden guesses.
         assertEquals(ClosestYearPreset.CLOSEST, ClosestYearSettings.CLOSEST.copy(lowestGuessableYear = 1970, hiddenGuesses = true).preset)
         assertEquals(ClosestYearSettings.DISTANCE.copy(lowestGuessableYear = 1970), ClosestYearSettings.CLOSEST.copy(lowestGuessableYear = 1970).withPreset(ClosestYearPreset.DISTANCE))
         assertEquals(listOf(SettingsError.STARTING_SKIPS), ClosestYearSettings(startingSkips = 6, maxSkips = null).validate())

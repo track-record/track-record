@@ -10,6 +10,7 @@ import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -99,6 +100,9 @@ class AndroidPlatform(context: Context) : PlatformServices {
         override fun displayName(file: String): String? = runCatching {
             resolver.query(Uri.parse(file), arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
         }.getOrNull()
+
+        // A document the save dialog made for the app may be deleted by it.
+        override fun delete(file: String): Boolean = runCatching { DocumentsContract.deleteDocument(resolver, Uri.parse(file)) }.getOrDefault(false)
     }
 
     override val downloads = object : Downloads {

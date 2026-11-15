@@ -15,7 +15,7 @@ import org.junit.runner.RunWith
 
 /**
  * Not a check, a tool: logs the Material You colours this device gives the app, as Kotlin for
- * ui/theme/LightDark.kt (tag "ThemeDump"). Light and Dark are those of Felix's phone, fixed (DESIGN-REVIEW
+ * ui/theme/LightDark.kt (tag "ThemeDump"). Light and Dark are those of the developer's phone, fixed (DESIGN-REVIEW
  * TH-01, D-277); run this on a phone to take another phone's colours.
  */
 @RunWith(AndroidJUnit4::class)

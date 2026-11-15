@@ -10,7 +10,7 @@ import com.trackrecord.engine.GameAction.SetNamedBy
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Who can call out song and artist in Timeline (feedback round 19). */
+/** Who can call out song and artist in Timeline. */
 class TimelineNamingTest {
     /** Anna active (wrong slot), Ben and Cara veto; Dan doesn't. Max 5 vetoes, everyone starts with 2. */
     private fun revealed(callers: NamingCallers) = timelineGame(

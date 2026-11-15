@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 /** A static file of the guest page. */
 class Asset(val contentType: String, val bytes: ByteArray)
 
-/** The local song being played, for Wi-Fi guests who want the sound too (feedback round 59). [open] reads it from an offset. */
+/** The local song being played, for Wi-Fi guests who want the sound too. [open] reads it from an offset. */
 class SongFile(val contentType: String, val length: Long, val open: (offset: Long) -> InputStream?)
 
 /** Errors the hub itself reports to a guest (the engine's own rejections come as [RejectReason]). */
@@ -150,6 +150,7 @@ class RemoteHub(
             claims.entries.removeAll { it.value == player }
             claims[client] = player
             rebuild()
+            coHostWhenAlone(client, player)
         }
         publishClients()
         broadcast()
@@ -253,14 +254,14 @@ class RemoteHub(
         return Response.Bytes(200, asset.contentType, asset.bytes, cacheable = key != null && key == player?.photoKey)
     }
 
-    /** Covers only of songs everyone may see (feedback round 12; D-106). */
+    /** Covers only of songs everyone may see (D-106). */
     private fun cover(songId: Long?): Response {
         val public = synchronized(lock) { songId != null && songId in publicSongs }
         val asset = if (public && songId != null) host.cover(songId) else null
         return if (asset == null) Response.text(404, "Not found") else Response.Bytes(200, asset.contentType, asset.bytes, cacheable = true)
     }
 
-    /** The song playing now, for a Wi-Fi guest's player, under the token the views name it by (feedback round 59). */
+    /** The song playing now, for a Wi-Fi guest's player, under the token the views name it by. */
     private fun song(file: String?): Response {
         val current = synchronized(lock) { file != null && !snapshot.paused && snapshot.game?.listen?.file == file }
         val song = if (current && file != null) host.songFile(file) else null
@@ -286,7 +287,7 @@ class RemoteHub(
     private fun claim(r: ClaimRequest): Response {
         if (!CLIENT_ID.matches(r.client)) return badRequest()
         synchronized(lock) {
-            // A running game's players, or those of the game being set up (feedback round 32).
+            // A running game's players, or those of the game being set up.
             val ids = snapshot.game?.state?.players?.map { it.id } ?: snapshot.lobby?.map { it.id } ?: return reply(false, host.errorText(HubError.NO_GAME))
             if (r.player !in ids) return reply(false, host.errorText(HubError.PICK_PLAYER))
             if (r.client in blocked) return reply(false, host.errorText(HubError.BLOCKED))
@@ -296,13 +297,18 @@ class RemoteHub(
             if (holder != null && holder != r.client && !r.takeover) return Response.json(json.encodeToString(ActionReply.serializer(), ActionReply(false, taken = true)))
             // The phone playing now is still connected: the host decides (D-182).
             if (holder != null && holder != r.client && holder in streams.values) {
+                // One open request per player, the newest: made-up client ids can't line up questions for the host or
+                // pile up here (REVIEW-3, on S-14). An earlier asker's page then offers the request again.
+                pendingTakeovers.values.removeAll { it == r.player }
                 pendingTakeovers[r.client] = r.player
+                forgetUnknownClients()
                 return@synchronized
             }
             pendingTakeovers.remove(r.client)
             claims.entries.removeAll { it.value == r.player }
             claims[r.client] = r.player
             rebuild()
+            coHostWhenAlone(r.client, r.player)
         }
         publishClients()
         broadcast()
@@ -310,6 +316,25 @@ class RemoteHub(
             return Response.json(json.encodeToString(ActionReply.serializer(), ActionReply(false, pending = true)))
         }
         return reply(true)
+    }
+
+    /**
+     * In a solo game, or a setup with one player, the phone that takes the player gets the host controls (D-385): there
+     * is nobody else to run the game from the host's phone. The host can still take them back. Call with [lock] held.
+     */
+    private fun coHostWhenAlone(client: String, player: String) {
+        val alone = snapshot.game?.state?.solo ?: (snapshot.lobby?.size == 1)
+        if (alone && coHost == null) coHost = CoHost(client, player)
+    }
+
+    /**
+     * Device kinds and denials are kept for phones that hold a player or ask for one, once there are more than a game
+     * ever has: they came with requests from any client id (REVIEW-3, on S-14).
+     */
+    private fun forgetUnknownClients() {
+        val known = claims.keys + pendingTakeovers.keys
+        if (devices.size > MAX_KNOWN_CLIENTS) devices.keys.retainAll(known)
+        if (deniedTakeovers.size > MAX_KNOWN_CLIENTS) deniedTakeovers.keys.retainAll(known)
     }
 
     private fun release(r: ClientRequest): Response {
@@ -349,14 +374,14 @@ class RemoteHub(
             val active = s.phase != Phase.GAME_OVER && s.activePlayer.id == me
             when (r.type) {
                 "select" -> if (s.phase == Phase.PLACING && active && r.slot != null) GameAction.SelectSlot(r.slot) to null else null to null
-                // The gap under the finger while dragging, sent as it changes so the host sees the drag
-                // (feedback round 41): only the round counts, as each step moves the version on.
+                // The gap under the finger while dragging, sent as it changes so the host sees the drag:
+                // only the round counts, as each step moves the version on.
                 "dragSelect" -> if (s.phase == Phase.PLACING && active && r.slot != null) GameAction.SelectSlot(r.slot) to null else null to null
                 "lockIn" -> if (s.phase == Phase.PLACING && active) GameAction.LockIn to null else null to null
                 "veto" -> if (s.phase == Phase.VETOING && r.slot != null) GameAction.PlaceVeto(me, r.slot) to null else null to null
                 "decline" -> if (s.phase == Phase.VETOING && me in gameView?.vetoEligible.orEmpty()) null to me else null to null
                 "guess" -> if (s.phase == Phase.GUESSING && isTurnOf(s, me) && r.year != null) GameAction.SubmitGuess(r.year, me) to null else null to null
-                // Timeline: the active player while placing; Closest Year: the first guesser before any guess (feedback round 11).
+                // Timeline: the active player while placing; Closest Year: the first guesser before any guess.
                 "skip" -> {
                     val allowed = (s.phase == Phase.PLACING && active) ||
                         (s.phase == Phase.GUESSING && round?.currentGuesserId == me && round.guesses.isEmpty())
@@ -392,20 +417,21 @@ class RemoteHub(
                 "hostAdjust" -> HostCommand.Adjust(r.player ?: return badRequest(), r.delta?.takeIf { it == 1 || it == -1 } ?: return badRequest())
                 // seconds in year; 0 means no limit (D-191).
                 "hostClip" -> HostCommand.ClipLimit(r.year?.takeIf { it > 0 })
-                // seconds in year, 0 included (feedback round 34).
+                // seconds in year, 0 included.
                 "hostOffset" -> HostCommand.StartOffset(r.year ?: return badRequest())
                 "hostWhole" -> HostCommand.WholeSong
                 "hostRemove" -> HostCommand.Remove(r.player ?: return badRequest())
                 "hostStopLookups" -> HostCommand.StopLookups
                 "hostFavorite" -> HostCommand.Favorite(r.song ?: return badRequest(), r.favorite ?: return badRequest())
                 "hostSeek" -> HostCommand.Seek(r.positionMs?.takeIf { it >= 0 } ?: return badRequest())
+                "hostLookUp" -> HostCommand.LookUp(r.song ?: return badRequest())
                 else -> return badRequest()
             }
         }
         return host.hostCommand(command)?.let { reply(false, it) } ?: reply(true)
     }
 
-    /** "Veto" tapped: Reveal waits until the veto is placed or cancelled (feedback round 10). */
+    /** "Veto" tapped: Reveal waits until the veto is placed or cancelled. */
     private fun picking(r: ActionRequest): Response {
         val me = synchronized(lock) {
             val game = snapshot.game ?: return reply(false, host.errorText(HubError.NO_GAME))
@@ -421,7 +447,7 @@ class RemoteHub(
         return reply(true)
     }
 
-    /** Play and replay are only for the guest whose turn it is (feedback round 8). */
+    /** Play and replay are only for the guest whose turn it is. */
     private fun audio(r: ActionRequest): Response {
         val allowed = synchronized(lock) {
             val game = snapshot.game ?: return reply(false, host.errorText(HubError.NO_GAME))
@@ -436,9 +462,9 @@ class RemoteHub(
 
     private fun isTurnOf(s: GameState, playerId: String): Boolean = when (s.phase) {
         Phase.PLACING -> s.activePlayer.id == playerId
-        // With hidden guesses everyone who hasn't guessed yet (feedback round 36).
+        // With hidden guesses everyone who hasn't guessed yet.
         Phase.GUESSING -> if (s.settings.closestYear.hiddenGuesses) playerId in s.round?.waitingFor.orEmpty() else s.round?.currentGuesserId == playerId
-        // The player who placed the card, and those who could still veto (feedback rounds 23, 24; D-186, D-188).
+        // The player who placed the card, and those who could still veto (D-186, D-188).
         Phase.VETOING -> playerId == s.activePlayer.id || playerId in GameEngine.vetoEligible(s)
         else -> false
     }
@@ -456,6 +482,8 @@ class RemoteHub(
     /** What moves the version: the view without the veto countdown, the player's progress and who plays remotely. */
     private fun visibleOf(v: GameView) = v.copy(
         vetoWindow = null,
+        // A Look up finishing doesn't make a co-host's year correction stale (D-385).
+        revealed = v.revealed?.copy(details = null),
         audio = AudioInfo(),
         players = v.players.map { it.copy(remote = false) },
         removed = v.removed.map { it.copy(remote = false) },
@@ -551,11 +579,14 @@ class RemoteHub(
 
     companion object {
         private const val PING_SECONDS = 15L
+
+        /** More phones than a game ever has: past this, device kinds and denials of phones without a player go. */
+        private const val MAX_KNOWN_CLIENTS = 64
         private val CLIENT_ID = Regex("[A-Za-z0-9_-]{8,64}")
         private val VERSIONED = setOf("select", "lockIn", "veto", "guess", "skip")
 
         /** Co-host commands that name what they change, so they don't depend on the state the phone saw. */
-        private val UNVERSIONED_HOST = setOf("hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek", "hostStopLookups", "hostFavorite")
+        private val UNVERSIONED_HOST = setOf("hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek", "hostStopLookups", "hostFavorite", "hostLookUp")
         private val STRINGS = MapSerializer(String.serializer(), String.serializer())
 
         /** A random 128-bit key, URL-safe (DECISIONS.md D-100). */

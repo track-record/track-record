@@ -3,11 +3,10 @@ package com.trackrecord.data.musicbrainz
 import com.trackrecord.data.db.MbCacheEntity
 import com.trackrecord.data.db.SongEntity
 import com.trackrecord.data.net.Http
-import kotlinx.coroutines.Dispatchers
+import com.trackrecord.data.net.await
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -31,14 +30,13 @@ class CoverArtClient(private val userAgent: suspend () -> String) {
         val ua = userAgent()
         val started = System.currentTimeMillis()
         try {
-            val bytes = withContext(Dispatchers.IO) {
-                val request = Request.Builder().url("https://coverartarchive.org/$kind/$mbid/front-500").header("User-Agent", ua).build()
-                client.newCall(request).execute().use { response ->
-                    when {
-                        response.isSuccessful -> response.body.bytes()
-                        response.code == 404 -> null
-                        else -> throw java.io.IOException("Cover Art Archive HTTP ${response.code}")
-                    }
+            val request = Request.Builder().url("https://coverartarchive.org/$kind/$mbid/front-500").header("User-Agent", ua).build()
+            // Cancelling ends the download under way at once (REVIEW-3 B-15).
+            val bytes = client.newCall(request).await { response ->
+                when {
+                    response.isSuccessful -> response.body.bytes()
+                    response.code == 404 -> null
+                    else -> throw java.io.IOException("Cover Art Archive HTTP ${response.code}")
                 }
             }
             NetLog.i("cover $kind/$mbid -> ${if (bytes == null) "none" else "${bytes.size} B"} in ${System.currentTimeMillis() - started} ms")
@@ -123,7 +121,7 @@ class CoverArtService(
         val group = entry.releaseGroupId?.takeIf(MBID::matches)
         val name = release ?: group ?: return Outcome.NONE
         // One download at a time, checked again once it's this one's turn: when a game and "Load cover art" want
-        // the same cover, it is fetched once (feedback round 48).
+        // the same cover, it is fetched once.
         val bytes = downloads.withLock {
             if (File(dir, "$name.jpg").exists()) return Outcome.COVER
             if (name in noCover) null else {

@@ -52,7 +52,7 @@ fun GameOverScreen(session: GameSession, vm: GameViewModel, onHome: () -> Unit) 
     val winners = result.winnerIds.map { session.player(it) }
     var expanded by rememberSaveable { mutableStateOf<String?>(null) }
     val score: (String) -> Int = { id -> GameEngine.score(state, state.anyPlayer(id)!!) }
-    // Removed players last, greyed out (feedback round 36).
+    // Removed players last, greyed out.
     val ranked = session.playing.sortedByDescending { score(it.id) } + session.removed
 
     Scaffold(

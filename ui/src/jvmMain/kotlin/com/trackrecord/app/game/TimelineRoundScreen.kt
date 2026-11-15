@@ -87,6 +87,7 @@ import com.trackrecord.app.resources.timeline_remote_lock_in
 import com.trackrecord.app.resources.timeline_remote_picking
 import com.trackrecord.app.resources.timeline_remote_picking_many
 import com.trackrecord.app.resources.timeline_remote_turn
+import com.trackrecord.app.resources.timeline_reveal_hint_solo
 import com.trackrecord.app.resources.timeline_skip
 import com.trackrecord.app.resources.timeline_veto_button
 import com.trackrecord.app.resources.timeline_veto_hint
@@ -138,14 +139,14 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
     val remote by vm.remotePlayers.collectAsStateWithLifecycle()
     var scoreboard by rememberSaveable { mutableStateOf(false) }
     val placing = state.phase == Phase.PLACING
-    // A connected guest phone places its own player's song; the host can't (feedback round 8).
+    // A connected guest phone places its own player's song; the host can't.
     val remoteState by LocalAppContainer.current.remote.state.collectAsStateWithLifecycle()
     val connectedRemote = (remoteState as? RemoteState.On)?.clients?.claimed.orEmpty().filterValues { it }.keys
     val remoteTurn = placing && active.id in connectedRemote
     val activeDevice = deviceName(remoteDevice(active.id))
     val timeline = activeState.timeline
     // The keyboard places too: the arrow keys move between the gaps, Enter locks in (PLATFORMS.md phase 7); the same
-    // for a veto, between the free gaps, Enter placing it (feedback round 56).
+    // for a veto, between the free gaps, Enter placing it.
     val vetoing = !placing && vetoer != null
     if ((placing && !remoteTurn) || vetoing) {
         KeyHandler { key ->
@@ -174,7 +175,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
         snackbarHost = { GameSnackbarHost(snackbar) },
         bottomBar = {
             // One player on this phone, the others on guest phones: the guests' Veto / Don't veto buttons (feedback
-            // round 16); with several players here, the veto bar, 12 dp from the bar's top as from Reveal (feedback round 65).
+            // round 16); with several players here, the veto bar, 12 dp from the bar's top as from Reveal.
             val local = session.playing.map { it.id }.filter { it !in connectedRemote }
             val single = local.singleOrNull()
             val vetoBar = !placing && vetoer == null && single == null
@@ -210,7 +211,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
                         } else {
                             VetoBar(session, vetoer, remote, gate, connected = connectedRemote, onSelect = vm::selectVetoer)
                         }
-                        // No Undo veto (feedback round 27). With one player on this phone, Reveal appears once
+                        // No Undo veto. With one player on this phone, Reveal appears once
                         // they decided: Don't veto, or their veto placed.
                         val decided = single == null || single == state.activePlayer.id ||
                             single !in GameEngine.vetoEligible(state) || (gate != null && single in gate!!.declined)
@@ -238,7 +239,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
-            val chipLabel = pluralStringResource(Res.plurals.vetoes, activeState.vetoes, activeState.vetoes)
+            val chipLabel = pluralStringResource(state.vetoWord, activeState.vetoes, activeState.vetoes)
             val skipCost = rules.skipCost
             val buyCost = rules.buyCost
             TurnRow(
@@ -248,7 +249,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
                     { _ ->
                         if (skipCost != null) {
                             OutlinedButton(onClick = { vm.dispatch(GameAction.Skip) }, enabled = activeState.vetoes >= skipCost) {
-                                Text(stringResource(Res.string.timeline_skip, pluralStringResource(Res.plurals.vetoes, skipCost, skipCost)))
+                                Text(stringResource(Res.string.timeline_skip, pluralStringResource(state.vetoWord, skipCost, skipCost)))
                             }
                         }
                         // Buying a card beside Skip, as on guest phones (DESIGN-REVIEW IN-02); for everyone in the scoreboard.
@@ -277,6 +278,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
                 else if (gate?.picking.orEmpty().size == 1) stringResource(Res.string.timeline_remote_picking, session.player(gate!!.picking.first()).name, deviceName(remoteDevice(gate!!.picking.first())))
                 else if (gate?.picking.orEmpty().isNotEmpty()) stringResource(Res.string.timeline_remote_picking_many, gate!!.picking.joinToString(stringResource(Res.string.list_separator)) { session.player(it).name })
                 else if (waiting.isNotEmpty()) stringResource(Res.string.timeline_waiting_remote, waiting.joinToString(stringResource(Res.string.list_separator)) { session.player(it).name })
+                else if (state.solo) stringResource(Res.string.timeline_reveal_hint_solo)
                 else stringResource(Res.string.timeline_veto_hint),
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.padding(vertical = 8.dp),
@@ -288,7 +290,12 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
             LaunchedEffect(focusSlot) {
                 // While dragging, the finger moves the list (dragToPlace scrolls at the edges).
                 if (focusSlot == null || dragging) return@LaunchedEffect
-                // List items: every card plus the visible gaps; keep the card above the chosen gap in view too.
+                // A gap in sight stays where it is, so it can be tapped again (D-383: the list jumped to put a tapped gap
+                // first, and "tap twice" missed). Only one out of sight, chosen on a guest's phone or before a resume, is
+                // scrolled to, with the card above it in view too. List items: every card plus the visible gaps.
+                val info = listState.layoutInfo
+                val shown = info.visibleItemsInfo.firstOrNull { it.key == "gap-$focusSlot" }
+                if (shown != null && shown.offset >= info.viewportStartOffset && shown.offset + shown.size <= info.viewportEndOffset) return@LaunchedEffect
                 val gapIndex = focusSlot + (0 until focusSlot).count { Slots.isSelectable(timeline, it) }
                 listState.animateScrollToItem((gapIndex - 1).coerceAtLeast(0))
             }
@@ -326,7 +333,7 @@ fun TimelineRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Snack
                             enabled = enabled,
                             onClick = {
                                 when {
-                                    // With "tap twice", tapping the chosen gap again locks in (feedback round 11).
+                                    // With "tap twice", tapping the chosen gap again locks in.
                                     placing && twice && round.selectedSlot == slot -> vm.dispatch(GameAction.LockIn)
                                     placing -> vm.dispatch(GameAction.SelectSlot(slot))
                                     else -> vm.placeVeto(slot, twice)
@@ -366,7 +373,7 @@ private fun Gap(
     tapAgain: Boolean = false,
     /** "Tap a gap twice to confirm" is on: a marked veto says "Tap again to veto", else "Veto here?" (LY-04). */
     confirmTwice: Boolean = false,
-    /** The first and last gap say Older and Newer while free, for a sense of direction (feedback round 49). */
+    /** The first and last gap say Older and Newer while free, for a sense of direction. */
     edge: String? = null,
 ) {
     val owner = chosenBy ?: vetoedBy ?: pendingVetoBy
@@ -449,9 +456,9 @@ private fun SingleVetoChoice(session: GameSession, playerId: String, vetoer: Str
 }
 
 /**
- * Press the placed guess and drag (feedback round 27): the chosen gap follows the finger, also into the part
+ * Press the placed guess and drag: the chosen gap follows the finger, also into the part
  * of the timeline scrolled out of view, as the list scrolls near its edges. Drags that start anywhere else,
- * a free gap included, scroll the list: a free gap is chosen by a tap only (feedback round 52). [placed] is
+ * a free gap included, scroll the list: a free gap is chosen by a tap only. [placed] is
  * the gap chosen now; [onSlot] gets each gap the finger reaches.
  */
 private fun Modifier.dragToPlace(
@@ -530,11 +537,11 @@ private fun VetoBar(session: GameSession, selected: String?, remote: Set<String>
         p.id != state.activePlayer.id && ps.vetoes > 0 && round.vetoes.count { it.playerId == p.id } < perSong
     }
     if (eligible.isEmpty()) {
-        // As far from Reveal as from the bar's top edge (feedback rounds 64, 65).
-        Text(stringResource(Res.string.timeline_no_vetoes_left), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
+        // As far from Reveal as from the bar's top edge. Alone there is nobody who could veto (D-380).
+        if (!state.solo) Text(stringResource(Res.string.timeline_no_vetoes_left), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 12.dp))
         return
     }
-    // Wrapping, so no name is cut off (DESIGN-REVIEW UX-03); as far from Reveal as from the bar's top edge (feedback rounds 64, 65).
+    // Wrapping, so no name is cut off (DESIGN-REVIEW UX-03); as far from Reveal as from the bar's top edge.
     FlowRow(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         for (p in eligible) {
             val vetoes = state.player(p.id)!!.vetoes
@@ -543,7 +550,7 @@ private fun VetoBar(session: GameSession, selected: String?, remote: Set<String>
                 val decision = stringResource(if (gate != null && p.id in gate.declined) Res.string.veto_status_declined else Res.string.veto_status_deciding)
                 detail = stringResource(Res.string.name_with_detail, detail, decision)
             }
-            // A connected guest vetoes on their own phone; the host can't do it for them (feedback round 13).
+            // A connected guest vetoes on their own phone; the host can't do it for them.
             FilterChip(
                 selected = selected == p.id,
                 onClick = { onSelect(p.id) },

@@ -90,11 +90,11 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
     val rules = state.settings.closestYear
     val audio by vm.audio.collectAsStateWithLifecycle()
     var scoreboard by rememberSaveable { mutableStateOf(false) }
-    // A connected guest phone enters its own player's guess; the host can't (feedback round 9).
+    // A connected guest phone enters its own player's guess; the host can't.
     val remoteState by LocalAppContainer.current.remote.state.collectAsStateWithLifecycle()
     val connected = (remoteState as? RemoteState.On)?.clients?.claimed.orEmpty().filterValues { it }.keys
     // Hidden guesses: guest phones guess whenever they like; the players on this phone still take turns,
-    // as the phone is passed around anyway (feedback rounds 36, 38).
+    // as the phone is passed around anyway.
     val hidden = rules.hiddenGuesses
     val guesser = if (hidden) {
         round.waitingFor.firstOrNull { it !in connected }?.let(session::player)
@@ -126,7 +126,7 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
         },
     ) { padding ->
         // The year entry fixed at the bottom and never cut off; everything above it scrolls in the space
-        // left, so new guesses never push the keypad down (feedback rounds 18, 38).
+        // left, so new guesses never push the keypad down.
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp)) {
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
@@ -138,7 +138,7 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
                     val label = if (remoteGuess) stringResource(Res.string.closest_remote_guess, deviceName(remoteDevice(guesser.id))) else stringResource(Res.string.closest_your_guess)
                     // The skips left, as guests see theirs (DESIGN-REVIEW WD-02).
                     val chipLabel = if (skipsInPlay) stringResource(Res.string.name_with_detail, label, pluralStringResource(Res.plurals.skips, skips, skips)) else label
-                    // Only the first guesser, before anyone guessed, may skip the song (feedback rounds 11, 36).
+                    // Only the first guesser, before anyone guessed, may skip the song.
                     val canSkip = round.guesses.isEmpty() && skips > 0 && !remoteGuess && guesser.id == round.guessOrder.firstOrNull()
                     val buyCost = rules.buyCost?.takeIf { !remoteGuess }
                     TurnRow(
@@ -181,8 +181,8 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
                     unplayable = vm.unplayable.collectAsStateWithLifecycle().value || (audio.error && session.song(round.song.songId)?.streamed == true),
                     onReplace = vm::replaceUnplayable,
                 )
-                // The guesser can also tap or drag on the line: the year fills the digits, Guess confirms (feedback round 35).
-                // Close under the playback controls (feedback round 38).
+                // The guesser can also tap or drag on the line: the year fills the digits, Guess confirms.
+                // Close under the playback controls.
                 val picking = guesser != null && !remoteGuess
                 Column {
                     GuessAxis(
@@ -195,7 +195,7 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
                         hideGuesses = hidden,
                     )
                 }
-                // In a titled card, as on the guests' phones (feedback round 27).
+                // In a titled card, as on the guests' phones.
                 if (round.guesses.isNotEmpty()) SectionCard(stringResource(Res.string.result_guesses)) { GuessList(session, hidden) }
             }
             if (guesser != null && !remoteGuess) {
@@ -214,7 +214,7 @@ fun ClosestYearRoundScreen(session: GameSession, vm: GameViewModel, snackbar: Sn
     if (scoreboard) ScoreboardSheet(session, onDismiss = { scoreboard = false }, onAction = vm::dispatch)
 }
 
-/** The guesses so far, newest last; [hidden]: only who guessed, not the year (feedback round 36). */
+/** The guesses so far, newest last; [hidden]: only who guessed, not the year. */
 @Composable
 private fun GuessList(session: GameSession, hidden: Boolean) {
     val round = session.state.round ?: return
@@ -233,7 +233,7 @@ private fun GuessList(session: GameSession, hidden: Boolean) {
 
 /**
  * The year being typed: four separate digit places, the next one underlined in the primary colour, so
- * it reads as an input and not as a bar (feedback round 9).
+ * it reads as an input and not as a bar.
  */
 @Composable
 private fun YearDigits(digits: String) {
@@ -254,9 +254,9 @@ private fun YearDigits(digits: String) {
 
 /**
  * The guesses as avatars on a line from [from] to [to], with the end years just under it; after the
- * reveal the song's year is marked ([revealedYear]). Also used on the reveal screen (feedback round 16).
+ * reveal the song's year is marked ([revealedYear]). Also used on the reveal screen.
  * With [onPick], tapping or dragging on the line picks a year; [pending] shows it faded with
- * [pendingPlayer]'s avatar until it is confirmed (feedback round 35).
+ * [pendingPlayer]'s avatar until it is confirmed.
  */
 @Composable
 fun GuessAxis(
@@ -267,7 +267,7 @@ fun GuessAxis(
     pending: Int? = null,
     pendingPlayer: GamePlayer? = null,
     onPick: ((Int) -> Unit)? = null,
-    /** Hidden guesses before the reveal: no one's year on the line (feedback round 36). */
+    /** Hidden guesses before the reveal: no one's year on the line. */
     hideGuesses: Boolean = false,
 ) {
     val round = session.state.round ?: return
@@ -289,8 +289,8 @@ fun GuessAxis(
             }
         }
     }
-    // Above the end-year labels below it, so a marker at either end covers the label (feedback round 15).
-    // 48 dp: just room for the markers, so the line sits close under the playback controls (feedback round 38).
+    // Above the end-year labels below it, so a marker at either end covers the label.
+    // 48 dp: just room for the markers, so the line sits close under the playback controls.
     BoxWithConstraints(Modifier.fillMaxWidth().height(48.dp).zIndex(1f).then(picker)) {
         val marker = AXIS_MARKER
         val usable = maxWidth - marker
@@ -312,7 +312,7 @@ fun GuessAxis(
             Box(Modifier.offset(x = usable * f).align(Alignment.CenterStart).alpha(PENDING_ALPHA)) { PlayerAvatar(pendingPlayer, marker) }
         }
     }
-    // The end years sit under the line, as far below it as on the guests' phones (feedback rounds 14, 27); the
+    // The end years sit under the line, as far below it as on the guests' phones; the
     // offset keeps the layout, so what follows stays put.
     Row(Modifier.fillMaxWidth().offset(y = (-3).dp)) {
         Text(formatYear(from), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
@@ -321,7 +321,7 @@ fun GuessAxis(
 }
 
 /**
- * Large year keypad: four digits, the range [hint] under them as on the guests' phones (feedback round 38), backspace,
+ * Large year keypad: four digits, the range [hint] under them as on the guests' phones, backspace,
  * and Guess. The keyboard types too: digits, Backspace, and Enter for Guess (PLATFORMS.md phase 7).
  */
 @Composable

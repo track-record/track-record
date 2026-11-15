@@ -124,7 +124,7 @@ fun RemotePlayDialog(onDismiss: () -> Unit) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            // Phone-sized in a desktop window too (feedback rounds 55, 56): the limit first, as fillMaxWidth fixes the
+            // Phone-sized in a desktop window too: the limit first, as fillMaxWidth fixes the
             // width for whatever follows.
             modifier = Modifier.widthIn(max = MAX_DIALOG_WIDTH).fillMaxWidth(0.92f),
         ) {
@@ -153,7 +153,7 @@ fun RemotePlayDialog(onDismiss: () -> Unit) {
                                 modifier = Modifier.size(260.dp).background(Color.White).semantics { contentDescription = description },
                             )
                         }
-                        // Tap to copy (feedback round 11).
+                        // Tap to copy.
                         var copied by remember(url) { mutableStateOf(false) }
                         val copyLabel = stringResource(Res.string.remote_copy_link)
                         Column(Modifier.fillMaxWidth().clickable(onClickLabel = copyLabel) {

@@ -25,12 +25,15 @@ import com.trackrecord.app.resources.Res
 import com.trackrecord.app.resources.brief_closest
 import com.trackrecord.app.resources.brief_closest_naming
 import com.trackrecord.app.resources.brief_closest_naming_hidden
+import com.trackrecord.app.resources.brief_closest_naming_solo
 import com.trackrecord.app.resources.brief_closest_naming_turns
 import com.trackrecord.app.resources.brief_timeline
 import com.trackrecord.app.resources.brief_timeline_naming_active
 import com.trackrecord.app.resources.brief_timeline_naming_all
 import com.trackrecord.app.resources.brief_timeline_naming_first
+import com.trackrecord.app.resources.brief_timeline_naming_solo
 import com.trackrecord.app.resources.brief_timeline_naming_vetoers
+import com.trackrecord.app.resources.brief_timeline_solo
 import com.trackrecord.app.resources.cards
 import com.trackrecord.app.resources.info_excluded
 import com.trackrecord.app.resources.info_included
@@ -59,6 +62,8 @@ import com.trackrecord.app.resources.rules_closest_hidden
 import com.trackrecord.app.resources.rules_closest_naming
 import com.trackrecord.app.resources.rules_closest_rank
 import com.trackrecord.app.resources.rules_closest_skip
+import com.trackrecord.app.resources.rules_closest_skip_solo
+import com.trackrecord.app.resources.rules_closest_solo
 import com.trackrecord.app.resources.rules_closest_turns
 import com.trackrecord.app.resources.rules_target_cards
 import com.trackrecord.app.resources.rules_target_points
@@ -66,11 +71,15 @@ import com.trackrecord.app.resources.rules_tie_both
 import com.trackrecord.app.resources.rules_tie_both_rank
 import com.trackrecord.app.resources.rules_tie_first
 import com.trackrecord.app.resources.rules_timeline_buy
+import com.trackrecord.app.resources.rules_timeline_buy_solo
 import com.trackrecord.app.resources.rules_timeline_naming
 import com.trackrecord.app.resources.rules_timeline_naming_all
+import com.trackrecord.app.resources.rules_timeline_naming_solo
 import com.trackrecord.app.resources.rules_timeline_naming_vetoers
 import com.trackrecord.app.resources.rules_timeline_skip
+import com.trackrecord.app.resources.rules_timeline_skip_solo
 import com.trackrecord.app.resources.rules_timeline_turn
+import com.trackrecord.app.resources.rules_timeline_turn_solo
 import com.trackrecord.app.resources.rules_timeline_veto
 import com.trackrecord.app.resources.scoring_closest
 import com.trackrecord.app.resources.scoring_distance
@@ -82,15 +91,18 @@ import com.trackrecord.app.resources.settings_cards_to_win
 import com.trackrecord.app.resources.settings_clip_limit
 import com.trackrecord.app.resources.settings_distance_points
 import com.trackrecord.app.resources.settings_hidden_guesses
+import com.trackrecord.app.resources.settings_max_jokers
 import com.trackrecord.app.resources.settings_max_skips
 import com.trackrecord.app.resources.settings_max_vetoes
 import com.trackrecord.app.resources.settings_naming_bonus
+import com.trackrecord.app.resources.settings_naming_bonus_solo
 import com.trackrecord.app.resources.settings_naming_callers
 import com.trackrecord.app.resources.settings_naming_skip
 import com.trackrecord.app.resources.settings_scoring
 import com.trackrecord.app.resources.settings_skip_cost
 import com.trackrecord.app.resources.settings_start_offset
 import com.trackrecord.app.resources.settings_starting_cards
+import com.trackrecord.app.resources.settings_starting_jokers
 import com.trackrecord.app.resources.settings_starting_skips
 import com.trackrecord.app.resources.settings_starting_vetoes
 import com.trackrecord.app.resources.settings_tie_breaker
@@ -101,7 +113,6 @@ import com.trackrecord.app.resources.tie_both
 import com.trackrecord.app.resources.tie_first
 import com.trackrecord.app.resources.value_off
 import com.trackrecord.app.resources.value_on
-import com.trackrecord.app.resources.vetoes
 import com.trackrecord.app.resources.year_balance_gentle
 import com.trackrecord.app.resources.year_balance_strong
 import com.trackrecord.app.ui.Texts
@@ -121,7 +132,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The info sheet's content (feedback round 36): how the mode being played works, the game's settings,
+ * The info sheet's content: how the mode being played works, the game's settings,
  * and the playlists its songs come from. Worded here once for the host and the guests' phones.
  */
 object GameInfo {
@@ -137,16 +148,22 @@ object GameInfo {
             rules = rules(session.state),
             settings = settings(session.state),
             included = c.playlistIds?.map(::name) ?: listOf(Texts.get(Res.string.playlist_all)),
-            // "Excluded songs" is always left out (feedback round 28).
+            // "Excluded songs" is always left out.
             excluded = (c.excludedPlaylistIds.map(::name) + Texts.get(Res.string.playlist_excluded)).distinct(),
             brief = brief(session.state),
         )
     }
 
-    /** The rules in brief for guests' phones (feedback round 51): the aim, and who may name the song for what. */
+    /** The rules in brief for guests' phones: the aim, and who may name the song for what. */
     private fun brief(s: GameState): List<String> = when (s.mode) {
         GameMode.TIMELINE -> buildList {
             val t = s.settings.timeline
+            if (s.solo) {
+                // Alone: no vetoing, and the jokers' name (D-380).
+                add(Texts.get(Res.string.brief_timeline_solo))
+                if (t.namingBonus) add(Texts.get(Res.string.brief_timeline_naming_solo))
+                return@buildList
+            }
             add(Texts.get(Res.string.brief_timeline))
             if (t.namingBonus) {
                 add(
@@ -164,7 +181,9 @@ object GameInfo {
         GameMode.CLOSEST_YEAR -> buildList {
             val c = s.settings.closestYear
             add(Texts.get(Res.string.brief_closest))
-            if (c.namingEarnsSkip) {
+            if (c.namingEarnsSkip && s.solo) {
+                add(Texts.get(Res.string.brief_closest_naming_solo))
+            } else if (c.namingEarnsSkip) {
                 add(Texts.get(Res.string.brief_closest_naming))
                 add(Texts.get(if (c.hiddenGuesses) Res.string.brief_closest_naming_hidden else Res.string.brief_closest_naming_turns))
             }
@@ -174,6 +193,15 @@ object GameInfo {
     private fun rules(s: GameState): List<String> = when (s.mode) {
         GameMode.TIMELINE -> buildList {
             val t = s.settings.timeline
+            if (s.solo) {
+                // Alone: no vetoing, and the jokers' name (D-380).
+                add(Texts.get(Res.string.rules_timeline_turn_solo))
+                if (t.namingBonus) add(Texts.get(Res.string.rules_timeline_naming_solo))
+                t.skipCost?.let { add(Texts.plural(Res.plurals.rules_timeline_skip_solo, it, it)) }
+                t.buyCost?.let { add(Texts.plural(Res.plurals.rules_timeline_buy_solo, it, it)) }
+                add(Texts.plural(Res.plurals.rules_target_cards, t.cardsToWin, t.cardsToWin))
+                return@buildList
+            }
             add(Texts.get(Res.string.rules_timeline_turn))
             add(Texts.get(Res.string.rules_timeline_veto))
             if (t.namingBonus) {
@@ -193,7 +221,7 @@ object GameInfo {
         }
         GameMode.CLOSEST_YEAR -> buildList {
             val c = s.settings.closestYear
-            add(Texts.get(if (c.hiddenGuesses) Res.string.rules_closest_hidden else Res.string.rules_closest_turns))
+            add(Texts.get(if (s.solo) Res.string.rules_closest_solo else if (c.hiddenGuesses) Res.string.rules_closest_hidden else Res.string.rules_closest_turns))
             val target = c.target(s.seats)
             when (c.scoring) {
                 ClosestScoring.CLOSEST -> {
@@ -221,12 +249,12 @@ object GameInfo {
                     ),
                 )
             }
-            if (c.startingSkips > 0 || c.namingEarnsSkip) add(Texts.get(Res.string.rules_closest_skip))
+            if (c.startingSkips > 0 || c.namingEarnsSkip) add(Texts.get(if (s.solo) Res.string.rules_closest_skip_solo else Res.string.rules_closest_skip))
             if (c.namingEarnsSkip) add(Texts.get(Res.string.rules_closest_naming))
             c.buyCost?.let { cost ->
                 if (c.scoring == ClosestScoring.CLOSEST) add(Texts.plural(Res.plurals.rules_closest_buy, cost, cost))
                 else {
-                    // Points, not a card (feedback round 50).
+                    // Points, not a card.
                     val points = c.perfectRound(s.seats)
                     add(Texts.get(Res.string.rules_closest_buy_points, Texts.plural(Res.plurals.points, points, points), Texts.plural(Res.plurals.skips, cost, cost)))
                 }
@@ -244,20 +272,20 @@ object GameInfo {
                 line(Res.string.info_mode, Texts.get(Res.string.mode_timeline))
                 line(Res.string.settings_cards_to_win, t.cardsToWin.toString())
                 line(Res.string.settings_starting_cards, t.startingCards.toString())
-                line(Res.string.settings_starting_vetoes, t.startingVetoes.toString())
-                line(Res.string.settings_max_vetoes, t.maxVetoes.toString())
-                line(Res.string.settings_vetoes_per_song, t.vetoesPerPlayerPerSong.toString())
-                line(Res.string.settings_naming_bonus, onOff(t.namingBonus))
-                // Every rule of the setup screen, each where it applies (feedback round 43).
-                if (t.namingBonus) line(Res.string.settings_naming_callers, Texts.get(t.namingCallers.label))
+                // Every rule of the setup screen, each where it applies; alone, as the setup shows them (D-380).
+                line(if (s.solo) Res.string.settings_starting_jokers else Res.string.settings_starting_vetoes, t.startingVetoes.toString())
+                line(if (s.solo) Res.string.settings_max_jokers else Res.string.settings_max_vetoes, t.maxVetoes.toString())
+                if (!s.solo) line(Res.string.settings_vetoes_per_song, t.vetoesPerPlayerPerSong.toString())
+                line(if (s.solo) Res.string.settings_naming_bonus_solo else Res.string.settings_naming_bonus, onOff(t.namingBonus))
+                if (t.namingBonus && !s.solo) line(Res.string.settings_naming_callers, Texts.get(t.namingCallers.label))
                 // With their unit (DESIGN-REVIEW UX-05).
-                line(Res.string.settings_skip_cost, t.skipCost?.let { Texts.plural(Res.plurals.vetoes, it, it) } ?: Texts.get(Res.string.value_off))
-                line(Res.string.settings_buy_cost, t.buyCost?.let { Texts.plural(Res.plurals.vetoes, it, it) } ?: Texts.get(Res.string.value_off))
+                line(Res.string.settings_skip_cost, t.skipCost?.let { Texts.plural(s.vetoWord, it, it) } ?: Texts.get(Res.string.value_off))
+                line(Res.string.settings_buy_cost, t.buyCost?.let { Texts.plural(s.vetoWord, it, it) } ?: Texts.get(Res.string.value_off))
             }
             GameMode.CLOSEST_YEAR -> {
                 val c = s.settings.closestYear
                 line(Res.string.info_mode, Texts.get(Res.string.mode_closest))
-                line(Res.string.settings_hidden_guesses, onOff(c.hiddenGuesses))
+                if (!s.solo) line(Res.string.settings_hidden_guesses, onOff(c.hiddenGuesses))
                 line(Res.string.settings_scoring, Texts.get(c.scoring.label))
                 if (c.scoring == ClosestScoring.DISTANCE) line(Res.string.settings_distance_points, c.distancePoints.toString())
                 val target = c.target(s.seats)
@@ -297,7 +325,7 @@ val YearBalance.label: StringResource
         YearBalance.STRONG -> Res.string.year_balance_strong
     }
 
-/** "Buy a card", or "Buy points" in Rank and Distance (feedback round 50). */
+/** "Buy a card", or "Buy points" in Rank and Distance. */
 val ClosestYearSettings.buyLabel: StringResource
     get() = if (scoring == ClosestScoring.CLOSEST) Res.string.settings_buy_cost else Res.string.settings_buy_points
 
@@ -307,14 +335,14 @@ val TieBreaker.label: StringResource
         TieBreaker.FIRST_SCORES -> Res.string.tie_first
     }
 
-/** The info button's sheet (feedback round 36): the rules folded away, then the settings and playlists. */
+/** The info button's sheet: the rules folded away, then the settings and playlists. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InfoSheet(session: GameSession, onDismiss: () -> Unit) {
     val info = remember(session.state.settings, session.state.seats, session.playlistNames) { GameInfo.of(session) }
     var rulesOpen by rememberSaveable { mutableStateOf(false) }
-    // Opened all the way, at a fixed height well below the status bar (feedback rounds 37, 38, 39): on
-    // Felix's phone a sheet reaching the status bar made room for it, grew, and settled again without end.
+    // Opened all the way, at a fixed height well below the status bar: on
+    // a test phone a sheet reaching the status bar made room for it, grew, and settled again without end.
     AppSheet(stringResource(Res.string.info_title), onDismiss = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             sheetBody().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),

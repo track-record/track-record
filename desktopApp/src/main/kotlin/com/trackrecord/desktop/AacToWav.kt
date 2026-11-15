@@ -9,7 +9,7 @@ import java.nio.ByteOrder
 import java.security.MessageDigest
 
 /**
- * AAC in MP4 (m4a), which the JBR's Chromium can't decode (no licensed codecs; feedback round 55): decoded with JAAD
+ * AAC in MP4 (m4a), which the JBR's Chromium can't decode (no licensed codecs): decoded with JAAD
  * (its maintained fork: the original decodes inaccurately, 8% of the fingerprint's bits off against FFmpeg's 0.07%)
  * into a WAV in [folder], which Chromium plays, the room streams and the fingerprints read. The newest few are kept, so
  * a song played again (the reveal's full song, its preview) is ready at once.

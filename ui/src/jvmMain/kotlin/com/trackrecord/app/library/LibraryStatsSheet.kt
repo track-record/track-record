@@ -36,12 +36,12 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Numbers for the listed songs (playlist and filters applied): songs, distinct artists, earliest and
- * latest year, and a histogram of songs per year (feedback round 5).
+ * latest year, and a histogram of songs per year.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryStatsSheet(title: String, filtered: Boolean, stats: LibraryStats, onDismiss: () -> Unit) {
-    // An AppSheet like the others, so it never reaches the status bar either (feedback round 50).
+    // An AppSheet like the others, so it never reaches the status bar either.
     AppSheet(stringResource(Res.string.stats_title, title), onDismiss = onDismiss) {
         Column(
             sheetBody(fixed = false).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -53,7 +53,7 @@ fun LibraryStatsSheet(title: String, filtered: Boolean, stats: LibraryStats, onD
     }
 }
 
-/** Songs, artists, years and the songs-per-year chart; also under the Song Pool step (feedback round 28). */
+/** Songs, artists, years and the songs-per-year chart; also under the Song Pool step. */
 @Composable
 fun StatsContent(stats: LibraryStats) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

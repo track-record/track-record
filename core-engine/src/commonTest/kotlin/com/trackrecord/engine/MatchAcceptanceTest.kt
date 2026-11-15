@@ -67,7 +67,7 @@ class MatchAcceptanceTest {
 
     @Test
     fun `audio matches accept a credited artist and a title that extends the other`() {
-        // Real AcoustID results for Felix's songs (D-076).
+        // Real AcoustID results for songs of a real library (D-076).
         assertTrue(MatchAcceptance.acceptsAudioMatch("AniMe", "Terrordome", MbCandidate("AniMe", "Terrordome #TiH", year = 2008)))
         assertTrue(MatchAcceptance.acceptsAudioMatch("AniMe", "Hardcore machine", MbCandidate("AniMe & DJ Mad Dog", "Hardcore Machine", year = 2010)))
         assertTrue(MatchAcceptance.acceptsAudioMatch("Alligatoah", "Fick ihn doch Live", MbCandidate("Alligatoah", "Fick Ihn Doch (Live)", year = 2014)))

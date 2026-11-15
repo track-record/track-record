@@ -16,14 +16,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlinx.coroutines.delay
 
-/** An activity that hides its navigation bar while a game is on screen (feedback round 31). */
+/** An activity that hides its navigation bar while a game is on screen. */
 interface NavigationBarHost {
     var hideNavigationBar: Boolean
 }
 
 /**
  * Hides the navigation bar while this is in the composition: on the game screens only; the menus keep
- * it (feedback round 31; DECISIONS.md D-053). A swipe from the edge brings it back; while it shows, insets
+ * it (DECISIONS.md D-053). A swipe from the edge brings it back; while it shows, insets
  * move the UI above it, and it hides again after a few seconds (not while the keyboard is open).
  */
 @OptIn(ExperimentalLayoutApi::class)

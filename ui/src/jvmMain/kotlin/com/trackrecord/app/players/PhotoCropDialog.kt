@@ -51,9 +51,9 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
- * Choose the part of a photo for a profile picture (feedback round 16): the photo fills a square, the
+ * Choose the part of a photo for a profile picture: the photo fills a square, the
  * round frame shows what is kept; drag to move, pinch or the mouse wheel to zoom (up to 5×). [onDone] gets the
- * chosen square in the image's pixels. Shared by both apps (feedback round 55); phone-sized in a desktop window, whose
+ * chosen square in the image's pixels. Shared by both apps; phone-sized in a desktop window, whose
  * hint names the wheel ([mouse]).
  */
 @Composable

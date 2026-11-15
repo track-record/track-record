@@ -9,7 +9,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Closest Year's scoring modes, tie breaker and hidden guesses (feedback round 36). */
+/** Closest Year's scoring modes, tie breaker and hidden guesses. */
 class ClosestScoringTest {
     private val five = listOf("Anna", "Ben", "Cara", "Dan", "Eve")
 
@@ -83,7 +83,7 @@ class ClosestScoringTest {
         val bought = s.act(BuyCard("Cara"))
         assertEquals(4, bought.p("Cara").points)
         assertTrue(bought.p("Cara").collection.isEmpty())
-        // Points without a card: the pool keeps its songs (feedback round 50).
+        // Points without a card: the pool keeps its songs.
         assertEquals(Purchase("Cara", points = 4), bought.lastPurchase)
         assertEquals(s.pool, bought.pool)
         assertEquals(s.discarded, bought.discarded)

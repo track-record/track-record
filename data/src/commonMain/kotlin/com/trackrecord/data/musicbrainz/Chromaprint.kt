@@ -12,7 +12,7 @@ import kotlin.math.sqrt
 
 /**
  * Chromaprint's fingerprint, algorithm 2 (the default, which AcoustID expects), ported from the C++ sources vendored in
- * :fingerprint (Chromaprint 1.6.1, LGPL 2.1) for the desktop, where no native library is built (feedback round 55).
+ * :fingerprint (Chromaprint 1.6.1, LGPL 2.1) for the desktop, where no native library is built.
  * Android keeps the native library.
  *
  * It takes audio already at [SAMPLE_RATE], mono: the rate Chromaprint works at, so the decoder resamples (the C++

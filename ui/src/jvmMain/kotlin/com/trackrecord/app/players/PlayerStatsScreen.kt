@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +53,7 @@ import com.trackrecord.app.resources.player_stats_by_decade
 import com.trackrecord.app.resources.player_stats_by_year
 import com.trackrecord.app.resources.player_stats_chances
 import com.trackrecord.app.resources.player_stats_decades
+import com.trackrecord.app.resources.player_stats_finished
 import com.trackrecord.app.resources.player_stats_games
 import com.trackrecord.app.resources.player_stats_games_rounds
 import com.trackrecord.app.resources.player_stats_guesses
@@ -64,6 +66,7 @@ import com.trackrecord.app.resources.player_stats_naming_none
 import com.trackrecord.app.resources.player_stats_played
 import com.trackrecord.app.resources.player_stats_rounds
 import com.trackrecord.app.resources.player_stats_rounds_hint
+import com.trackrecord.app.resources.player_stats_solo_header
 import com.trackrecord.app.resources.player_stats_won
 import com.trackrecord.app.resources.player_stats_years
 import com.trackrecord.app.resources.player_stats_years_off
@@ -85,7 +88,7 @@ import java.util.Locale
 import kotlin.math.ceil
 
 /**
- * A saved player's stats (feedback round 47): games, wins and rounds per mode, how far their Timeline guesses
+ * A saved player's stats: games, wins and rounds per mode, how far their Timeline guesses
  * were off, and how often they named the song when they had the chance; both with a bar per song year.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -111,7 +114,7 @@ fun PlayerStatsScreen(profileId: Long, onBack: () -> Unit, onEdit: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(PanelGap),
         ) {
-            // The player in a panel too, as everything else (feedback round 58).
+            // The player in a panel too, as everything else.
             profile?.let { p ->
                 Card(Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -129,18 +132,34 @@ fun PlayerStatsScreen(profileId: Long, onBack: () -> Unit, onEdit: () -> Unit) {
 
 @Composable
 private fun GamesCard(s: PlayerStats) {
-    // Games and rounds side by side, each with Played and Won (feedback round 48: "Rounds won" wrapped).
+    // Games and rounds side by side: games finished and won, rounds played and won ("Rounds won" wrapped).
     SectionCard(stringResource(Res.string.player_stats_games_rounds)) {
         // One block without gaps, so the line between the groups runs through.
         Column {
             val groupStyle = MaterialTheme.typography.titleSmall
             TableRow("", listOf(stringResource(Res.string.player_stats_games)), listOf(stringResource(Res.string.player_stats_rounds)), groupStyle)
-            val played = stringResource(Res.string.player_stats_played)
             val won = stringResource(Res.string.player_stats_won)
-            TableRow(stringResource(Res.string.player_stats_mode), listOf(played, won), listOf(played, won), MaterialTheme.typography.labelMedium)
-            for ((mode, label) in listOf(GameMode.TIMELINE to Res.string.mode_timeline, GameMode.CLOSEST_YEAR to Res.string.mode_closest)) {
+            TableRow(
+                stringResource(Res.string.player_stats_mode),
+                listOf(stringResource(Res.string.player_stats_finished), won),
+                listOf(stringResource(Res.string.player_stats_played), won),
+                MaterialTheme.typography.labelMedium,
+            )
+            val modes = listOf(GameMode.TIMELINE to Res.string.mode_timeline, GameMode.CLOSEST_YEAR to Res.string.mode_closest)
+            for ((mode, label) in modes) {
                 val m = s.modes.getValue(mode)
                 TableRow(stringResource(label), listOf(m.games, m.wins).map { it.toString() }, listOf(m.rounds, m.roundsWon).map { it.toString() }, MaterialTheme.typography.bodyLarge)
+            }
+            // Solo games (D-380), once there are any: below a line under their own heading, so the rows name only the
+            // mode and don't wrap (D-384). No winner, so no games won.
+            val solo = modes.mapNotNull { (mode, label) -> s.solo[mode]?.takeIf { it.any }?.let { it to label } }
+            if (solo.isNotEmpty()) {
+                HorizontalDivider(Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                // Styled like the Mode heading above it.
+                TableRow(stringResource(Res.string.player_stats_solo_header), listOf(""), listOf(""), MaterialTheme.typography.labelMedium)
+                for ((m, label) in solo) {
+                    TableRow(stringResource(label), listOf(m.games.toString(), "–"), listOf(m.rounds, m.roundsWon).map { it.toString() }, MaterialTheme.typography.bodyLarge)
+                }
             }
         }
         Text(stringResource(Res.string.player_stats_rounds_hint), style = MaterialTheme.typography.bodySmall)
@@ -224,7 +243,7 @@ private fun NamingCard(s: PlayerStats) {
 }
 
 /**
- * The breakdown below a headline number: a bar per decade, or per year when chosen (feedback round 48). [chart]
+ * The breakdown below a headline number: a bar per decade, or per year when chosen. [chart]
  * gets the bars and whether they are decades.
  */
 @Composable

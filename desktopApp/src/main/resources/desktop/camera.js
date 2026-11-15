@@ -1,4 +1,4 @@
-// The desktop's camera for players' photos (feedback round 55): the webcam through getUserMedia, small JPEG frames to
+// The desktop's camera for players' photos: the webcam through getUserMedia, small JPEG frames to
 // the app about ten times a second for its preview, and one at full size when the photo is taken. Frames come from
 // the track itself (ImageCapture), as this page is never shown.
 // Commands: take. Answers: frame {data}, photo {data}, failed {reason}. The camera starts when the page opens and

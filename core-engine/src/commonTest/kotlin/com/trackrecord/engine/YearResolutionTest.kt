@@ -45,7 +45,7 @@ class YearResolutionTest {
     @Test
     fun `when sources disagree the setting decides, MusicBrainz by default`() {
         val inputs = YearInputs(tagOriginalYear = 1975, tagYear = 2011, musicBrainzYear = 1980)
-        assertEquals(1980, YearResolver.resolve(inputs, CURRENT_YEAR).year, "the default: MusicBrainz leads (feedback round 32)")
+        assertEquals(1980, YearResolver.resolve(inputs, CURRENT_YEAR).year, "the default: MusicBrainz leads")
         val lowest = YearResolver.resolve(inputs, CURRENT_YEAR, YearPreference.LOWEST)
         assertEquals(1975, lowest.year)
         assertEquals(YearSource.TAG_ORIGINAL, lowest.source)

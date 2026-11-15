@@ -133,7 +133,7 @@ class TunnelTest {
         hub.update(HostSnapshot(HostGame(host.state!!, players, emptyMap(), listen = listen), ThemeInfo("LOW_POLY", 4, 4)))
         reply("p1", request("p1", "GET", "/api/events", mapOf("c" to "client-1234")))
         assertEquals(listen, generateSequence { view("p1") }.first { it.listen != null }.listen)
-        // A Wi-Fi guest's stream gets it too: it plays only if that phone turns the sound on (feedback round 59).
+        // A Wi-Fi guest's stream gets it too: it plays only if that phone turns the sound on.
         val wifi = java.util.concurrent.LinkedBlockingQueue<String>()
         val stream = object : SseStream {
             override val isOpen = true

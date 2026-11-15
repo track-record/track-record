@@ -63,7 +63,7 @@ class DeezerImports(private val importer: DeezerImporter) {
         }
     }
 
-    /** The default Deezer playlists the library doesn't have yet (feedback round 48). */
+    /** The default Deezer playlists the library doesn't have yet. */
     fun importDefaults() {
         if (job?.isActive == true) return
         _state.value = DeezerImportState.Running(0, 0)
@@ -82,7 +82,7 @@ class DeezerImports(private val importer: DeezerImporter) {
     }
 
     /**
-     * Stops the import or update (feedback round 48: no requests that can't be stopped). A song list keeps the songs
+     * Stops the import or update (no requests that can't be stopped). A song list keeps the songs
      * saved so far; a Deezer playlist is saved only when complete, so it stays as it was.
      */
     fun cancel() {

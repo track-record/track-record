@@ -186,7 +186,7 @@ interface PlaylistDao {
     @Query("SELECT id FROM playlists WHERE kind = 'FAVORITES' LIMIT 1")
     suspend fun favoritesId(): Long?
 
-    /** The songs in Favorites (feedback round 52). */
+    /** The songs in Favorites. */
     @Query("SELECT ps.song_id FROM playlist_songs ps JOIN playlists p ON p.id = ps.playlist_id WHERE p.kind = 'FAVORITES'")
     fun observeFavorites(): Flow<List<Long>>
 

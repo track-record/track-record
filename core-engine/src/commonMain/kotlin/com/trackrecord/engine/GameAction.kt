@@ -36,15 +36,15 @@ sealed interface GameAction {
     // Closest Year mode
     /**
      * A guess by [playerId], or by whoever's turn it is when null. With hidden guesses anyone who hasn't
-     * guessed may guess, in any order (feedback round 36).
+     * guessed may guess, in any order.
      */
     @Serializable data class SubmitGuess(val year: Int, val playerId: String? = null) : GameAction
     @Serializable data object UndoGuess : GameAction
 
     /**
      * After reveal: [playerId] named song and artist (or not). Only one player can have named it:
-     * marking another one moves the mark. Closest Year: players who guessed (feedback rounds 12, 13);
-     * Timeline: the players allowed by [TimelineSettings.namingCallers] (feedback round 19).
+     * marking another one moves the mark. Closest Year: players who guessed;
+     * Timeline: the players allowed by [TimelineSettings.namingCallers].
      */
     @Serializable data class SetNamedBy(val playerId: String, val named: Boolean) : GameAction
 
@@ -55,7 +55,7 @@ sealed interface GameAction {
     @Serializable data object Reveal : GameAction
 
     /**
-     * Mid-game: [playerId] stops playing (feedback round 36). Their cards and score stay on the
+     * Mid-game: [playerId] stops playing. Their cards and score stay on the
      * scoreboard, greyed out; at least [GameEngine.MIN_PLAYERS] players must remain. A round the player
      * was taking part in goes on without them, or ends if it was their turn in Timeline.
      */
@@ -65,11 +65,11 @@ sealed interface GameAction {
 
     /**
      * Mid-game: the clip length limit in seconds (null: none), from the next song on and for the song
-     * playing now (feedback round 25; D-191). Same range as the setting.
+     * playing now (D-191). Same range as the setting.
      */
     @Serializable data class SetClipLimit(val seconds: Int?) : GameAction
 
-    /** Mid-game: the start offset in seconds, from the next song on (feedback round 34). Same range as the setting. */
+    /** Mid-game: the start offset in seconds, from the next song on. Same range as the setting. */
     @Serializable data class SetStartOffset(val seconds: Int) : GameAction
 
     /**

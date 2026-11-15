@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- Only its own scripts and what it needs (REVIEW-3 S-20). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Track Record camera</title>
 </head>
 <body>
-  <!-- The desktop's camera for players' photos (feedback round 55). -->
+  <!-- The desktop's camera for players' photos. -->
   <script src="bridge.js"></script>
   <script type="module" src="camera.js"></script>
 </body>

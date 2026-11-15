@@ -18,10 +18,17 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.trackrecord.data.settings.FULL_RADIUS
 import com.trackrecord.data.settings.ThemeChoice
+
+/**
+ * Yellow for a value that may be wrong, such as a year MusicBrainz gave under older lookup rules (D-382); a dark
+ * yellow on light themes, so it stays readable.
+ */
+val ColorScheme.caution: Color get() = if (onSurface.luminance() < 0.5f) Color(0xFF8A6500) else Color(0xFFFFD54F)
 
 /** The corner shape of cards, slots and other components. */
 val LocalComponentShape = staticCompositionLocalOf<Shape> { RoundedCornerShape(4.dp) }
@@ -31,7 +38,7 @@ val LocalButtonShape = staticCompositionLocalOf<Shape> { RoundedCornerShape(4.dp
 
 /**
  * Whether the theme's background scene shows at full strength. Only the home screen asks for it;
- * elsewhere the scene is dimmed so text stays readable (feedback round 6).
+ * elsewhere the scene is dimmed so text stays readable.
  */
 class Backdrop {
     var vivid by mutableStateOf(false)
@@ -103,7 +110,7 @@ class ThemePalette(
     val page: Color get() = if (colors.background.alpha < 1f) dimColor ?: Color.Black else colors.background
 }
 
-/** The palette of [this] theme; fixed values, no colours from the wallpaper (Felix, TH-01). */
+/** The palette of [this] theme; fixed values, no colours from the wallpaper (TH-01). */
 fun ThemeChoice.palette(): ThemePalette = when (this) {
     ThemeChoice.LOW_POLY -> LowPolyPalette
     ThemeChoice.LIGHT -> LightPalette
@@ -111,7 +118,7 @@ fun ThemeChoice.palette(): ThemePalette = when (this) {
 }
 
 /**
- * The app theme (feedback rounds 6 and 7; D-172): light, dark, or the illustrated Low Poly.
+ * The app theme (D-172): light, dark, or the illustrated Low Poly.
  * Components share one corner radius ([cornerRadiusDp]), buttons have their own ([buttonRadiusDp]);
  * both are internal settings.
  */

@@ -40,7 +40,7 @@ object YearResolver {
     /**
      * 1. Manual edit → use it.
      * 2. Tags and an accepted MusicBrainz match both give a year → [preference] decides: MusicBrainz's
-     *    (the default, DECISIONS.md D-055), the tags' or the lower one (feedback rounds 28, 32).
+     *    (the default, DECISIONS.md D-055), the tags' or the lower one.
      * 3. Otherwise whichever exists; the base year (tag original year, else tag year) is unverified.
      */
     fun resolve(inputs: YearInputs, currentYear: Int, preference: YearPreference = YearPreference.MUSICBRAINZ): ResolvedYear {

@@ -1,7 +1,12 @@
 package com.trackrecord.desktop
 
 import com.jetbrains.cef.JCefAppConfig
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.cef.CefApp
 import org.cef.CefClient
 import org.cef.CefSettings
@@ -16,10 +21,12 @@ import org.cef.callback.CefMediaAccessCallback
 import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefAppHandlerAdapter
 import org.cef.handler.CefDisplayHandlerAdapter
+import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandler
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import org.cef.handler.CefRenderHandler
+import org.cef.handler.CefRequestHandler
 import org.cef.handler.CefRequestHandlerAdapter
 import org.cef.handler.CefResourceHandler
 import org.cef.handler.CefResourceRequestHandler
@@ -41,6 +48,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.swing.JPanel
 
 /** A file served to the hidden pages. */
@@ -61,6 +69,10 @@ class Chromium(cacheDir: File, debugPort: Int, mute: Boolean, private val verbos
 
     /** Each hidden browser's port to the app. */
     private val ports = ConcurrentHashMap<CefBrowser, PagePort>()
+
+    /** The page each port shows, to open it again when its renderer dies, and how often that happened (REVIEW-3 B-19). */
+    private val pages = ConcurrentHashMap<PagePort, String>()
+    private val restarts = ConcurrentHashMap<PagePort, Int>()
 
     /** Local files the pages may load, by their /song/ path: only those the app published. */
     private val files = ConcurrentHashMap<String, File>()
@@ -144,6 +156,17 @@ class Chromium(cacheDir: File, debugPort: Int, mute: Boolean, private val verbos
             override fun getResourceRequestHandler(
                 browser: CefBrowser?, frame: CefFrame?, request: CefRequest, isNavigation: Boolean, isDownload: Boolean, requestInitiator: String?, disableDefaultHandling: BoolRef?,
             ): CefResourceRequestHandler? = if (request.url.startsWith("$ORIGIN/song/")) MovesRange else null
+
+            // A page whose renderer died (a crash, or Windows ended it for memory) opens again, as on Android (D-263).
+            override fun onRenderProcessTerminated(browser: CefBrowser, status: CefRequestHandler.TerminationStatus, errorCode: Int, errorString: String?) {
+                val port = ports.remove(browser) ?: return
+                Log.w("the page ${pages[port]} stopped ($status $errorCode); opening it again")
+                RESTARTING.schedule({ reopen(port, browser) }, RESTART_DELAY_MS, TimeUnit.MILLISECONDS)
+            }
+        })
+        // The hidden pages never open windows (REVIEW-3 S-20).
+        client.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
+            override fun onBeforePopup(browser: CefBrowser, frame: CefFrame, targetUrl: String?, targetFrameName: String?) = true
         })
         client.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadEnd(browser: CefBrowser, frame: CefFrame, httpStatusCode: Int) {
@@ -161,12 +184,31 @@ class Chromium(cacheDir: File, debugPort: Int, mute: Boolean, private val verbos
         })
     }
 
-    /** Opens [path] (under /assets/) in a hidden browser; [port] connects it to the app. */
-    fun open(path: String, port: PagePort): CefBrowser {
+    /**
+     * Opens [path] (under /assets/) in a hidden browser; [port] connects it to the app. If its renderer dies, the page
+     * opens again behind the same port, up to [MAX_RESTARTS] times, and the port's [PagePort.onRestart] sets it up anew.
+     */
+    fun open(path: String, port: PagePort) {
+        pages[port] = path
+        create(path, port)
+    }
+
+    private fun create(path: String, port: PagePort) {
         val browser = client.createBrowser("$ORIGIN/assets/$path", CefRendering.CefRenderingWithHandler(NoPaint, JPanel()), false)
         ports[browser] = port
         browser.createImmediately()
-        return browser
+    }
+
+    private fun reopen(port: PagePort, dead: CefBrowser) {
+        dead.close(true)
+        val path = pages[port] ?: return // closed meanwhile
+        val count = restarts.merge(port, 1, Int::plus)!!
+        if (count > MAX_RESTARTS) {
+            Log.w("the page $path stopped $count times; not opened again")
+            return
+        }
+        port.restart()
+        create(path, port)
     }
 
     /** Makes [file] loadable by the pages, at an address nobody can guess; returns it. */
@@ -181,7 +223,7 @@ class Chromium(cacheDir: File, debugPort: Int, mute: Boolean, private val verbos
         files.remove(address.removePrefix(ORIGIN))
     }
 
-    /** A published file as Chromium can decode it: AAC decoded to WAV first (feedback round 55). */
+    /** A published file as Chromium can decode it: AAC decoded to WAV first. */
     private fun playable(file: File): File? = if (aac.needed(file)) aac.wavOf(file) else file
 
     /** A local file with byte ranges, so the page's player can seek. */
@@ -199,10 +241,31 @@ class Chromium(cacheDir: File, debugPort: Int, mute: Boolean, private val verbos
         )
     }
 
-    /** Closes a page opened with [open]. */
-    fun close(browser: CefBrowser) {
-        ports.remove(browser)
-        browser.close(true)
+    /** Closes the page [port] was opened with ([open]). */
+    fun close(port: PagePort) {
+        pages.remove(port)
+        restarts.remove(port)
+        val browsers = ports.filterValues { it === port }.keys
+        browsers.forEach { browser ->
+            ports.remove(browser)
+            browser.close(true)
+        }
+    }
+
+    /** Ends [port]'s page's renderer, as a crash would: for tests of [open]'s restart. */
+    internal fun crashForTest(port: PagePort) {
+        ports.filterValues { it === port }.keys.forEach { it.devToolsClient.executeDevToolsMethod("Page.crash") }
+    }
+
+    /** The string [expression] gives in [port]'s page, or null: for tests. */
+    internal fun evaluateForTest(port: PagePort, expression: String): String? {
+        val browser = ports.filterValues { it === port }.keys.firstOrNull() ?: return null
+        val params = buildJsonObject {
+            put("expression", expression)
+            put("returnByValue", true)
+        }.toString()
+        val answer = runCatching { browser.devToolsClient.executeDevToolsMethod("Runtime.evaluate", params).get(10, TimeUnit.SECONDS) }.getOrNull() ?: return null
+        return runCatching { Json.parseToJsonElement(answer).jsonObject["result"]!!.jsonObject["value"]!!.jsonPrimitive.content }.getOrNull()
     }
 
     fun close() {
@@ -292,6 +355,13 @@ class Chromium(cacheDir: File, debugPort: Int, mute: Boolean, private val verbos
         /** Where the responses are made. */
         private val SERVING = Executors.newCachedThreadPool { r -> Thread(r, "chromium-serve").apply { isDaemon = true } }
 
+        /** Where dead pages are opened again, a moment later. */
+        private val RESTARTING = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "chromium-restart").apply { isDaemon = true } }
+        private const val RESTART_DELAY_MS = 1_000L
+
+        /** A page that keeps dying isn't opened again for ever (Android's room: 5 per session). */
+        const val MAX_RESTARTS = 5
+
         const val HOST = "app.trackrecord.local"
         const val ORIGIN = "https://$HOST"
         private const val RANGE = "X-TrackRecord-Range"
@@ -334,6 +404,21 @@ class PagePort(private val name: String, private val onMessage: (String) -> Unit
     private val inbox = Executors.newSingleThreadExecutor { r -> Thread(r, "$name-inbox").apply { isDaemon = true } }
     private var browser: CefBrowser? = null
     private val waiting = ArrayList<String>()
+
+    /**
+     * Set by the page's owner: what to do when the page opens again after its renderer died ([Chromium.open]). What it
+     * [send]s then reaches the new page first; what was waiting for the old one is dropped (REVIEW-3 B-19).
+     */
+    @Volatile var onRestart: () -> Unit = {}
+
+    internal fun restart() {
+        synchronized(this) {
+            browser = null
+            waiting.clear()
+        }
+        // Outside this port's lock: the owner takes its own, and may send.
+        onRestart()
+    }
 
     @Synchronized
     fun send(text: String) {

@@ -48,8 +48,10 @@ import com.trackrecord.app.resources.points
 import com.trackrecord.app.resources.score_cards_of
 import com.trackrecord.app.resources.score_points_of
 import com.trackrecord.app.resources.score_timeline
+import com.trackrecord.app.resources.scoreboard_add_joker
 import com.trackrecord.app.resources.scoreboard_add_skip
 import com.trackrecord.app.resources.scoreboard_add_veto
+import com.trackrecord.app.resources.scoreboard_adjust_jokers
 import com.trackrecord.app.resources.scoreboard_adjust_skips
 import com.trackrecord.app.resources.scoreboard_adjust_skips_hint
 import com.trackrecord.app.resources.scoreboard_adjust_vetoes
@@ -64,6 +66,7 @@ import com.trackrecord.app.resources.scoreboard_rank
 import com.trackrecord.app.resources.scoreboard_remote_away
 import com.trackrecord.app.resources.scoreboard_remote_connected
 import com.trackrecord.app.resources.scoreboard_remove
+import com.trackrecord.app.resources.scoreboard_remove_joker
 import com.trackrecord.app.resources.scoreboard_remove_skip
 import com.trackrecord.app.resources.scoreboard_remove_text
 import com.trackrecord.app.resources.scoreboard_remove_title
@@ -95,7 +98,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Score label for a player: cards and vetoes (Timeline), wins or points and skips (Closest Year); with
- * [withTarget] the score reads "3 of 10 cards" (feedback round 36).
+ * [withTarget] the score reads "3 of 10 cards".
  */
 @Composable
 fun scoreLabel(session: GameSession, playerId: String, withTarget: Boolean = false): String = scoreLabel(session.state, playerId, withTarget)
@@ -109,7 +112,7 @@ fun scoreLabel(state: GameState, playerId: String, withTarget: Boolean = false):
         GameMode.TIMELINE -> stringResource(
             Res.string.score_timeline,
             if (withTarget) stringResource(Res.string.score_cards_of, score, target) else pluralStringResource(Res.plurals.cards, score, score),
-            pluralStringResource(Res.plurals.vetoes, p.vetoes, p.vetoes),
+            pluralStringResource(state.vetoWord, p.vetoes, p.vetoes),
         )
         GameMode.CLOSEST_YEAR -> {
             val cy = state.settings.closestYear
@@ -125,16 +128,16 @@ fun scoreLabel(state: GameState, playerId: String, withTarget: Boolean = false):
     }
 }
 
-/** Cards are collected in Timeline and in Closest scoring; Rank and Distance only count points (feedback round 36). */
+/** Cards are collected in Timeline and in Closest scoring; Rank and Distance only count points. */
 fun GameState.collectsCards(): Boolean = mode == GameMode.TIMELINE || settings.closestYear.scoring == ClosestScoring.CLOSEST
 
 /**
  * The buy button: "Buy a card (3 vetoes)", or in Rank and Distance the points of a perfect round, "Buy 4 points
- * (3 skips)" (feedback round 50).
+ * (3 skips)".
  */
 @Composable
 fun buyLabel(state: GameState, cost: Int): String {
-    val price = if (state.mode == GameMode.TIMELINE) pluralStringResource(Res.plurals.vetoes, cost, cost) else pluralStringResource(Res.plurals.skips, cost, cost)
+    val price = if (state.mode == GameMode.TIMELINE) pluralStringResource(state.vetoWord, cost, cost) else pluralStringResource(Res.plurals.skips, cost, cost)
     if (state.collectsCards()) return stringResource(Res.string.scoreboard_buy, price)
     val points = state.settings.closestYear.perfectRound(state.seats)
     return stringResource(Res.string.scoreboard_buy_points, pluralStringResource(Res.plurals.points, points, points), price)
@@ -142,7 +145,7 @@ fun buyLabel(state: GameState, cost: Int): String {
 
 /**
  * Every player with score and the target; tap to see their timeline or collection, and to remove them
- * from the game (feedback round 36); Buy card when allowed. Removed players are listed last, greyed out.
+ * from the game; Buy card when allowed. Removed players are listed last, greyed out.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -151,7 +154,7 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
     var adjusting by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<String?>(null) }
     val state = session.state
-    // Vetoes in Timeline, skips in Closest Year (feedback round 27); before the song is placed or revealed.
+    // Vetoes in Timeline, skips in Closest Year; before the song is placed or revealed.
     val timelineMode = state.mode == GameMode.TIMELINE
     val buyCost = if (timelineMode) state.settings.timeline.buyCost else state.settings.closestYear.buyCost
     val buyPhase = if (timelineMode) Phase.PLACING else Phase.GUESSING
@@ -163,12 +166,13 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
     val shown = if (state.phase == Phase.REVEALED) (GameEngine.reduce(state, GameAction.Next) as? ReduceResult.Accepted)?.state ?: state else state
 
     AppSheet(stringResource(Res.string.scoreboard_title), onDismiss = onDismiss) {
-        // Corrections: vetoes in Timeline, skips in Closest Year when skips are in play (feedback round 12).
+        // Corrections: vetoes in Timeline, skips in Closest Year when skips are in play.
         val cy = state.settings.closestYear
         val skipsInPlay = state.mode == GameMode.CLOSEST_YEAR && (cy.startingSkips > 0 || cy.namingEarnsSkip)
         if (state.mode == GameMode.TIMELINE) {
             Column(Modifier.padding(horizontal = 16.dp)) {
-                SwitchRow(stringResource(Res.string.scoreboard_adjust_vetoes), adjusting, { adjusting = it }, hint = stringResource(Res.string.scoreboard_adjust_vetoes_hint))
+                val adjust = if (state.solo) Res.string.scoreboard_adjust_jokers else Res.string.scoreboard_adjust_vetoes
+                SwitchRow(stringResource(adjust), adjusting, { adjusting = it }, hint = stringResource(Res.string.scoreboard_adjust_vetoes_hint))
             }
         } else if (skipsInPlay) {
             Column(Modifier.padding(horizontal = 16.dp)) {
@@ -203,8 +207,8 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
                                 modifier = Modifier.semantics { contentDescription = addLabel },
                             ) { Text("+", style = MaterialTheme.typography.titleLarge) }
                         } else if (adjusting) {
-                            val removeLabel = stringResource(Res.string.scoreboard_remove_veto, player.name)
-                            val addLabel = stringResource(Res.string.scoreboard_add_veto, player.name)
+                            val removeLabel = stringResource(if (state.solo) Res.string.scoreboard_remove_joker else Res.string.scoreboard_remove_veto, player.name)
+                            val addLabel = stringResource(if (state.solo) Res.string.scoreboard_add_joker else Res.string.scoreboard_add_veto, player.name)
                             FilledTonalIconButton(
                                 onClick = { onAction(GameAction.AdjustVetoes(player.id, -1)) },
                                 enabled = ps.vetoes > 0,
@@ -216,14 +220,14 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
                                 modifier = Modifier.semantics { contentDescription = addLabel },
                             ) { Text("+", style = MaterialTheme.typography.titleLarge) }
                         } else if (buyAllowed && buyCost != null && onGuestPhone[player.id] != true) {
-                            // A connected guest buys on their own phone (feedback round 14).
+                            // A connected guest buys on their own phone.
                             val funds = if (timelineMode) ps.vetoes else ps.skips
                             FilledTonalButton(onClick = { onAction(GameAction.BuyCard(player.id)) }, enabled = funds >= buyCost) {
                                 Text(buyLabel(state, buyCost))
                             }
                         }
                     }
-                    // Played from a guest's device; disconnecting is in the QR sheet (feedback round 8).
+                    // Played from a guest's device; disconnecting is in the QR sheet.
                     onGuestPhone[player.id]?.takeIf { !gone }?.let { connected ->
                         Text(
                             stringResource(if (connected) Res.string.scoreboard_remote_connected else Res.string.scoreboard_remote_away, deviceName(devices[player.id])),
@@ -239,7 +243,7 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
                             if (cards.isEmpty()) Text(stringResource(Res.string.scoreboard_no_cards), style = MaterialTheme.typography.bodySmall)
                             cards.forEach { c -> TimelineCard(c, session.song(c.songId), Modifier.padding(vertical = 2.dp)) }
                         }
-                        // Mid-game, while more than the minimum play (feedback round 36).
+                        // Mid-game, while more than the minimum play.
                         if (!gone && state.phase != Phase.GAME_OVER && state.players.size > GameEngine.MIN_PLAYERS) {
                             TextButton(onClick = { removing = player.id }) {
                                 Text(stringResource(Res.string.scoreboard_remove), color = MaterialTheme.colorScheme.error)
@@ -278,20 +282,20 @@ fun ScoreboardSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Game
 
 /**
  * The most a bottom sheet's content may take: 70 % of the screen, so with the drag handle and the bottom
- * padding the sheet never reaches the status bar. One that did jumped up and down without end on Felix's
- * phone (feedback rounds 38, 39).
+ * padding the sheet never reaches the status bar. One that did jumped up and down without end on a test
+ * phone.
  */
 @Composable
 fun sheetHeight(): Dp = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() } * SHEET_FRACTION
 
-/** A sheet's scrolling body: [sheetHeight] tall, less where the screen is too short for the whole sheet (feedback round 48). */
+/** A sheet's scrolling body: [sheetHeight] tall, less where the screen is too short for the whole sheet. */
 @Composable
 fun ColumnScope.sheetBody(fixed: Boolean = true): Modifier =
     Modifier.weight(1f, fill = false).then(if (fixed) Modifier.height(sheetHeight()) else Modifier.heightIn(max = sheetHeight()))
 
 private const val SHEET_FRACTION = 0.7f
 
-/** Removed players on the scoreboards: greyed out (feedback round 36). */
+/** Removed players on the scoreboards: greyed out. */
 const val REMOVED_ALPHA = 0.5f
 
 /**
@@ -303,12 +307,12 @@ fun ScoreboardCard(session: GameSession, modifier: Modifier = Modifier) {
     val before = session.state
     val after = (GameEngine.reduce(before, GameAction.Next) as? ReduceResult.Accepted)?.state ?: before
     val score: (GameState, String) -> Int = { st, id -> st.anyPlayer(id)?.let { GameEngine.score(st, it) } ?: 0 }
-    // With the target, in every mode (feedback round 50).
+    // With the target, in every mode.
     val target = GameEngine.target(before)
     val goal = if (before.collectsCards()) pluralStringResource(Res.plurals.cards, target, target) else pluralStringResource(Res.plurals.points, target, target)
     SectionCard(stringResource(Res.string.scoreboard_card_target, stringResource(Res.string.scoreboard_card_title), goal), modifier, spacing = 6.dp) {
         run {
-            // Removed players last and greyed out, without a rank (feedback round 36).
+            // Removed players last and greyed out, without a rank.
             val ranked = session.playing.sortedByDescending { score(after, it.id) }
             (ranked + session.removed).forEachIndexed { rank, player ->
                 val gained = score(after, player.id) - score(before, player.id)

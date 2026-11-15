@@ -2,6 +2,7 @@ package com.trackrecord.app.game
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import com.trackrecord.app.library.LookupUi
 import com.trackrecord.app.resources.Res
 import com.trackrecord.app.resources.color_blue
 import com.trackrecord.app.resources.color_brown
@@ -18,6 +19,9 @@ import com.trackrecord.app.resources.color_yellow
 import com.trackrecord.data.library.LibrarySong
 import com.trackrecord.data.sources.AudioRef
 import com.trackrecord.engine.GameState
+import com.trackrecord.engine.year.YearInputs
+import com.trackrecord.engine.year.YearPreference
+import com.trackrecord.engine.year.YearResolver
 import kotlinx.serialization.Serializable
 
 /** A player as the UI shows it. The engine only knows [id]. */
@@ -33,6 +37,9 @@ data class GamePlayer(
 )
 
 /** What the game remembers about a pool song, frozen at game start (library edits apply next game). */
+/** The revealed song as the library has it now, and how "Look up" went for it (D-382, D-385). */
+data class RevealYear(val song: LibrarySong, val lookup: LookupUi)
+
 @Serializable
 data class SongInfo(
     val songId: Long,
@@ -52,6 +59,16 @@ data class SongInfo(
 
     /** The track's page on Deezer (opens the Deezer app when installed), for streamed songs. */
     val deezerUrl: String? get() = (AudioRef.parse(uri) as? AudioRef.Deezer)?.let { "https://www.deezer.com/track/${it.trackId}" }
+
+    /**
+     * The card's year once MusicBrainz found [mbYear] during the game, as the library resolves it by [preference]
+     * ("When sources disagree"; REVIEW-3 B-17); null when the lookup changes nothing: a year edited in the library
+     * stays, and a song without a tag year already took MusicBrainz's.
+     */
+    fun yearWithLookup(mbYear: Int, currentYear: Int, preference: YearPreference): Int? {
+        if (manualYear != null || baseYear == null) return null
+        return YearResolver.resolve(YearInputs(tagYear = baseYear, musicBrainzYear = mbYear), currentYear, preference).year
+    }
 
     companion object {
         fun from(s: LibrarySong) = SongInfo(
@@ -74,13 +91,13 @@ data class GameSession(
     val players: List<GamePlayer>,
     val state: GameState,
     val songs: Map<Long, SongInfo>,
-    /** The names of the game's own playlists at game start, for the info sheet (feedback round 36). */
+    /** The names of the game's own playlists at game start, for the info sheet. */
     val playlistNames: Map<Long, String> = emptyMap(),
 ) {
     fun player(id: String): GamePlayer = players.first { it.id == id }
     fun song(id: Long): SongInfo? = songs[id]
 
-    /** Players still playing, in seat order; [players] also keeps those removed mid-game (feedback round 36). */
+    /** Players still playing, in seat order; [players] also keeps those removed mid-game. */
     val playing: List<GamePlayer> get() = state.players.map { player(it.id) }
 
     /** Players removed mid-game, in removal order. */
@@ -106,7 +123,7 @@ object PlayerColors {
 }
 
 object Initials {
-    /** "Anna Maria" → "AM", "Felix" → "FE", "" → "?"; at most 3 characters. */
+    /** "Anna Maria" → "AM", "Ben" → "BE", "" → "?"; at most 3 characters. */
     fun from(name: String): String {
         val words = name.trim().split(Regex("""[\s\-_]+""")).filter { it.isNotEmpty() }
         val raw = when {

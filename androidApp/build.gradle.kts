@@ -55,7 +55,7 @@ android {
     }
 
     buildTypes {
-        // Beside the release on the same phone (feedback round 47): its own package, name (src/debug/res) and guest
+        // Beside the release on the same phone: its own package, name (src/debug/res) and guest
         // page, and no update prompt (the release it would offer is the other app).
         debug {
             applicationIdSuffix = ".debug"
@@ -64,7 +64,7 @@ android {
         }
         release {
             // -PdebuggableRelease: a one-off release-signed build that `run-as` can write to, to move a debug
-            // install's data into the release (feedback round 47). Never published.
+            // install's data into the release. Never published.
             isDebuggable = providers.gradleProperty("debuggableRelease").isPresent
             // R8 shrinks and optimises release builds; the rules for JNI are in proguard-rules.pro (D-273).
             isMinifyEnabled = true

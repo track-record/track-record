@@ -65,6 +65,10 @@ class ProtocolTest {
             9 to "9b974a2d81c57d08",
             // Feedback round 59: a local song's token, so Wi-Fi guests can play it on their phone.
             10 to "3bf602623c409145",
+            // D-380: solo games, so the page says jokers and doesn't wait for vetoes.
+            11 to "da748def90473d6d",
+            // D-385: the year card on a co-host's phone, with Look up.
+            12 to "c4ba7e34b65b79ec",
         )
     }
 }

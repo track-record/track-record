@@ -65,15 +65,21 @@ import com.trackrecord.app.resources.settings_cards_to_win
 import com.trackrecord.app.resources.settings_cards_to_win_hint
 import com.trackrecord.app.resources.settings_clip_limit
 import com.trackrecord.app.resources.settings_closest_fixed_rules
+import com.trackrecord.app.resources.settings_closest_fixed_rules_solo
 import com.trackrecord.app.resources.settings_distance_points
 import com.trackrecord.app.resources.settings_hidden_guesses
 import com.trackrecord.app.resources.settings_hidden_guesses_hint
+import com.trackrecord.app.resources.settings_joker_costs
+import com.trackrecord.app.resources.settings_joker_costs_hint
+import com.trackrecord.app.resources.settings_max_jokers
 import com.trackrecord.app.resources.settings_max_skips
 import com.trackrecord.app.resources.settings_max_vetoes
 import com.trackrecord.app.resources.settings_musicbrainz
 import com.trackrecord.app.resources.settings_musicbrainz_hint
 import com.trackrecord.app.resources.settings_naming_bonus
 import com.trackrecord.app.resources.settings_naming_bonus_hint
+import com.trackrecord.app.resources.settings_naming_bonus_hint_solo
+import com.trackrecord.app.resources.settings_naming_bonus_solo
 import com.trackrecord.app.resources.settings_naming_callers
 import com.trackrecord.app.resources.settings_naming_skip
 import com.trackrecord.app.resources.settings_naming_skip_hint
@@ -84,11 +90,13 @@ import com.trackrecord.app.resources.settings_playback
 import com.trackrecord.app.resources.settings_preset
 import com.trackrecord.app.resources.settings_rules
 import com.trackrecord.app.resources.settings_scoring
+import com.trackrecord.app.resources.settings_scoring_solo
 import com.trackrecord.app.resources.settings_skip_cost
 import com.trackrecord.app.resources.settings_skip_costs
 import com.trackrecord.app.resources.settings_skip_costs_hint
 import com.trackrecord.app.resources.settings_start_offset
 import com.trackrecord.app.resources.settings_starting_cards
+import com.trackrecord.app.resources.settings_starting_jokers
 import com.trackrecord.app.resources.settings_starting_skips
 import com.trackrecord.app.resources.settings_starting_skips_hint
 import com.trackrecord.app.resources.settings_starting_vetoes
@@ -100,6 +108,7 @@ import com.trackrecord.app.resources.settings_wins_to_win
 import com.trackrecord.app.resources.summary_buy_for
 import com.trackrecord.app.resources.summary_buy_points_for
 import com.trackrecord.app.resources.summary_cards_to_win
+import com.trackrecord.app.resources.summary_jokers
 import com.trackrecord.app.resources.summary_naming
 import com.trackrecord.app.resources.summary_perfect_rounds
 import com.trackrecord.app.resources.summary_scoring_distance
@@ -134,26 +143,32 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Every rule value of a mode plus the playback settings, each part in its panel. Used by New game and Settings. */
+/** The rules and playback of a game; [solo]: one player alone, offered only what applies to them (D-380). */
 @Composable
-fun GameSettingsEditor(mode: GameMode, settings: GameSettings, onChange: ((GameSettings) -> GameSettings) -> Unit) {
+fun GameSettingsEditor(mode: GameMode, settings: GameSettings, onChange: ((GameSettings) -> GameSettings) -> Unit, solo: Boolean = false) {
     Column(verticalArrangement = Arrangement.spacedBy(PanelGap)) {
         when (mode) {
-            GameMode.TIMELINE -> TimelineEditor(settings.timeline) { t -> onChange { it.copy(timeline = t) } }
-            GameMode.CLOSEST_YEAR -> ClosestYearEditor(settings.closestYear) { c -> onChange { it.copy(closestYear = c) } }
+            GameMode.TIMELINE -> TimelineEditor(settings.timeline, solo) { t -> onChange { it.copy(timeline = t) } }
+            GameMode.CLOSEST_YEAR -> ClosestYearEditor(settings.closestYear, solo) { c -> onChange { it.copy(closestYear = c) } }
         }
         PlaybackEditor(settings.common) { c -> onChange { it.copy(common = c) } }
     }
 }
 
+/**
+ * Song Order's rules. [solo]: one player alone (D-380), whose vetoes are jokers, as nobody can veto: vetoes per song and
+ * who may call out are left out, and so is Fixed vetoes, whose jokers can't be spent alone.
+ */
 @Composable
-fun TimelineEditor(t: TimelineSettings, onChange: (TimelineSettings) -> Unit) {
+fun TimelineEditor(t: TimelineSettings, solo: Boolean = false, onChange: (TimelineSettings) -> Unit) {
     SectionCard(stringResource(Res.string.settings_preset), spacing = 4.dp) {
         val current = t.preset
         val presets = rememberCustomPresets(GameMode.TIMELINE)
         val saved = presets.list.firstOrNull { it.timeline == t }
-        // Classic first (feedback round 11); the user's own presets before Custom (feedback round 27).
+        // Classic first; the user's own presets before Custom.
         for (preset in TIMELINE_PRESET_ORDER) {
-            if (preset == TimelinePreset.CUSTOM) SavedPresetRows(presets, saved, { timelineSummary(it.timeline!!) }) { p -> p.timeline?.let { onChange(it.withCostsWithinMax()) } }
+            if (preset == TimelinePreset.CUSTOM) SavedPresetRows(presets, saved, { timelineSummary(it.timeline!!, solo) }) { p -> p.timeline?.let { onChange(it.withCostsWithinMax()) } }
+            if (solo && preset == TimelinePreset.FIXED_VETOES) continue
             PresetRow(stringResource(preset.label), stringResource(preset.hint), preset == current && (preset != TimelinePreset.CUSTOM || saved == null), enabled = preset.settings != null) {
                 preset.settings?.let(onChange)
             }
@@ -163,12 +178,18 @@ fun TimelineEditor(t: TimelineSettings, onChange: (TimelineSettings) -> Unit) {
     SectionCard(stringResource(Res.string.settings_rules), spacing = 4.dp) {
         Stepper(stringResource(Res.string.settings_starting_cards), t.startingCards, 1..3, { onChange(t.copy(startingCards = it, cardsToWin = maxOf(t.cardsToWin, it + 1))) })
         Stepper(stringResource(Res.string.settings_cards_to_win), t.cardsToWin, maxOf(3, t.startingCards + 1)..30, { onChange(t.copy(cardsToWin = it)) }, hint = stringResource(Res.string.settings_cards_to_win_hint))
-        Stepper(stringResource(Res.string.settings_starting_vetoes), t.startingVetoes, 0..10, { onChange(t.copy(startingVetoes = it, maxVetoes = maxOf(t.maxVetoes, it))) })
-        Stepper(stringResource(Res.string.settings_max_vetoes), t.maxVetoes, t.startingVetoes..10, { onChange(t.copy(maxVetoes = it).withCostsWithinMax()) })
-        Stepper(stringResource(Res.string.settings_vetoes_per_song), t.vetoesPerPlayerPerSong, 1..3, { onChange(t.copy(vetoesPerPlayerPerSong = it)) })
-        SwitchRow(stringResource(Res.string.settings_naming_bonus), t.namingBonus, { onChange(t.copy(namingBonus = it)) }, hint = stringResource(Res.string.settings_naming_bonus_hint))
-        if (t.namingBonus) {
-            // Who may call out song and artist (feedback round 19).
+        val starting = if (solo) Res.string.settings_starting_jokers else Res.string.settings_starting_vetoes
+        Stepper(stringResource(starting), t.startingVetoes, 0..10, { onChange(t.copy(startingVetoes = it, maxVetoes = maxOf(t.maxVetoes, it))) })
+        Stepper(stringResource(if (solo) Res.string.settings_max_jokers else Res.string.settings_max_vetoes), t.maxVetoes, t.startingVetoes..10, { onChange(t.copy(maxVetoes = it).withCostsWithinMax()) })
+        if (!solo) Stepper(stringResource(Res.string.settings_vetoes_per_song), t.vetoesPerPlayerPerSong, 1..3, { onChange(t.copy(vetoesPerPlayerPerSong = it)) })
+        SwitchRow(
+            stringResource(if (solo) Res.string.settings_naming_bonus_solo else Res.string.settings_naming_bonus),
+            t.namingBonus,
+            { onChange(t.copy(namingBonus = it)) },
+            hint = stringResource(if (solo) Res.string.settings_naming_bonus_hint_solo else Res.string.settings_naming_bonus_hint),
+        )
+        if (t.namingBonus && !solo) {
+            // Who may call out song and artist.
             Text(stringResource(Res.string.settings_naming_callers), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 4.dp))
             for (callers in NamingCallers.entries) {
                 PresetRow(stringResource(callers.label), stringResource(callers.hint), t.namingCallers == callers, enabled = true) {
@@ -177,9 +198,9 @@ fun TimelineEditor(t: TimelineSettings, onChange: (TimelineSettings) -> Unit) {
             }
         }
     }
-    // Costs in vetoes: the section says so, so the values stay as short as the other steppers' (feedback round 10).
-    SectionCard(stringResource(Res.string.settings_veto_costs), spacing = 4.dp) {
-        Text(stringResource(Res.string.settings_veto_costs_hint), style = MaterialTheme.typography.bodySmall)
+    // Costs in vetoes: the section says so, so the values stay as short as the other steppers'.
+    SectionCard(stringResource(if (solo) Res.string.settings_joker_costs else Res.string.settings_veto_costs), spacing = 4.dp) {
+        Text(stringResource(if (solo) Res.string.settings_joker_costs_hint else Res.string.settings_veto_costs_hint), style = MaterialTheme.typography.bodySmall)
         // Never more than the most vetoes held, or it could never be paid (D-267).
         OptionalStepper(stringResource(Res.string.settings_skip_cost), t.skipCost, 1..minOf(3, t.maxVetoes), { onChange(t.copy(skipCost = it)) })
         OptionalStepper(stringResource(Res.string.settings_buy_cost), t.buyCost, 1..minOf(5, t.maxVetoes), { onChange(t.copy(buyCost = it)) })
@@ -189,7 +210,7 @@ fun TimelineEditor(t: TimelineSettings, onChange: (TimelineSettings) -> Unit) {
 /** Timeline presets in the order shown (Settings and New game). */
 val TIMELINE_PRESET_ORDER = listOf(TimelinePreset.CLASSIC, TimelinePreset.FIXED_VETOES, TimelinePreset.CUSTOM)
 
-/** The user's saved presets of one mode (feedback round 27), kept in the app settings. */
+/** The user's saved presets of one mode, kept in the app settings. */
 class CustomPresets(val list: List<CustomPreset>, val save: (CustomPreset) -> Unit, val delete: (CustomPreset) -> Unit)
 
 @Composable
@@ -208,8 +229,14 @@ private fun rememberCustomPresets(mode: GameMode): CustomPresets {
 
 /** One row per saved preset: pick it, or delete it with the bin. */
 @Composable
-private fun SavedPresetRows(presets: CustomPresets, selected: CustomPreset?, summary: @Composable (CustomPreset) -> String, onPick: (CustomPreset) -> Unit) {
-    for (p in presets.list) {
+private fun SavedPresetRows(
+    presets: CustomPresets,
+    selected: CustomPreset?,
+    summary: @Composable (CustomPreset) -> String,
+    shown: (CustomPreset) -> Boolean = { true },
+    onPick: (CustomPreset) -> Unit,
+) {
+    for (p in presets.list.filter(shown)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { PresetRow(p.name, summary(p), p == selected, enabled = true) { onPick(p) } }
             IconButton(onClick = { presets.delete(p) }) { Icon(Icons.Default.Delete, stringResource(Res.string.preset_delete, p.name)) }
@@ -249,9 +276,9 @@ private const val MAX_PRESET_NAME = 40
 
 /** A saved preset's rules in one line, e.g. "10 cards to win · 2 vetoes at the start, max 5 · Skip for 1". */
 @Composable
-private fun timelineSummary(t: TimelineSettings): String = listOfNotNull(
+private fun timelineSummary(t: TimelineSettings, solo: Boolean): String = listOfNotNull(
     pluralStringResource(Res.plurals.summary_cards_to_win, t.cardsToWin, t.cardsToWin),
-    pluralStringResource(Res.plurals.summary_vetoes, t.startingVetoes, t.startingVetoes, t.maxVetoes),
+    pluralStringResource(if (solo) Res.plurals.summary_jokers else Res.plurals.summary_vetoes, t.startingVetoes, t.startingVetoes, t.maxVetoes),
     if (t.namingBonus) stringResource(Res.string.summary_naming) else null,
     t.skipCost?.let { stringResource(Res.string.summary_skip_for, it) },
     t.buyCost?.let { stringResource(Res.string.summary_buy_for, it) },
@@ -291,15 +318,24 @@ private fun PresetRow(label: String, hint: String, selected: Boolean, enabled: B
     }
 }
 
+/**
+ * Timeline's rules (Closest Year). [solo]: one player alone (D-380), always scored by distance with the guess seen:
+ * hidden guesses, the scoring choice, the tie breaker and the presets scored otherwise (built in or saved) are left out.
+ */
 @Composable
-fun ClosestYearEditor(c: ClosestYearSettings, onChange: (ClosestYearSettings) -> Unit) {
-    // Presets at the top, then the rules: hidden guesses, scoring, the rest; ties after the costs (feedback round 37).
+fun ClosestYearEditor(c: ClosestYearSettings, solo: Boolean = false, onChange: (ClosestYearSettings) -> Unit) {
+    // Presets at the top, then the rules: hidden guesses, scoring, the rest; ties after the costs.
     SectionCard(stringResource(Res.string.settings_preset), spacing = 4.dp) {
         val current = c.preset
         val presets = rememberCustomPresets(GameMode.CLOSEST_YEAR)
         val saved = presets.list.firstOrNull { it.closestYear?.sameRules(c) == true }
         for (preset in ClosestYearPreset.entries) {
-            if (preset == ClosestYearPreset.CUSTOM) SavedPresetRows(presets, saved, { closestSummary(it.closestYear!!) }) { p -> p.closestYear?.let { onChange(c.withRulesOf(it).withCostsWithinMax()) } }
+            if (solo && preset.settings?.soloReady == false) continue
+            if (preset == ClosestYearPreset.CUSTOM) {
+                SavedPresetRows(presets, saved, { closestSummary(it.closestYear!!) }, shown = { !solo || it.closestYear?.soloReady == true }) { p ->
+                    p.closestYear?.let { onChange(c.withRulesOf(it).withCostsWithinMax()) }
+                }
+            }
             PresetRow(stringResource(preset.label), stringResource(preset.hint), preset == current && (preset != ClosestYearPreset.CUSTOM || saved == null), enabled = preset.settings != null) {
                 onChange(c.withPreset(preset))
             }
@@ -307,18 +343,22 @@ fun ClosestYearEditor(c: ClosestYearSettings, onChange: (ClosestYearSettings) ->
         if (current == ClosestYearPreset.CUSTOM && saved == null) SavePresetButton { name -> presets.save(CustomPreset(name, closestYear = c)) }
     }
     SectionCard(stringResource(Res.string.settings_rules), spacing = 4.dp) {
-        SwitchRow(stringResource(Res.string.settings_hidden_guesses), c.hiddenGuesses, { onChange(c.copy(hiddenGuesses = it)) }, hint = stringResource(Res.string.settings_hidden_guesses_hint))
-        // How a round scores (feedback round 36).
-        Text(stringResource(Res.string.settings_scoring), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
-        for (scoring in ClosestScoring.entries) {
-            PresetRow(stringResource(scoring.label), stringResource(scoring.hint), c.scoring == scoring, enabled = true) { onChange(c.copy(scoring = scoring)) }
+        if (!solo) SwitchRow(stringResource(Res.string.settings_hidden_guesses), c.hiddenGuesses, { onChange(c.copy(hiddenGuesses = it)) }, hint = stringResource(Res.string.settings_hidden_guesses_hint))
+        // How a round scores; alone always by distance.
+        Text(stringResource(Res.string.settings_scoring), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = if (solo) 0.dp else 8.dp))
+        if (solo) {
+            Text(stringResource(Res.string.settings_scoring_solo), style = MaterialTheme.typography.bodySmall)
+        } else {
+            for (scoring in ClosestScoring.entries) {
+                PresetRow(stringResource(scoring.label), stringResource(scoring.hint), c.scoring == scoring, enabled = true) { onChange(c.copy(scoring = scoring)) }
+            }
         }
         if (c.scoring == ClosestScoring.DISTANCE) {
             Stepper(stringResource(Res.string.settings_distance_points), c.distancePoints, 1..20, { onChange(c.copy(distancePoints = it)) })
         }
         when (c.scoring) {
             ClosestScoring.CLOSEST -> Stepper(stringResource(Res.string.settings_wins_to_win), c.winsToWin, 1..30, { onChange(c.copy(winsToWin = it)) })
-            // The target in points is this many perfect rounds (feedback round 36).
+            // The target in points is this many perfect rounds.
             ClosestScoring.RANK -> Stepper(
                 stringResource(Res.string.settings_perfect_rounds), c.winsToWin, 1..30, { onChange(c.copy(winsToWin = it)) },
                 hint = stringResource(Res.string.settings_perfect_rounds_hint_rank),
@@ -339,9 +379,10 @@ fun ClosestYearEditor(c: ClosestYearSettings, onChange: (ClosestYearSettings) ->
         SwitchRow(stringResource(Res.string.settings_naming_skip), c.namingEarnsSkip, { onChange(c.copy(namingEarnsSkip = it)) }, hint = stringResource(Res.string.settings_naming_skip_hint))
         // Exact guess ends the round, rotation and distinct guesses are always on (as far as the scoring and
         // hidden guesses allow); the lowest guessable year follows the songs (DECISIONS.md D-066).
-        Text(stringResource(Res.string.settings_closest_fixed_rules), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+        val fixed = if (solo) Res.string.settings_closest_fixed_rules_solo else Res.string.settings_closest_fixed_rules
+        Text(stringResource(fixed), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
     }
-    // Costs in skips, like Song Order's veto costs (feedback round 27).
+    // Costs in skips, like Song Order's veto costs.
     SectionCard(stringResource(Res.string.settings_skip_costs), spacing = 4.dp) {
         Text(stringResource(Res.string.settings_skip_costs_hint), style = MaterialTheme.typography.bodySmall)
         OptionalStepper(stringResource(c.buyLabel), c.buyCost, 1..minOf(5, c.maxSkips ?: 5), { onChange(c.copy(buyCost = it)) })

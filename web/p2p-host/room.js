@@ -57,7 +57,7 @@ let follow = null;
 function onAudio(command) {
   if (!command.src) {
     follow = null;
-    // The same signal again later (the game went on meanwhile) must play again (feedback round 51).
+    // The same signal again later (the game went on meanwhile) must play again.
     appliedSignal = "";
     if (audio) audio.pause();
     return;

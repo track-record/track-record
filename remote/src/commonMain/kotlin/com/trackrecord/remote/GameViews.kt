@@ -34,7 +34,7 @@ object GameViews {
             ScoreView(it.id, score(after, it.id), score(after, it.id) - score(before, it.id), next?.vetoes ?: 0, next?.skips ?: 0)
         }
             .sortedByDescending { it.score } +
-            // Removed players last, greyed out (feedback round 36).
+            // Removed players last, greyed out.
             before.removed.map { ScoreView(it.id, GameEngine.score(before, it), 0, it.vetoes, it.skips, removed = true) }
     }
 
@@ -92,6 +92,7 @@ object GameViews {
                 musicBrainzYear = song?.musicBrainzYear,
                 corrected = round.yearCorrected,
                 favorite = game.favorite,
+                details = game.yearDetails,
             )
         } else {
             null
@@ -118,6 +119,7 @@ object GameViews {
             currentGuesser = if (s.phase == Phase.GUESSING) round?.currentGuesserId else null,
             waitingFor = if (s.phase == Phase.GUESSING) round?.waitingFor.orEmpty() else emptyList(),
             hiddenGuesses = !timelineMode && s.settings.closestYear.hiddenGuesses,
+            solo = s.solo,
             scoring = s.settings.closestYear.scoring.name,
             minYear = s.settings.closestYear.lowestGuessableYear,
             maxYear = s.currentYear,
@@ -144,7 +146,7 @@ object GameViews {
 
     /**
      * [view] for the phone of [viewer]: with hidden guesses, before the reveal, the other players' years
-     * are left out, only that they guessed is shown (feedback round 36).
+     * are left out, only that they guessed is shown.
      */
     fun forViewer(view: GameView, viewer: String?): GameView {
         if (!view.hiddenGuesses || view.phase != Phase.GUESSING.name) return view

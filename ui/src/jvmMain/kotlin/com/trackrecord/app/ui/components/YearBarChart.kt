@@ -27,8 +27,8 @@ import androidx.compose.ui.unit.dp
 /**
  * One bar per year, [years] consecutive, [values] null where a year has no bar (zero is a stub). Year labels sit under their own
  * bars (first, last and round decades). The line above shows [topLabel] (the scale) until a bar is tapped, then
- * that bar's [detail] (feedback round 47; the library's songs per year since round 5). With [decades] each bar is a
- * decade, [years] its first years, and every bar is labelled (feedback round 48).
+ * that bar's [detail] (the library's songs per year since round 5). With [decades] each bar is a
+ * decade, [years] its first years, and every bar is labelled.
  */
 @Composable
 fun YearBarChart(years: List<Int>, values: List<Double?>, max: Double, topLabel: String, description: String, decades: Boolean = false, detail: (Int) -> String) {

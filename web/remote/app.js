@@ -28,19 +28,22 @@ import { music } from "./music.js";
     everConnected: false,
     invalid: false,
     overlay: null, // "menu" | "settings" | "scores" | "cards" | "theme" | "pick"
-    yearEdit: false, // co-host: the year correction open on the reveal screen
-    dismissed: new Set(), // bought or skipped songs closed here (feedback round 27)
-    dragSlot: null, // the gap under the finger while dragging the guess (feedback round 27)
-    picked: null, // the gap just tapped, until the host's view has it (feedback round 52)
+    yearEdit: false, // co-host: the year card open on the reveal screen
+    yearEditing: false, // co-host: Edit year open in it, with the year typed so far
+    yearDraft: "",
+    focusYear: false,
+    dismissed: new Set(), // bought or skipped songs closed here
+    dragSlot: null, // the gap under the finger while dragging the guess
+    picked: null, // the gap just tapped, until the host's view has it
     lockInNext: false, // Lock in tapped while the tap before it was still on its way
     adjusting: false, // co-host: the scoreboard's "Adjust vetoes" (or skips) on
     vetoMode: false,
     expanded: null,
-    removing: null,
-    seekingMs: null, // co-host: the slider's position while dragging it // co-host: the player the "Remove?" dialog asks about
+    removing: null, // co-host: the player the "Remove?" dialog asks about
+    seekingMs: null, // co-host: the slider's position while dragging it
     pendingVeto: null,
     guessesOpen: null, // Timeline reveal: the guesses section open (true), closed (false), or not decided yet
-    brief: false, // the rules in brief open under the info button (feedback round 51)
+    brief: false, // the rules in brief open under the info button
     briefSeen: false, // shown for the game running now
     audio: null,
     audioKey: "",
@@ -114,6 +117,11 @@ import { music } from "./music.js";
     return T(`${key}_${n === 1 ? "one" : "other"}`, n, ...more);
   }
 
+  /** Song Order's vetoes as counted on screen: jokers when one player plays alone, as nobody can veto (D-380). */
+  function vetoWord(g) {
+    return g.solo ? "web_jokers" : "web_vetoes";
+  }
+
   function esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
@@ -157,6 +165,11 @@ import { music } from "./music.js";
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => { drawnTheme = null; applyTheme(); fitWallet(); }, 150);
   });
+  // Text measured before the web font is in is narrower: measure again once it is (D-386).
+  if (document.fonts) {
+    document.fonts.ready.then(fitWallet);
+    document.fonts.addEventListener("loadingdone", fitWallet);
+  }
 
   /** Only for a card without an id, which the host never sends today. */
   function hash(text) {
@@ -214,7 +227,7 @@ import { music } from "./music.js";
     palette: "M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z",
   };
 
-  /** Deezer's symbol in its brand purple, for "Streamed from Deezer" (feedback round 50). */
+  /** Deezer's symbol in its brand purple, for "Streamed from Deezer". */
   const DEEZER = "M.693 10.024c.381 0 .693-1.256.693-2.807 0-1.55-.312-2.807-.693-2.807C.312 4.41 0 5.666 0 7.217s.312 2.808.693 2.808ZM21.038 1.56c-.364 0-.684.805-.91 2.096C19.765 1.446 19.184 0 18.526 0c-.78 0-1.464 2.036-1.784 5-.312-2.158-.788-3.536-1.325-3.536-.745 0-1.386 2.704-1.62 6.472-.442-1.932-1.083-3.145-1.793-3.145s-1.35 1.213-1.793 3.145c-.242-3.76-.874-6.463-1.628-6.463-.537 0-1.013 1.378-1.325 3.535C6.938 2.036 6.262 0 5.474 0c-.658 0-1.247 1.447-1.602 3.665-.217-1.291-.546-2.105-.91-2.105-.675 0-1.221 2.807-1.221 6.272 0 3.466.546 6.273 1.221 6.273.277 0 .537-.476.736-1.273.32 2.928.996 4.938 1.776 4.938.606 0 1.143-1.204 1.507-3.11.251 3.622.875 6.195 1.602 6.195.46 0 .875-1.023 1.187-2.677C10.142 21.6 11 24 12.004 24c1.005 0 1.863-2.4 2.235-5.822.312 1.654.727 2.677 1.186 2.677.728 0 1.352-2.573 1.603-6.195.364 1.906.9 3.11 1.507 3.11.78 0 1.455-2.01 1.775-4.938.208.797.46 1.273.737 1.273.675 0 1.22-2.807 1.22-6.273-.008-3.457-.553-6.272-1.23-6.272ZM23.307 10.024c.381 0 .693-1.256.693-2.807 0-1.55-.312-2.807-.693-2.807-.381 0-.693 1.256-.693 2.807s.312 2.808.693 2.808Z";
 
   function svgIcon(name) {
@@ -225,13 +238,13 @@ import { music } from "./music.js";
     return `<button class="icon-button" data-act="${act}" aria-label="${esc(label)}" title="${esc(label)}">${svgIcon(name)}</button>`;
   }
 
-  /** Closest Year: this phone's player may guess now; with hidden guesses everyone who hasn't yet (feedback round 36). */
+  /** Closest Year: this phone's player may guess now; with hidden guesses everyone who hasn't yet. */
   function guessTurn(g, me) {
     if (!me || g.phase !== "GUESSING") return false;
     return g.hiddenGuesses ? (g.waitingFor || []).includes(me) : g.currentGuesser === me;
   }
 
-  /** Rank and Distance count points, not cards (feedback round 36). */
+  /** Rank and Distance count points, not cards. */
   function collectsCards(g) {
     return g.mode === "TIMELINE" || g.scoring === "CLOSEST";
   }
@@ -247,7 +260,7 @@ import { music } from "./music.js";
       // With its key a photo can be kept by the browser; a new photo has a new key (D-270).
       const key = p.photoKey ? `&v=${encodeURIComponent(p.photoKey)}` : "";
       const src = transport && transport.image(`photo?p=${encodeURIComponent(p.id)}${key}`);
-      // The photo identifies the player: coloured ring, no initials (feedback round 11).
+      // The photo identifies the player: coloured ring, no initials.
       if (src) return `<span class="${cls}" style="${style}" aria-hidden="true"><img src="${esc(src)}" alt=""></span>`;
     }
     return `<span class="${cls}" style="${style}" aria-hidden="true">${esc(p.initials)}</span>`;
@@ -259,30 +272,28 @@ import { music } from "./music.js";
    */
   function audioRow(g, canControl, seekable) {
     const a = g.audio || {};
-    // Always shown, as they explain the bar; usable only on this phone's turn (feedback round 13).
+    // Always shown, as they explain the bar; usable only on this phone's turn.
     const off = a.loaded && canControl ? "" : "disabled";
     const svg = svgIcon;
     const buttons = `<button class="round-button" data-act="togglePlay" aria-label="${esc(T(a.playing ? "web_pause" : "web_play"))}" ${off}>${svg(a.playing ? "pause" : "play")}</button>
          <button class="round-button tonal" data-act="replay" aria-label="${esc(T("web_replay"))}" ${off}>${svg("replay")}</button>`;
-    // The music's volume behind a speaker symbol, so it is easy to find (D-192). On Wi-Fi it turns the music on first
-    // (feedback round 59). Crossed out whenever nothing can be heard from this phone.
-    const speakerLabel = INTERNET ? T("web_volume") : T(S.soundOn && localSound() ? "web_sound_turn_off" : "web_sound_turn_on");
-    const speakerTitle = INTERNET ? T("web_volume_open") : speakerLabel;
-    const speaker = `<button class="icon-button volume-button" data-act="volumeToggle" aria-label="${esc(speakerLabel)}" title="${esc(speakerTitle)}" aria-expanded="${!!S.volumeOpen}">${svg(speakerIcon())}</button>`;
-    const slider = S.volumeOpen && (INTERNET || localSound()) ? volumeSlider() : "";
-    // The app's note under the bar, only when the song can't be played (feedback round 43).
-    const note = (a.error ? `<span class="play-note error">${esc(T("web_playback_error"))}</span>` : "") + (a.preview ? streamedFromDeezer() : "");
-    // A co-host's reveal: the host's slider with the time, to jump in the song (feedback round 44).
+    // The speaker turns the music on this phone on or off, with the volume under a mouse (D-388).
+    const speaker = volumeControl();
+    // The app's note under the bar, only when the song can't be played.
+    // On Wi-Fi this phone plays the host's file itself, which its browser may not decode (REVIEW-3 B-25).
+    const error = a.error ? T("web_playback_error") : Music.cantPlay() ? T("web_music_unsupported") : null;
+    const note = (error ? `<span class="play-note error">${esc(error)}</span>` : "") + (a.preview ? streamedFromDeezer() : "");
+    // A co-host's reveal: the host's slider with the time, to jump in the song.
     const seek = seekable && a.durationMs > 0;
     const bar = seek
       ? `<div class="progress-box"><input type="range" class="seek" min="0" max="${a.durationMs}" step="100" value="${Math.round(progressPercent() * a.durationMs / 100)}" style="--seek:${progressPercent()}%" data-seek="1" aria-label="${esc(T("web_seek"))}"></div>`
       : `<div class="progress-box"><div class="progress"><div class="progress-fill" style="width:${progressPercent()}%"></div><div class="progress-track"></div></div></div>`;
-    // The time, error and Deezer's name below the bar, which stays centred on the buttons (feedback round 65, as on the host).
+    // The time, error and Deezer's name below the bar, which stays centred on the buttons (as on the host).
     const below = (seek ? `<span class="play-time">${esc(playTime())}</span>` : "") + note;
-    return `<div class="play-row">${buttons}${bar}${below ? `<div class="play-notes">${below}</div>` : ""}${speaker}</div>${slider}`;
+    return `<div class="play-row">${buttons}${bar}${below ? `<div class="play-notes">${below}</div>` : ""}${speaker}</div>`;
   }
 
-  /** Deezer's terms: name Deezer with its logo where its music plays (feedback round 50), as on the host. */
+  /** Deezer's terms: name Deezer with its logo where its music plays, as on the host. */
   function streamedFromDeezer() {
     return `<span class="play-note deezer"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#A238FF" d="${DEEZER}"/></svg>${esc(T("web_streamed_deezer"))}</span>`;
   }
@@ -320,13 +331,22 @@ import { music } from "./music.js";
   }
   requestAnimationFrame(animateProgress);
 
-  /** On Wi-Fi, this phone's choice to play the music too; off unless chosen, as the host's speaker plays it (feedback round 59). */
+  /** On Wi-Fi, this phone's choice to play the music too; off unless chosen, as the host's speaker plays it. */
   function localSound() {
     return readCookie("hl_sound") === "1";
   }
 
-  function setLocalSound(on) {
-    writeCookie("hl_sound", on ? "1" : "0");
+  /**
+   * Whether this phone plays the music: on Wi-Fi the choice above, remembered; over the internet on unless muted with
+   * the speaker, for this visit only (D-388).
+   */
+  function soundWanted() {
+    return INTERNET ? !S.muted : localSound();
+  }
+
+  function setSoundWanted(on) {
+    if (INTERNET) S.muted = !on;
+    else writeCookie("hl_sound", on ? "1" : "0");
     if (on) {
       S.soundOn = true;
       Music.syncClock();
@@ -335,17 +355,65 @@ import { music } from "./music.js";
     if (on) Music.unlock();
   }
 
-  /** The speaker symbol: crossed out while this phone plays nothing (not wanted, not allowed yet, or volume 0). */
+  /** Whether this phone plays the music now: wanted, allowed by the browser, and not at volume 0. */
+  function audible() {
+    return !!S.soundOn && soundWanted() && Music.volume() > 0;
+  }
+
+  /** The speaker symbol: crossed out while this phone plays nothing. */
   function speakerIcon() {
-    return S.soundOn && (INTERNET || localSound()) && Music.volume() > 0 ? "volume" : "volumeOff";
+    return audible() ? "volume" : "volumeOff";
   }
 
-  /** The music volume slider (menu, and under the progress bar after tapping the speaker; D-185, D-192). */
+  function speakerLabel() {
+    if (INTERNET) return T(audible() ? "web_sound_mute" : "web_sound_unmute");
+    return T(audible() ? "web_sound_turn_off" : "web_sound_turn_on");
+  }
+
+  /** The volume the sliders show: what is heard, so 0 while muted. */
+  function volumePercent() {
+    return soundWanted() ? Math.round(Music.volume() * 100) : 0;
+  }
+
+  /**
+   * The speaker by the progress bar (D-388): a tap turns the music on this phone on or off. Under a mouse the volume
+   * slider slides out of it to the left, as one control, so moving onto the slider keeps it open; the wheel turns the
+   * volume. Touch screens set the volume in the menu. No slider where the page can't set the volume (iPhones), nor on
+   * Wi-Fi with the music off on this phone.
+   */
+  function volumeControl() {
+    const label = speakerLabel();
+    const button = `<button class="icon-button volume-button" data-act="volumeToggle" aria-label="${esc(label)}" title="${esc(label)}">${svgIcon(speakerIcon())}</button>`;
+    const slider = Music.volumeAdjustable && (INTERNET || localSound())
+      ? `<div class="volume-pop"><input type="range" min="0" max="100" step="1" value="${volumePercent()}" data-volume="1" aria-label="${esc(T("web_volume"))}"></div>`
+      : "";
+    return `<div class="volume-control${slider && S.volumeHover ? " open" : ""}">${slider}${button}</div>`;
+  }
+
+  /** The music volume slider in the menu (D-185); none where the page can't set the volume (iPhones). */
   function volumeSlider() {
-    return `<label class="volume-row"><span>${esc(T("web_volume"))}</span><input type="range" min="0" max="100" step="1" value="${Math.round(Music.volume() * 100)}" data-volume="1" aria-label="${esc(T("web_volume"))}"></label>`;
+    if (!Music.volumeAdjustable) return "";
+    return `<label class="volume-row"><span>${esc(T("web_volume"))}</span><input type="range" min="0" max="100" step="1" value="${volumePercent()}" data-volume="1" aria-label="${esc(T("web_volume"))}"></label>`;
   }
 
-  /** "Tap a gap twice to confirm": this phone's choice (cookie), else the host's default (feedback round 11). */
+  /**
+   * A volume from a slider or the wheel: heard at once, and a muted phone plays again (D-388). The speaker and the
+   * sliders follow without a redraw, as a finger or the mouse may be on them; [source] is the slider being moved.
+   */
+  function changeVolume(v, source) {
+    const volume = Math.min(1, Math.max(0, v));
+    Music.setVolume(volume);
+    if (volume > 0 && !soundWanted()) setSoundWanted(true);
+    const label = speakerLabel();
+    document.querySelectorAll(".volume-button").forEach((b) => {
+      b.innerHTML = svgIcon(speakerIcon());
+      b.setAttribute("aria-label", label);
+      b.title = label;
+    });
+    document.querySelectorAll("[data-volume]").forEach((s) => { if (s !== source) s.value = String(volumePercent()); });
+  }
+
+  /** "Tap a gap twice to confirm": this phone's choice (cookie), else the host's default. */
   function confirmTwice() {
     const own = readCookie("hl_confirm");
     if (own === "1" || own === "0") return own === "1";
@@ -356,7 +424,8 @@ import { music } from "./music.js";
    * This player's vetoes (Timeline) or skips (Closest Year) with skip and buy (feedback rounds 11, 25, 52;
    * D-193): beside the count when both buttons fit there, else on their own row below it. Measured with
    * every button the game can offer (a hidden copy, see fitWallet), so they don't switch rows when skip
-   * comes and goes; the count has a fixed width, so nothing moves when the numbers change.
+   * comes and goes; the count keeps the width of its widest text (two digits), so nothing moves when the numbers
+   * change, and the buttons fit beside it whenever there is room for that (D-386).
    */
   function extraActions(g, players, me) {
     const mine = players[me];
@@ -366,19 +435,22 @@ import { music } from "./music.js";
     const all = [];
     const button = (act, label, enabled) => `<button class="btn outlined small" data-act="${act}" ${enabled && !S.busy ? "" : "disabled"}>${esc(label)}</button>`;
     let count = "";
+    let widest = "";
     if (g.mode === "TIMELINE") {
-      count = plural("web_vetoes", mine.vetoes);
-      if (g.skipCost != null) all.push(button("skip", T("web_skip", plural("web_vetoes", g.skipCost)), false));
-      if (g.buyCost != null) all.push(button("buy", T("web_buy", plural("web_vetoes", g.buyCost)), false));
+      count = plural(vetoWord(g), mine.vetoes);
+      widest = plural(vetoWord(g), 88);
+      if (g.skipCost != null) all.push(button("skip", T("web_skip", plural(vetoWord(g), g.skipCost)), false));
+      if (g.buyCost != null) all.push(button("buy", T("web_buy", plural(vetoWord(g), g.buyCost)), false));
       if (g.phase === "PLACING" && g.activeId === me && g.skipCost != null) {
-        buttons.push(button("skip", T("web_skip", plural("web_vetoes", g.skipCost)), mine.vetoes >= g.skipCost));
+        buttons.push(button("skip", T("web_skip", plural(vetoWord(g), g.skipCost)), mine.vetoes >= g.skipCost));
       }
       if (g.buyCost != null && (g.phase === "PLACING" || g.phase === "AWAITING_DRAW")) {
-        buttons.push(button("buy", T("web_buy", plural("web_vetoes", g.buyCost)), mine.vetoes >= g.buyCost));
+        buttons.push(button("buy", T("web_buy", plural(vetoWord(g), g.buyCost)), mine.vetoes >= g.buyCost));
       }
     } else if (g.closestSkips || g.buyCost != null) {
       count = plural("web_skips", mine.skips);
-      // Rank and Distance buy the points of a perfect round, not a card (feedback round 50).
+      widest = plural("web_skips", 88);
+      // Rank and Distance buy the points of a perfect round, not a card.
       const buyText = g.buyCost == null ? "" : g.buyPoints != null
         ? T("web_buy_points", plural("web_points", g.buyPoints), plural("web_skips", g.buyCost)) : T("web_buy", plural("web_skips", g.buyCost));
       if (g.closestSkips) all.push(button("skip", T("web_skip_plain"), false));
@@ -386,30 +458,37 @@ import { music } from "./music.js";
       if (g.phase === "GUESSING" && g.currentGuesser === me && !g.guesses.length) {
         buttons.push(button("skip", T("web_skip_plain"), mine.skips > 0));
       }
-      // Buying a card for skips, before the reveal (feedback round 27).
+      // Buying a card for skips, before the reveal.
       if (g.buyCost != null && (g.phase === "GUESSING" || g.phase === "AWAITING_DRAW")) buttons.push(button("buy", buyText, mine.skips >= g.buyCost));
     }
     if (!count) return "";
-    // "You have 2 vetoes", the count in bold (feedback round 27).
+    // "You have 2 vetoes", the count in bold.
     const [before, after] = T("web_you_have", "\u0001").split("\u0001");
     const row = buttons.length ? `<span class="wallet-buttons">${buttons.join("")}</span>` : "";
     const measure = all.length ? `<span class="wallet-buttons wallet-measure" aria-hidden="true">${all.join("")}</span>` : "";
-    return `<div class="wallet${S.walletStacked ? " stacked" : ""}"><span class="wallet-count">${esc(before || "")}<strong>${esc(count)}</strong>${esc(after || "")}</span>${row}${measure}</div>`;
+    const countText = (n) => `${esc(before || "")}<strong>${esc(n)}</strong>${esc(after || "")}`;
+    const widestCount = `<span class="wallet-count wallet-measure wallet-widest" aria-hidden="true">${countText(widest)}</span>`;
+    const width = S.walletCountWidth ? ` style="min-width:${S.walletCountWidth}px"` : "";
+    return `<div class="wallet${S.walletStacked ? " stacked" : ""}"><span class="wallet-count"${width}>${countText(count)}</span>${row}${measure}${widestCount}</div>`;
   }
 
-  /** The wallet's buttons beside the count when all of them fit there, else below it (feedback round 52). */
+  /** The wallet's buttons beside the count when all of them fit there, else below it. */
   function fitWallet() {
     const wallet = app.querySelector(".wallet");
     const measure = wallet && wallet.querySelector(".wallet-measure");
     if (!measure) return;
     const count = wallet.querySelector(".wallet-count");
+    // The count as wide as its widest text, measured here as the fonts and the phone draw it (D-386).
+    const widest = wallet.querySelector(".wallet-widest");
+    S.walletCountWidth = Math.ceil((widest || count).getBoundingClientRect().width);
+    count.style.minWidth = `${S.walletCountWidth}px`;
     const gap = parseFloat(getComputedStyle(wallet).columnGap) || 0;
-    S.walletStacked = count.offsetWidth + gap + measure.offsetWidth > wallet.clientWidth;
+    S.walletStacked = S.walletCountWidth + gap + Math.ceil(measure.getBoundingClientRect().width) > wallet.clientWidth;
     wallet.classList.toggle("stacked", S.walletStacked);
   }
 
   /**
-   * A bought card or a skipped song, shown to everyone until closed (feedback rounds 11, 27): a dialog with
+   * A bought card or a skipped song, shown to everyone until closed: a dialog with
    * the song's card, as on the host (DESIGN-REVIEW LY-03). One at a time.
    */
   function songNotice(g, players) {
@@ -417,7 +496,7 @@ import { music } from "./music.js";
       const event = g[field];
       const p = event && players[event.playerId];
       if (!p) continue;
-      // Bought points (Rank and Distance) come without a card (feedback round 50).
+      // Bought points (Rank and Distance) come without a card.
       const c = event.card;
       const id = `${field}|${g.round}|${event.playerId}|${c ? `${c.songId}|${c.year}` : event.points}`;
       if (S.dismissed.has(id)) continue;
@@ -437,7 +516,7 @@ import { music } from "./music.js";
     return `<span class="chip">${avatar(p, size)}<strong>${esc(p.name)}</strong>${extra ? `<span class="muted">${esc(extra)}</span>` : ""}</span>`;
   }
 
-  /** Album covers on cards and at reveal: this phone's choice (cookie), else the host's (feedback round 12). */
+  /** Album covers on cards and at reveal: this phone's choice (cookie), else the host's. */
   function coversOn() {
     const own = readCookie("hl_covers");
     if (own === "1" || own === "0") return own === "1";
@@ -495,7 +574,7 @@ import { music } from "./music.js";
     } else if (!v) {
       html = hero(T("app_name"), T(S.everConnected ? "web_reconnecting" : S.slow ? "web_p2p_unreachable" : "web_connecting"));
     } else if (!v.game && v.lobby && (!v.me || S.overlay === "pick")) {
-      // The host is setting up a game: pick a player already (feedback round 32).
+      // The host is setting up a game: pick a player already.
       html = pickScreen(v);
     } else if (!v.game && v.lobby) {
       const me = v.lobby.find((p) => p.id === v.me);
@@ -506,7 +585,7 @@ import { music } from "./music.js";
     } else if (v.paused) {
       html = topbar("", false) + hero(T("web_paused_title"), T("web_paused_text"));
     } else if (v.left && !v.me && S.overlay !== "pick") {
-      // Removed from the game: this phone watches (feedback round 36).
+      // Removed from the game: this phone watches.
       html = gameScreen(v);
     } else if (!v.me || S.overlay === "pick") {
       html = pickScreen(v);
@@ -531,6 +610,12 @@ import { music } from "./music.js";
     document.body.classList.toggle("pinned", !!nextPinned);
     if (nextPinned && pinnedScroll) nextPinned.scrollTop = pinnedScroll;
     fitWallet();
+    // Edit year just opened: the field focused with the year selected, so typing replaces it (as on the host).
+    if (S.focusYear) {
+      S.focusYear = false;
+      const field = document.getElementById("host-year");
+      if (field) { field.focus(); field.select(); }
+    }
     // The brief rules' arrow points at the info button.
     const briefEl = app.querySelector(".brief");
     const infoButton = briefEl && app.querySelector(".topbar [data-act=info]");
@@ -557,7 +642,7 @@ import { music } from "./music.js";
     if (inGame) {
       const me = v.game.players.find((p) => p.id === v.me);
       const menu = me ? `<button class="icon-button" data-act="menu" aria-label="${esc(T("web_menu"))}">${avatar(me, 36)}</button>` : "";
-      // The game's rules, settings and playlists (feedback round 36); at game over only the menu (LY-06).
+      // The game's rules, settings and playlists; at game over only the menu (LY-06).
       right = v.game.phase === "GAME_OVER" ? menu
         : icon("info", "info", T("web_info")) + icon("scores", "scores", T("web_scoreboard")) + icon("settings", "settings", T("web_settings")) + menu;
     }
@@ -565,7 +650,7 @@ import { music } from "./music.js";
   }
 
   /**
-   * The rules in brief, pointing at the info button where the rest is (feedback round 51): when a game
+   * The rules in brief, pointing at the info button where the rest is: when a game
    * starts or this phone joins one. A tap closes it.
    */
   function brief(g) {
@@ -577,7 +662,7 @@ import { music } from "./music.js";
   }
 
   function pickScreen(v) {
-    // A running game's players, or those of the game being set up (feedback round 32).
+    // A running game's players, or those of the game being set up.
     const players = v.game ? v.game.players : v.lobby || [];
     const devices = v.devices || {};
     let html = topbar(T("web_pick_title"), false) + `<p class="muted">${esc(T("web_pick_hint", deviceName(DEVICE)))}</p>`;
@@ -610,7 +695,7 @@ import { music } from "./music.js";
     const playing = g.round != null && !["AWAITING_DRAW", "GAME_OVER", "REVEALED"].includes(g.phase);
     const myTurn = (g.phase === "PLACING" && g.activeId === v.me) || guessTurn(g, v.me);
     // The player who placed the card and those who could still veto may play and replay while the
-    // vetoes are decided; a co-host always, like the host (feedback rounds 23, 24; D-186, D-188, D-189).
+    // vetoes are decided; a co-host always, like the host (D-186, D-188, D-189).
     const canPlay = myTurn || v.coHost || (g.phase === "VETOING" && (g.activeId === v.me || g.vetoEligible.includes(v.me)));
     const top = (playing ? audioRow(g, canPlay) : "") + extraActions(g, players, v.me);
     const left = v.left && !v.me
@@ -631,7 +716,7 @@ import { music } from "./music.js";
     if (g.phase === "VETOING") {
       const w = g.vetoWindow || {};
       // No Undo veto; Reveal appears once the co-host's own player decided, like on the host with one
-      // player on it (feedback round 27).
+      // player on it.
       const me = S.view.me;
       if (me !== g.activeId && g.vetoEligible.includes(me) && !(w.declined || []).includes(me)) return "";
       const picking = (w.picking || []).length > 0;
@@ -648,14 +733,58 @@ import { music } from "./music.js";
     return "";
   }
 
-  /** The co-host's year correction (D-189), with the year's sources the page knows (IN-04). */
+  /** The lowest year Edit year takes, as on the host (MIN_PLAYABLE_YEAR). */
+  const MIN_YEAR = 1900;
+
+  /** A year Edit year takes: four digits from [MIN_YEAR] to [maxYear], else null. */
+  function validYear(text, maxYear) {
+    const year = Number(text);
+    return /^[0-9]{4}$/.test(text) && year >= MIN_YEAR && year <= maxYear ? year : null;
+  }
+
+  /**
+   * The co-host's year card (D-189), as the host's (D-385): the year counted this round, every year source as the
+   * host's library has it, Look up for a song not verified under the current rules, and Edit year with the host's
+   * checks.
+   */
   function yearEditor(g) {
     if (!S.view.coHost || !S.yearEdit) return "";
-    return `<div class="panel"><h3 class="heading">${esc(T("web_host_year"))}</h3>` +
-      `<p class="body-medium">${esc(T("web_round_counted", g.revealed.year))}</p>${sourcesLine(g.revealed)}` +
-      `<input type="number" inputmode="numeric" id="host-year" class="year-input" value="${g.revealed.year}" data-hold="1" aria-label="${esc(T("web_host_year"))}">` +
-      `<div class="row"><button class="btn outlined" data-act="yearEdit">${esc(T("web_cancel"))}</button>` +
-      `<button class="btn" data-act="hostYear" ${S.busy ? "disabled" : ""}>${esc(T("web_host_save"))}</button></div></div>`;
+    const r = g.revealed;
+    const d = r.details;
+    const title = `<div class="card-title"><p class="title-large">${esc(T("web_year_sheet_title"))}</p>${icon("close", "yearEdit", T("web_close"))}</div>`;
+    const counted = `<p>${esc(T("web_round_counted", r.year))}</p>`;
+    let body;
+    if (S.yearEditing) {
+      const ok = validYear(S.yearDraft, g.maxYear) != null;
+      const bad = S.yearDraft.length === 4 && !ok;
+      body = `<label class="year-field${bad ? " error" : ""}"><span class="label-medium">${esc(T("web_year_label"))}</span>` +
+        `<input id="host-year" class="year-input" type="text" inputmode="numeric" maxlength="4" autocomplete="off" value="${esc(S.yearDraft)}" data-hold="1" data-year-field="1"></label>` +
+        `<p class="body-small field-hint">${esc(T("web_year_range", MIN_YEAR, g.maxYear))}</p>` +
+        `<div class="row end"><button class="text-button" data-act="yearEditCancel">${esc(T("web_cancel"))}</button>` +
+        `<button class="btn small" id="host-year-save" data-act="hostYear" ${ok && !S.busy ? "" : "disabled"}>${esc(T("web_host_save"))}</button></div>`;
+    } else {
+      body = (d ? yearSources(d) + lookUp(r, d) : sourcesLine(r)) +
+        `<button class="btn edit-year" data-act="yearEditing">${svgIcon("edit")}<span>${esc(T("web_edit_year"))}</span></button>`;
+    }
+    return `<div class="panel year-card">${title}${counted}${body}</div>`;
+  }
+
+  /** The year sources, as the host's year card lists them; under older lookup rules in yellow (D-382). */
+  function yearSources(d) {
+    const lines = d.lines.map((l) => `<div class="source-line${l.caution ? " caution" : ""}"><span>${esc(l.label)}</span><span>${esc(l.value)}</span></div>`).join("");
+    return `<p class="title-medium">${esc(T("web_effective_year"))}</p>` +
+      `<p class="display-medium${d.missing ? " error-text" : ""}">${esc(d.year)}</p>` +
+      (d.source ? `<p>${esc(d.source)}</p>` : "") +
+      `<p class="body-small${d.outdated ? " caution" : ""}">${esc(d.verification)}</p>` +
+      lines + (d.note ? `<p class="body-small">${esc(d.note)}</p>` : "");
+  }
+
+  /** Look up, offered for a song not verified under the current rules (D-382), with how the last one went. */
+  function lookUp(r, d) {
+    if (!d.lookUp) return "";
+    return (d.warning ? `<p class="body-medium error-text">${esc(d.warning)}</p>` : "") +
+      (d.lookupText ? `<p class="body-medium${d.lookupError ? " error-text" : ""}">${esc(d.lookupText)}</p>` : "") +
+      `<div class="row"><button class="btn outlined small" data-act="hostLookUp" data-song="${r.songId}" ${d.lookingUp || S.busy ? "disabled" : ""}>${esc(T("web_look_up"))}</button></div>`;
   }
 
   /**
@@ -674,20 +803,27 @@ import { music } from "./music.js";
         ? `<button class="named-toggle${on ? " on" : ""}" data-act="hostNamed" data-player="${esc(id)}" aria-pressed="${on}" ${S.busy ? "disabled" : ""}>${label}</button>`
         : `<div class="named-toggle${on ? " on" : ""}">${label}</div>`;
     }).join("");
-    const hint = { ACTIVE: "web_host_named_hint_active", VETOERS: "web_host_named_hint_vetoers", ALL: "web_host_named_hint_all" }[n.callers] || "web_host_named_hint_skip";
+    const callers = { ACTIVE: "web_host_named_hint_active", VETOERS: "web_host_named_hint_vetoers", ALL: "web_host_named_hint_all" }[n.callers];
+    // Alone, Song Order's vetoes are jokers (D-380).
+    const hint = callers && g.solo ? "web_host_named_hint_solo" : callers || "web_host_named_hint_skip";
     return `<div class="panel naming-panel">${who}${marks}<p class="body-small">${esc(T(hint))}</p></div>`;
   }
 
-  /** "Tag 1995 · MusicBrainz 1993" when they differ, or "Year corrected", as under the host's year (IF-01). */
+  /**
+   * "Tag 1995 · MusicBrainz 1993" when they differ, or "Year corrected", as under the host's year (IF-01); MusicBrainz's
+   * in yellow when it was checked under older rules (D-382).
+   */
   function sourcesLine(r) {
     if (r.corrected) return `<p class="body-small">${esc(T("web_corrected"))}</p>`;
     if (r.tagYear != null && r.musicBrainzYear != null && r.tagYear !== r.musicBrainzYear) {
-      return `<p class="body-medium">${esc(T("web_sources", r.tagYear, r.musicBrainzYear))}</p>`;
+      const mb = esc(T("web_source_musicbrainz", r.musicBrainzYear));
+      const outdated = r.details && r.details.outdated;
+      return `<p class="body-medium">${esc(T("web_source_tag", r.tagYear))}${esc(T("web_sources_separator"))}${outdated ? `<span class="caution">${mb}</span>` : mb}</p>`;
     }
     return "";
   }
 
-  /** The clip length (D-191) in the co-host's settings, like the host's: off, 10 to 120 s in steps of 5 (feedback round 34). */
+  /** The clip length (D-191) in the co-host's settings, like the host's: off, 10 to 120 s in steps of 5. */
   function clipStepper(g) {
     const now = g.clipLimit;
     const down = now == null ? 0 : now <= 10 ? 0 : now - 5;
@@ -700,7 +836,7 @@ import { music } from "./music.js";
   }
 
   /**
-   * The game's lookups and covers in the co-host's settings, like the host's (feedback round 48): done of queued,
+   * The game's lookups and covers in the co-host's settings, like the host's: done of queued,
    * and Stop for the rest of the game.
    */
   function requestsPanel(r) {
@@ -714,7 +850,7 @@ import { music } from "./music.js";
     return `<div class="requests"><h3>${esc(T("web_requests_title"))}</h3>${body}</div>`;
   }
 
-  /** The start offset in the co-host's settings, like the host's: 0 to 60 s in steps of 5, from the next song (feedback round 34). */
+  /** The start offset in the co-host's settings, like the host's: 0 to 60 s in steps of 5, from the next song. */
   function offsetStepper(g) {
     const now = g.startOffset || 0;
     return `<div class="clip-row"><span>${esc(T("web_start_offset"))}<br><span class="muted">${esc(T("web_start_offset_hint"))}</span></span>` +
@@ -753,7 +889,8 @@ import { music } from "./music.js";
     let actions = "";
     let mode = null;
     if (myTurn) {
-      status = T("web_waiting_vetoes");
+      // Alone nobody vetoes: only the reveal to wait for (D-380).
+      status = T(g.solo ? "web_waiting_reveal" : "web_waiting_vetoes");
     } else if (eligible && !declined) {
       if (S.vetoMode) {
         status = T(confirmTwice() ? "web_veto_pick_twice" : "web_veto_pick");
@@ -788,7 +925,7 @@ import { music } from "./music.js";
     let html = `<div class="timeline">`;
     for (let slot = 0; slot <= cards.length; slot++) {
       if (g.gaps.includes(slot)) {
-        // The first and last gap say Older and Newer while free (feedback round 49).
+        // The first and last gap say Older and Newer while free.
         const edge = slot === 0 ? T("web_gap_older") : slot === cards.length ? T("web_gap_newer") : null;
         const edgeLabel = edge ? `<span class="edge">${esc(edge)}</span>` : "";
         const veto = g.vetoes.find((x) => x.slot === slot);
@@ -802,11 +939,12 @@ import { music } from "./music.js";
           const p = players[veto.playerId];
           html += `<div class="gap vetoed" style="border-color:${esc(p.color)}">${avatar(p, 32)}<span class="label">${esc(T("web_gap_veto"))}</span></div>`;
         } else if (mode === "veto" && S.pendingVeto === slot && !S.busy) {
-          // The marked gap: Confirm places the veto; with double-tap on, so does a second tap (feedback round 14).
+          // The marked gap: Confirm places the veto; with double-tap on, so does a second tap.
           const me = players[S.view.me];
           html += `<button class="gap pending" data-act="veto" data-slot="${slot}" style="border-color:${esc(me.color)}">${avatar(me, 32)}<span class="label">${esc(T(confirmTwice() ? "web_tap_again" : "web_veto_here"))}</span></button>`;
-        } else if (mode && !S.busy) {
-          html += `<button class="gap" data-act="${mode}" data-slot="${slot}" aria-label="${esc(T("web_gap_choose"))}">+${edgeLabel}</button>`;
+        } else if (mode) {
+          // While a tap is on its way the gaps stay as they are, only not tappable, so their texts don't flicker (D-389).
+          html += `<button class="gap" data-act="${mode}" data-slot="${slot}" aria-label="${esc(T("web_gap_choose"))}" ${S.busy ? "disabled" : ""}>+${edgeLabel}</button>`;
         } else {
           html += `<div class="gap">${edgeLabel}</div>`;
         }
@@ -820,7 +958,7 @@ import { music } from "./music.js";
     const r = g.revealed;
     if (!r) return "";
     const who = r.outcomePlayer ? players[r.outcomePlayer] : null;
-    // A tie that both score: every winner (feedback round 36).
+    // A tie that both score: every winner.
     const many = (r.outcomePlayers || []).map((id) => players[id]).filter(Boolean);
     const shared = r.outcome === "won" && many.length > 1;
     const key = shared ? "web_outcome_won_shared" : { kept: "web_outcome_kept", stolen: "web_outcome_stolen", discarded: "web_outcome_discarded", won: "web_outcome_won", none: "web_outcome_none" }[r.outcome];
@@ -830,9 +968,9 @@ import { music } from "./music.js";
     const cover = coverSrc ? `<img class="reveal-cover" src="${esc(coverSrc)}" alt="">` : "";
     const border = { WON: "won", LOST: "lost", OTHER: "other" }[S.view.tone] || "";
     const year = `<div class="display-large">${r.year}</div>`;
-    // The app's card: cover, year, sources, song, album, outcome (feedback round 16; IF-01).
+    // The app's card: cover, year, sources, song, album, outcome (IF-01).
     const lost = r.outcome === "kept" && g.vetoes.length ? `<p class="body-medium">${esc(T("web_vetoes_lost"))}</p>` : "";
-    // The co-host stars the song into the host's Favorites, as the host can (feedback round 52).
+    // The co-host stars the song into the host's Favorites, as the host can.
     const star = S.view.coHost && r.songId != null
       ? `<span class="reveal-star${r.favorite ? " on" : ""}">${icon(r.favorite ? "star" : "starBorder", "hostFavorite", T(r.favorite ? "web_favorite_remove" : "web_favorite_add"))}</span>` : "";
     const cardHtml = `<div class="panel reveal${border ? ` outcome-${border}` : ""}">${star}${cover}
@@ -846,12 +984,12 @@ import { music } from "./music.js";
     // Streamed songs: the song's page on Deezer under playback, as on the host (only Deezer's own https links; IF-03).
     const deezer = typeof r.link === "string" && r.link.startsWith("https://www.deezer.com/")
       ? `<a class="text-button" href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">${esc(T("web_open_deezer"))}</a>` : "";
-    // Playback only for a co-host, who controls it and may play the whole song like the host (feedback round 43).
+    // Playback only for a co-host, who controls it and may play the whole song like the host.
     const a = g.audio || {};
     const whole = S.view.coHost && a.whole
       ? `<button class="text-button" data-act="hostWhole" ${S.busy ? "disabled" : ""}>${esc(T(a.preview ? "web_full_preview" : "web_full_song"))}</button>` : "";
     const links = whole || deezer ? `<div class="links">${whole}${deezer}</div>` : "";
-    // Without the bar (not a co-host), Deezer is named on its own (feedback round 50).
+    // Without the bar (not a co-host), Deezer is named on its own.
     const playback = (S.view.coHost ? audioRow(g, true, true) : a.preview ? streamedFromDeezer() : "") + links;
     const guesses = g.mode === "CLOSEST_YEAR" ? yearAxis(g, players) + guessList(g, players) : timelineGuesses(g, players);
     const next = S.view.coHost ? bottom(`<button class="btn main" data-act="hostNext" ${S.busy ? "disabled" : ""}>${esc(T("web_host_next"))}</button>`) : "";
@@ -861,7 +999,7 @@ import { music } from "./music.js";
   /**
    * Timeline reveal: the active player's timeline with the guess, the vetoes and, in green, where the
    * song fits; gaps nobody chose are left out. Starts closed when it would push the scoreboard out of
-   * view (feedback round 21).
+   * view.
    */
   function timelineGuesses(g, players) {
     if (g.mode !== "TIMELINE" || !g.revealed) return "";
@@ -889,19 +1027,19 @@ import { music } from "./music.js";
     return `<div class="panel guesses-panel">${head}<div class="timeline">${rows}</div></div>`;
   }
 
-  /** The host's scoreboard card: the scores after this round, highest first (feedback round 12). */
+  /** The host's scoreboard card: the scores after this round, highest first. */
   function scoreboard(g, players) {
     if (!g.scoreboard || !g.scoreboard.length) return "";
     const rows = g.scoreboard.map((st, i) => {
       const p = players[st.playerId] || (g.removed || []).find((x) => x.id === st.playerId);
       if (!p) return "";
-      // The host's wording, vetoes (or skips) included (feedback round 17); removed players greyed, unranked (round 36).
+      // The host's wording, vetoes (or skips) included; removed players greyed, unranked (round 36).
       const score = finalDetail(g, { score: st.score, vetoes: st.vetoes, skips: st.skips });
       const gained = st.gained > 0 ? `<span class="gained">${esc(T("web_gained", st.gained))}</span>` : "";
       const detail = st.removed ? `${T("web_removed")} · ${score}` : score;
       return `<div class="board-row${st.removed ? " removed" : ""}"><span class="rank">${st.removed ? "–" : `${i + 1}.`}</span>${avatar(p, 32)}<span class="name">${esc(p.name)}</span>${gained}<span class="detail">${esc(detail)}</span></div>`;
     }).join("");
-    // With the target, as on the host (feedback round 50).
+    // With the target, as on the host.
     const goal = plural(collectsCards(g) ? "web_cards" : "web_points", g.target);
     return `<div class="panel scoreboard-panel"><h3 class="heading">${esc(T("web_scoreboard_target", T("web_scoreboard"), goal))}</h3>${rows}</div>`;
   }
@@ -909,12 +1047,12 @@ import { music } from "./music.js";
   /** Closest Year: the guesses on an axis from the lowest guessable year to now, like the host's. */
   /**
    * The guesses on a line from the lowest guessable year to now. With [picker] (this phone's turn), a tap
-   * or drag on it picks a year: it fills the digits and shows faded until Guess (feedback round 35).
+   * or drag on it picks a year: it fills the digits and shows faded until Guess.
    */
   function yearAxis(g, players, picker) {
     const span = Math.max(1, g.maxYear - g.minYear);
     const at = (year) => `${Math.min(1, Math.max(0, (year - g.minYear) / span)) * 100}%`;
-    // Hidden guesses: the others' years aren't sent (feedback round 36).
+    // Hidden guesses: the others' years aren't sent.
     // The same year again: a little higher, so both show.
     const shown = g.guesses.filter((x) => x.year != null && players[x.playerId]);
     let marks = shown.map((x, i) => {
@@ -935,9 +1073,9 @@ import { music } from "./music.js";
     return `<div class="panel"><h3 class="heading">${esc(T("web_guesses"))}</h3>` + g.guesses.map((x) => {
       const p = players[x.playerId];
       if (!p) return "";
-      // After the reveal: how far off each guess was, in its own column so the years line up (feedback round 15).
+      // After the reveal: how far off each guess was, in its own column so the years line up.
       const off = g.revealed ? `<span class="off">${esc(plural("web_years_off", Math.abs(x.year - g.revealed.year)))}</span>` : "";
-      // Rank and Distance: the points it earns (feedback round 36).
+      // Rank and Distance: the points it earns.
       const points = g.revealed && g.roundPoints && g.roundPoints[x.playerId] != null ? `<span class="points">${esc(T("web_gained", g.roundPoints[x.playerId]))}</span>` : "";
       const year = x.year == null ? `<span class="muted">${esc(T("web_guessed"))}</span>` : `<span class="year">${x.year}</span>`;
       // The app's sizes: 28 while guessing, 32 after the reveal.
@@ -971,7 +1109,7 @@ import { music } from "./music.js";
       };
     }
     if (g.hiddenGuesses && (g.waitingFor || []).length) {
-      // Everyone guesses at once: who is still guessing (feedback round 36).
+      // Everyone guesses at once: who is still guessing.
       const waiting = g.waitingFor.map((id) => players[id]).filter(Boolean);
       return { main: `<p class="chip">${waiting.map((p) => avatar(p, 28)).join("")}<span>${esc(T("web_waiting_for", waiting.map((p) => p.name).join(T("list_separator"))))}</span></p>` +
         yearAxis(g, players) + guessList(g, players) + bottom(hostBar(g)) };
@@ -980,12 +1118,12 @@ import { music } from "./music.js";
     return { main: `<p class="chip">${guesser ? avatar(guesser, 32) : ""}<span>${esc(status)}</span></p>` + yearAxis(g, players) + guessList(g, players) + bottom(hostBar(g)) };
   }
 
-  /** The end screen, laid out like the host's (feedback round 16; LY-06). */
+  /** The end screen, laid out like the host's (LY-06). */
   function gameOver(g, players, me) {
     const winners = g.winners.map((id) => players[id]).filter(Boolean);
     const line = winners.length === 1 ? T("web_game_over_winner", winners[0].name) : T("web_game_over_shared", winners.map((p) => p.name).join(T("list_separator")));
     const pool = g.endReason === "POOL_EMPTY" ? `<p class="body-medium center">${esc(T("web_game_over_pool_empty"))}</p>` : "";
-    // Removed players last, greyed out (feedback round 36).
+    // Removed players last, greyed out.
     const ranked = [...g.players].sort((a, b) => b.score - a.score).concat(g.removed || []);
     const removed = new Set((g.removed || []).map((p) => p.id));
     const cards = collectsCards(g);
@@ -1007,7 +1145,7 @@ import { music } from "./music.js";
     </div>`;
   }
 
-  /** Cards or points (feedback round 36), "3 of 10 cards" with a [target]. */
+  /** Cards or points, "3 of 10 cards" with a [target]. */
   function mainScore(g, n, target) {
     // Cards in Song Order and in Closest scoring, as the rules call them (WD-03).
     const [of, one] = collectsCards(g) ? ["web_cards_of", "web_cards"] : ["web_points_of", "web_points"];
@@ -1017,7 +1155,7 @@ import { music } from "./music.js";
   /** The host's end-screen wording: "3 cards · 1 veto", "2 wins · 1 skip", "12 points · 1 skip". */
   function finalDetail(g, p, target) {
     const main = mainScore(g, p.score, target);
-    if (g.mode === "TIMELINE") return `${main} · ${plural("web_vetoes", p.vetoes)}`;
+    if (g.mode === "TIMELINE") return `${main} · ${plural(vetoWord(g), p.vetoes)}`;
     return g.closestSkips ? `${main} · ${plural("web_skips", p.skips)}` : main;
   }
 
@@ -1026,7 +1164,7 @@ import { music } from "./music.js";
   }
 
   /**
-   * The scoreboard: every player with the target; a tap shows their cards (feedback round 36). Removed
+   * The scoreboard: every player with the target; a tap shows their cards. Removed
    * players come last, greyed out. Two lines a player with lines between, as in the app (LY-02); during
    * the reveal, the scores after Next, as on the scoreboard card (UX-01).
    */
@@ -1045,7 +1183,7 @@ import { music } from "./music.js";
         ? `<span class="adjust"><button data-act="hostAdjust" data-player="${esc(p.id)}" data-delta="-1" aria-label="${esc(T("web_host_less", p.name))}" ${count > 0 ? "" : "disabled"}>−</button><button data-act="hostAdjust" data-player="${esc(p.id)}" data-delta="1" aria-label="${esc(T("web_host_more", p.name))}">+</button></span>`
         : "";
       const cards = collectsCards(g);
-      // A co-host removes players like the host: tap the row, then Remove from game (feedback round 43).
+      // A co-host removes players like the host: tap the row, then Remove from game.
       const removable = S.view && S.view.coHost && !gone && g.phase !== "GAME_OVER" && g.players.length > MIN_PLAYERS;
       const tappable = cards || removable;
       const open = tappable && S.expanded === p.id;
@@ -1072,12 +1210,12 @@ import { music } from "./music.js";
     return at < 0 ? cards.concat([c]) : [...cards.slice(0, at), c, ...cards.slice(at)];
   }
 
-  /** The info sheet (feedback round 36): the rules folded away, the settings and the playlists, worded by the host. */
+  /** The info sheet: the rules folded away, the settings and the playlists, worded by the host. */
   function infoSheet(g) {
     const info = g.info;
     if (!info) return `<h2>${esc(T("web_info"))}</h2>`;
     const open = !!S.rulesOpen;
-    // Cards like the host's sheet: each section on its own card, paragraphs apart (feedback round 37).
+    // Cards like the host's sheet: each section on its own card, paragraphs apart.
     const rules = `<div class="panel info-panel info-rules"><button class="section-toggle" data-act="toggleRules" aria-expanded="${open}"><h3 class="heading">${esc(T("web_info_rules"))}</h3><span class="chevron">${svgIcon(open ? "expandLess" : "expandMore")}</span></button>` +
       (open ? info.rules.map((t) => `<p class="body-medium">${esc(t)}</p>`).join("") : "") + `</div>`;
     const settings = `<div class="panel info-panel"><h3 class="heading">${esc(T("web_info_settings"))}</h3>` +
@@ -1095,27 +1233,27 @@ import { music } from "./music.js";
     if (!S.overlay || S.overlay === "pick") return "";
     let body = "";
     if (S.overlay === "menu" && v && v.game) {
-      // Titled with the player it belongs to (UX-06); no cards to show in Rank and Distance (feedback round 36).
+      // Titled with the player it belongs to (UX-06); no cards to show in Rank and Distance.
       const me = v.game.players.find((p) => p.id === v.me);
       body = (me ? `<div class="chip">${avatar(me, 36)}<h2>${esc(me.name)}</h2></div>` : "") + (collectsCards(v.game) ? `<button class="option" data-act="cards">${esc(T(v.game.mode === "TIMELINE" ? "web_my_cards" : "web_my_songs"))}</button>` : "") +
         `<button class="option" data-act="switch">${esc(T("web_switch_player"))}</button>` +
         `<button class="option" data-act="theme">${esc(T("web_theme"))}</button>` +
-        // Purely cosmetic, so with the player's own things (feedback round 26).
+        // Purely cosmetic, so with the player's own things.
         toggleRow("toggleCovers", T("web_show_covers"), coversOn());
     } else if (S.overlay === "settings" && v && v.game) {
-      // Beside the scoreboard (feedback round 26); a co-host also has the host's clip length (D-191).
+      // Beside the scoreboard; a co-host also has the host's clip length (D-191).
       body = `<h2>${esc(T("web_settings"))}</h2>` +
         (v.coHost && v.game.phase !== "GAME_OVER" ? clipStepper(v.game) + offsetStepper(v.game) + requestsPanel(v.requests) : "") +
-        // Internet guests play the music themselves: their own volume (D-185). Wi-Fi guests may too (feedback round 59).
+        // Internet guests play the music themselves: their own volume (D-185). Wi-Fi guests may too.
         (INTERNET ? volumeSlider() : toggleRow("toggleLocalSound", T("web_local_sound"), localSound(), T("web_local_sound_hint")) + (localSound() ? volumeSlider() : "")) +
         toggleRow("toggleConfirm", T("web_confirm_twice"), confirmTwice(), T("web_confirm_twice_hint"));
     } else if (S.overlay === "scores" && v && v.game) {
       const g = v.game;
-      // A co-host corrects vetoes or skips behind the host's switch (feedback round 26).
+      // A co-host corrects vetoes or skips behind the host's switch.
       const adjustable = v.coHost && (g.mode === "TIMELINE" || g.closestSkips);
       const timelineMode = g.mode === "TIMELINE";
       const adjust = adjustable
-        ? toggleRow("adjustToggle", T(timelineMode ? "web_host_adjust_vetoes" : "web_host_adjust_skips"), S.adjusting) +
+        ? toggleRow("adjustToggle", T(timelineMode ? (g.solo ? "web_host_adjust_jokers" : "web_host_adjust_vetoes") : "web_host_adjust_skips"), S.adjusting) +
           `<p class="muted">${esc(T(timelineMode ? "web_host_adjust_vetoes_hint" : "web_host_adjust_skips_hint"))}</p>`
         : "";
       body = `<h2>${esc(T("web_scoreboard"))}</h2>` + adjust + scoreRows(g, v.me);
@@ -1137,7 +1275,7 @@ import { music } from "./music.js";
     return `<div class="overlay" data-act="close"><div class="sheet" data-stop="1"><div class="sheet-handle" data-handle="1"><span></span></div>${body}<button class="btn tonal close" data-act="close">${esc(T("web_close"))}</button></div></div>`;
   }
 
-  /** A label (and [hint]) with a switch on the right, like the app's settings (feedback round 12). */
+  /** A label (and [hint]) with a switch on the right, like the app's settings. */
   function toggleRow(act, label, on, hint) {
     const text = hint ? `<span class="labels"><span>${esc(label)}</span><span class="hint">${esc(hint)}</span></span>` : `<span>${esc(label)}</span>`;
     return `<button class="toggle-row" data-act="${act}" role="switch" aria-checked="${on}">${text}<span class="switch${on ? " on" : ""}"></span></button>`;
@@ -1170,14 +1308,15 @@ import { music } from "./music.js";
   // Browsers only play sound after a tap, so a banner asks for one.
   const Music = music({
     listenNow: () => S.view && S.view.listen,
-    soundOn: () => !!S.soundOn && (INTERNET || localSound()),
+    soundOn: () => !!S.soundOn && soundWanted(),
     transport: () => transport,
     fileAddress: (listen) => (INTERNET || !listen.file ? null : transport.image(`song?f=${encodeURIComponent(listen.file)}`)),
+    onFailed: () => render(),
   });
 
   /**
    * Browsers let a page play sound only after a tap on it. Any first tap does (picking a player, say),
-   * so the banner only shows for a phone that came back to the game without one (feedback round 27).
+   * so the banner only shows for a phone that came back to the game without one.
    */
   function enableSound() {
     if (S.soundOn) return;
@@ -1204,7 +1343,7 @@ import { music } from "./music.js";
 
   function soundBanner() {
     // On Wi-Fi only for a phone that chose the music and came back without a tap.
-    if (S.soundOn || !(INTERNET || localSound()) || !(S.view && S.view.me)) return "";
+    if (S.soundOn || !soundWanted() || !(S.view && S.view.me)) return "";
     return `<button class="sound-banner" data-act="sound">${esc(T("web_sound_on"))}</button>`;
   }
 
@@ -1286,7 +1425,7 @@ import { music } from "./music.js";
     if (v && v.me && S.overlay === "pick" && S.wasPending) S.overlay = null;
     S.wasPending = !!(v && v.pendingPlayer);
     const g = v && v.game;
-    // The rules in brief once per game: when it starts, or when this phone first joins it (feedback round 51).
+    // The rules in brief once per game: when it starts, or when this phone first joins it.
     if (v && (!g || g.phase === "GAME_OVER")) S.briefSeen = S.brief = false;
     else if (g && !v.paused && v.me && !S.briefSeen) S.briefSeen = S.brief = true;
     if (!g || v.paused) {
@@ -1305,7 +1444,7 @@ import { music } from "./music.js";
       (g.phase === "PLACING" && g.activeId === v.me) ||
       guessTurn(g, v.me) ||
       (g.phase === "VETOING" && g.vetoEligible.includes(v.me)));
-    // Hidden guesses: others guessing meanwhile don't clear the digits being typed (feedback round 36).
+    // Hidden guesses: others guessing meanwhile don't clear the digits being typed.
     const stage = `${g.round}|${g.phase}|${g.hiddenGuesses ? "" : g.currentGuesser}|${myMove}`;
     if (stage !== S.stage) {
       if (myMove && S.stage && navigator.vibrate) navigator.vibrate(150);
@@ -1315,6 +1454,7 @@ import { music } from "./music.js";
       S.digits = "";
       S.guessesOpen = null;
       S.yearEdit = false;
+      S.yearEditing = false;
       S.dragSlot = null;
     }
   }
@@ -1361,8 +1501,41 @@ import { music } from "./music.js";
   document.addEventListener("pointerup", releaseVolume);
   document.addEventListener("pointercancel", releaseVolume);
 
+  // The speaker's slider under a mouse (D-388): open while the mouse is on the speaker or the slider, which are one
+  // control, and while the slider is dragged. Kept across redraws, which draw it open.
+  const overVolume = (e) => !!(e.target && e.target.closest && e.target.closest(".volume-control"));
+  function setVolumeHover(on) {
+    if (S.volumeHover === on) return;
+    S.volumeHover = on;
+    document.querySelectorAll(".volume-control").forEach((c) => c.classList.toggle("open", on));
+  }
+  document.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !S.volumeDrag) setVolumeHover(overVolume(e)); });
+  // The mouse left the window.
+  document.addEventListener("pointerout", (e) => { if (e.pointerType === "mouse" && !e.relatedTarget && !S.volumeDrag) setVolumeHover(false); });
+  document.addEventListener("pointerdown", (e) => { if (e.pointerType === "mouse" && e.target.closest && e.target.closest(".volume-pop")) S.volumeDrag = true; });
+  const endVolumeDrag = (e) => {
+    if (!S.volumeDrag) return;
+    S.volumeDrag = false;
+    setVolumeHover(overVolume(e));
+  };
+  document.addEventListener("pointerup", endVolumeDrag);
+  document.addEventListener("pointercancel", endVolumeDrag);
+  // The wheel over the open control turns the volume, 5 % a notch (100 px), instead of scrolling the page.
+  let wheelRest = 0;
+  document.addEventListener("wheel", (e) => {
+    if (!S.volumeHover || !overVolume(e) || !e.target.closest(".volume-control").querySelector(".volume-pop")) return;
+    e.preventDefault();
+    const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    if (Math.sign(px) !== Math.sign(wheelRest)) wheelRest = 0;
+    wheelRest += px;
+    const notches = Math.trunc(wheelRest / 100);
+    if (!notches) return;
+    wheelRest -= notches * 100;
+    changeVolume(Math.round((volumePercent() / 100 - notches * 0.05) * 20) / 20);
+  }, { passive: false });
+
   // A tap only counts when it is pressed and let go on the same button, so a redraw in between (the host's
-  // answer to a first tap, say) lost very fast second taps (feedback round 53). While a button is pressed
+  // answer to a first tap, say) lost very fast second taps. While a button is pressed
   // the page waits, and draws right after the tap was handled; a press that never ends gives up after 1 s.
   let pressTimer = 0;
   const releasePress = () => {
@@ -1381,12 +1554,37 @@ import { music } from "./music.js";
   // After the click that follows, which pointerup comes before.
   document.addEventListener("pointerup", () => { if (S.pressing) setTimeout(releasePress, 0); });
   document.addEventListener("pointercancel", releasePress);
+  /** Edit year's Save, as on the host: only a year it takes, then the card closes. */
+  function saveYear() {
+    const g = S.view && S.view.game;
+    const year = g ? validYear(S.yearDraft, g.maxYear) : null;
+    if (year == null) return;
+    S.holdRender = false;
+    S.yearEdit = false;
+    S.yearEditing = false;
+    act("hostYear", { year });
+  }
+
+  // Edit year: digits only, at most four; the field and Save follow as on the host, without a redraw under the typing.
   document.addEventListener("input", (e) => {
-    if (e.target.dataset && e.target.dataset.volume) {
-      Music.setVolume(Number(e.target.value) / 100);
-      // The symbol follows at once: the page doesn't redraw under a finger on the slider.
-      document.querySelectorAll(".volume-button").forEach((b) => { b.innerHTML = svgIcon(speakerIcon()); });
+    if (!(e.target.dataset && e.target.dataset.yearField)) return;
+    const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+    if (digits !== e.target.value) e.target.value = digits;
+    S.yearDraft = digits;
+    const g = S.view && S.view.game;
+    const ok = !!g && validYear(digits, g.maxYear) != null;
+    e.target.closest(".year-field").classList.toggle("error", digits.length === 4 && !ok);
+    const save = document.getElementById("host-year-save");
+    if (save) save.disabled = !ok || S.busy;
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.dataset && e.target.dataset.yearField) {
+      e.preventDefault();
+      saveYear();
     }
+  });
+  document.addEventListener("input", (e) => {
+    if (e.target.dataset && e.target.dataset.volume) changeVolume(Number(e.target.value) / 100, e.target);
     // A co-host's slider: the time follows the finger; the host jumps when it is let go.
     if (e.target.dataset && e.target.dataset.seek) {
       S.seekingMs = Number(e.target.value);
@@ -1402,7 +1600,7 @@ import { music } from "./music.js";
 
   // ---- Taps ----
 
-  // ---- Closest Year: pick the guess on the line (feedback round 35) ----
+  // ---- Closest Year: pick the guess on the line ----
   let axisPointer = null;
   function pickOnAxis(clientX) {
     const axis = document.querySelector(".axis.pickable");
@@ -1416,7 +1614,7 @@ import { music } from "./music.js";
   }
   /**
    * While dragging on the year line or a gap, no text gets selected: with a mouse the press would
-   * otherwise start a selection that flashes across the page (feedback round 40).
+   * otherwise start a selection that flashes across the page.
    */
   function noSelection(on) {
     document.body.classList.toggle("dragging", on);
@@ -1460,10 +1658,10 @@ import { music } from "./music.js";
   document.addEventListener("pointercancel", endSheetDrag);
   const SHEET_CLOSE_PX = 80;
 
-  // ---- Drag the guess along the timeline (feedback round 27) ----
+  // ---- Drag the guess along the timeline ----
   // Press the placed guess and drag: the chosen gap follows the finger and is sent as it changes, so the
-  // host sees the drag too (feedback round 41). A free gap is chosen by a tap only, so a swipe that starts
-  // on one scrolls the page instead (feedback round 52; touch-action in the CSS); near the screen's edges
+  // host sees the drag too. A free gap is chosen by a tap only, so a swipe that starts
+  // on one scrolls the page instead (touch-action in the CSS); near the screen's edges
   // the page scrolls with the drag.
   let drag = null;
   /** The gap to send next, and whether a send is on its way: one at a time, the newest gap wins. */
@@ -1614,7 +1812,16 @@ import { music } from "./music.js";
       case "briefOk": S.brief = false; render(); break;
       case "toggleRules": S.rulesOpen = !S.rulesOpen; render(); break;
       case "adjustToggle": S.adjusting = !S.adjusting; render(); break;
-      case "yearEdit": S.yearEdit = !S.yearEdit; S.holdRender = false; render(); break;
+      case "yearEdit": S.yearEdit = !S.yearEdit; S.yearEditing = false; S.holdRender = false; render(); break;
+      case "yearEditing": {
+        // Starts at the library's year, which a Look up may have changed, selected so typing replaces it.
+        const r = S.view.game.revealed;
+        const from = r.details && r.details.editYear != null ? r.details.editYear : r.year;
+        S.yearEditing = true; S.yearDraft = String(from); S.focusYear = true; render();
+        break;
+      }
+      case "yearEditCancel": S.yearEditing = false; S.holdRender = false; render(); break;
+      case "hostLookUp": act("hostLookUp", { song: Number(target.dataset.song) }); break;
       case "switch": S.overlay = "pick"; render(); break;
       case "setTheme": writeCookie("hl_theme", target.dataset.theme || null); render(); break;
       case "close": S.overlay = null; render(); break;
@@ -1626,23 +1833,19 @@ import { music } from "./music.js";
       case "removeYes": { const id = S.removing; S.removing = null; S.expanded = null; if (id) act("hostRemove", { player: id }); else render(); break; }
       case "hostNamed": act("hostNamed", { player: target.dataset.player, named: target.getAttribute("aria-pressed") !== "true" }); break;
       case "hostAdjust": act("hostAdjust", { player: target.dataset.player, delta: Number(target.dataset.delta) }); break;
-      case "hostYear": {
-        const input = document.getElementById("host-year");
-        const year = input ? Number(input.value) : NaN;
-        S.holdRender = false;
-        if (Number.isInteger(year)) { S.yearEdit = false; act("hostYear", { year }); }
-        break;
-      }
+      case "hostYear": saveYear(); break;
       case "volumeToggle":
-        if (INTERNET) {
-          S.volumeOpen = !S.volumeOpen;
-        } else {
-          if (!(S.soundJustAllowed && localSound())) setLocalSound(!localSound());
-          S.volumeOpen = localSound();
+        // The tap that allowed sound already started the music: it doesn't also stop it. Turned on at volume 0, the
+        // music comes back at half volume (D-388).
+        if (S.soundJustAllowed && audible()) { render(); break; }
+        if (audible()) setSoundWanted(false);
+        else {
+          if (Music.volume() === 0) Music.setVolume(0.5);
+          setSoundWanted(true);
         }
         render();
         break;
-      case "toggleLocalSound": setLocalSound(!localSound()); render(); break;
+      case "toggleLocalSound": setSoundWanted(!localSound()); render(); break;
       case "hostClip": act("hostClip", { year: Number(target.dataset.seconds) }); break;
       case "hostStopLookups": act("hostStopLookups"); break;
       case "hostFavorite": { const r = S.view.game.revealed; if (r) act("hostFavorite", { song: r.songId, favorite: !r.favorite }); break; }
@@ -1653,7 +1856,7 @@ import { music } from "./music.js";
     }
   });
 
-  /** Closest Year: digits, Backspace and Enter from a keyboard work like the keypad (feedback round 13). */
+  /** Closest Year: digits, Backspace and Enter from a keyboard work like the keypad. */
   document.addEventListener("keydown", (e) => {
     const v = S.view;
     const g = v && v.game;

@@ -64,7 +64,7 @@ class LibraryRepository(
 ) {
     private val scanMutex = Mutex()
 
-    /** The folder being read in and its job, so removing that folder stops the read-in (feedback round 48). */
+    /** The folder being read in and its job, so removing that folder stops the read-in. */
     private var activeScan: Pair<Long, Job>? = null
     private val removedFolders = HashSet<Long>()
     private val _scanState = MutableStateFlow<ScanState>(ScanState.Idle)
@@ -82,7 +82,7 @@ class LibraryRepository(
         ) { songs, overrides, folders, mb, memberships -> Raw(songs, overrides, folders, mb, memberships) }
             .combine(yearPreference.distinctUntilChanged()) { raw, preference -> raw to preference }
             // One list for every screen (the library, a song's page), built off the main thread, and only
-            // from the latest data: during a lookup every result changes the cache (feedback round 29).
+            // from the latest data: during a lookup every result changes the cache.
             .conflate()
             .map { (raw, preference) ->
                 LibrarySong.assemble(raw.songs, raw.overrides, raw.folders, currentYear(), raw.mb.associateBy { it.songKey }, membershipMap(raw.memberships), preference)
@@ -148,12 +148,15 @@ class LibraryRepository(
         )
     }
 
+    /** Which year counts when the tags and MusicBrainz disagree, as set now (a game's lookups follow it too). */
+    suspend fun yearPreferenceNow(): YearPreference = yearPreference.first()
+
     /** One song as it resolves right now (used when a lookup finishes during a game). */
     suspend fun songNow(id: Long): LibrarySong? = assembleNow().firstOrNull { it.id == id }
 
     /** Playable songs that have no MusicBrainz result yet ("Verify library"). */
     suspend fun unverifiedSongs(currentVersion: Int = MusicBrainzLookup.LOOKUP_VERSION): List<SongEntity> =
-        assembleNow().filter { it.playable && (it.needsNameCheck || it.lookup!!.lookupVersion < currentVersion) }.map { it.song }
+        assembleNow().filter { it.playable && (it.needsNameCheck || MusicBrainzLookup.outdated(it.lookup!!, it.song, currentVersion)) }.map { it.song }
 
     /**
      * Songs "Verify by fingerprint" hasn't checked yet (D-194): local songs by their audio and names,
@@ -232,13 +235,13 @@ class LibraryRepository(
     private suspend fun readFolder(folder: FolderEntity): ScanReport {
         _scanState.value = ScanState.Scanning(folder.displayName, 0, 0)
         val found = try {
-            withContext(Dispatchers.IO) { scanner.scan(folder.treeUri) }
+            withContext(Dispatchers.IO) { scanner.scanContents(folder.treeUri) }
         } catch (e: FolderUnavailableException) {
             // Keep the songs (and their edits); the folder is shown as unavailable until picked again.
             if (folder.available) db.folders().update(folder.copy(available = false))
             return ScanReport(0, 0, 0, 0, 1)
         }
-        val plan = ScanPlanner.plan(db.songs().scanStates(folder.id), found)
+        val plan = ScanPlanner.plan(db.songs().scanStates(folder.id), found.files, found.unreadable)
         _scanState.value = ScanState.Scanning(folder.displayName, 0, plan.toRead.size)
 
         var done = 0
@@ -340,7 +343,7 @@ class LibraryRepository(
         updateOverride(songId) { it.copy(manualYear = year) }
     }
 
-    /** Puts the song on "Excluded songs" or takes it off (feedback round 28). */
+    /** Puts the song on "Excluded songs" or takes it off. */
     suspend fun setExcluded(songId: Long, excluded: Boolean) {
         val playlist = db.storedPlaylistId(BuiltInPlaylists.EXCLUDED)
         if (excluded) db.playlists().addSongs(listOf(PlaylistSongEntity(playlist, songId))) else db.playlists().removeSongs(playlist, listOf(songId))

@@ -45,7 +45,7 @@ class GameFlowTest {
         return s.then(GameAction.SelectSlot(0)).then(GameAction.LockIn)
     }
 
-    // ---- StatsStep (feedback round 47) ----
+    // ---- StatsStep ----
 
     private fun session(state: GameState, profiles: Map<String, Long>) =
         GameSession(listOf("a", "b", "c").map { GamePlayer(it, it, it.uppercase(), 0, profileId = profiles[it]) }, state, emptyMap())

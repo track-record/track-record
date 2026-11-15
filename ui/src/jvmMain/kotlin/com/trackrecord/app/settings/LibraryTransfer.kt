@@ -48,9 +48,15 @@ class LibraryTransfer(
     /** The name the save dialog suggests. */
     fun suggestedName(): String = LibraryBackup.fileName(LocalDate.now().toString())
 
+    /** Writes the export to [file]; one that failed or was cancelled is deleted again, not left half-written (REVIEW-3 B-24). */
     fun export(file: String) = run(export = true) {
         val out = files.openWrite(file) ?: error("can't write $file")
-        out.use { backup.export(it, BackupSource(AppConfig.current.versionName, device), withSettings = true, onProgress = progress(true)) }
+        try {
+            out.use { backup.export(it, BackupSource(AppConfig.current.versionName, device), withSettings = true, onProgress = progress(true)) }
+        } catch (e: Throwable) {
+            files.delete(file)
+            throw e
+        }
         TransferState.Exported
     }
 

@@ -19,7 +19,7 @@ import androidx.compose.ui.input.key.type
  * window hands them every key before the focused element, except while a text field is typed in. The newest handler
  * is asked first, so a screen's keys win over the one it covers. Nothing calls [handle] on phones.
  *
- * Compose focuses what the mouse clicked, and Space or Enter would click it again (feedback round 55): while a screen
+ * Compose focuses what the mouse clicked, and Space or Enter would click it again: while a screen
  * has shortcuts, Space and Enter are its own, used or not.
  */
 class KeyShortcuts {

@@ -8,8 +8,12 @@ import kotlin.random.Random
  * Every disallowed action is rejected with a reason and leaves the state unchanged.
  */
 object GameEngine {
-    const val MIN_PLAYERS = 2
+    /** One player plays solo (D-380). */
+    const val MIN_PLAYERS = 1
     const val MAX_PLAYERS = 10
+
+    /** A game with others never drops to one player: solo rules are chosen at the start (D-380). */
+    const val MIN_PLAYERS_LEFT = 2
 
     fun reduce(state: GameState?, action: GameAction): ReduceResult {
         if (action is GameAction.StartGame) return start(action)
@@ -34,6 +38,8 @@ object GameEngine {
         if (ids.size > MAX_PLAYERS) return reject(RejectReason.TOO_MANY_PLAYERS)
         if (ids.toSet().size != ids.size) return reject(RejectReason.DUPLICATE_PLAYER)
         if (action.settings.validate(action.mode).isNotEmpty()) return reject(RejectReason.INVALID_SETTINGS)
+        // Alone, Timeline is scored by distance with the guess seen (D-380).
+        if (ids.size == 1 && action.mode == GameMode.CLOSEST_YEAR && !action.settings.closestYear.soloReady) return reject(RejectReason.INVALID_SETTINGS)
 
         val tl = action.settings.timeline
         // DECISIONS.md D-005: the pool must cover the starting cards plus one song to play.
@@ -90,7 +96,7 @@ object GameEngine {
         if (rotate) (round - 1).mod(playerCount) else 0
 
     /**
-     * A Closest Year round's result for the song's [year] (feedback round 36). Guesses are in the order
+     * A Closest Year round's result for the song's [year]. Guesses are in the order
      * made (with hidden guesses: locked in), so on a tie with [TieBreaker.FIRST_SCORES] the earlier one is ahead.
      * - Closest: the smallest |guess − year| wins; equally close guesses all win, or only the first.
      * - Rank: place p (0 = closest) earns [seats] − 1 − p points. Equally close guesses share the better
@@ -358,7 +364,7 @@ private class Reducer(private val s: GameState) {
     private fun removePlayer(playerId: String): ReduceResult {
         val seat = s.seatOf(playerId)
         if (seat < 0) return reject(RejectReason.UNKNOWN_PLAYER)
-        if (s.players.size <= GameEngine.MIN_PLAYERS) return reject(RejectReason.TOO_FEW_PLAYERS)
+        if (s.players.size <= GameEngine.MIN_PLAYERS_LEFT) return reject(RejectReason.TOO_FEW_PLAYERS)
         val left = s.copy(players = s.players.filter { it.id != playerId }, removed = s.removed + s.players[seat])
         return ok(
             when (s.mode) {
@@ -499,7 +505,7 @@ private class Reducer(private val s: GameState) {
     /** The active player named song and artist (or not). */
     private fun setNamed(named: Boolean): ReduceResult = setTimelineNamer(s.activePlayer.id, named)
 
-    /** Timeline naming (feedback round 19): one namer among those [TimelineSettings.namingCallers] allows. */
+    /** Timeline naming: one namer among those [TimelineSettings.namingCallers] allows. */
     private fun setTimelineNamer(playerId: String, named: Boolean): ReduceResult {
         val round = s.round
         if (s.phase != Phase.REVEALED || round == null) return reject(RejectReason.WRONG_PHASE)
@@ -543,7 +549,7 @@ private class Reducer(private val s: GameState) {
             }
             TimelineOutcome.Discarded -> next = next.copy(discarded = next.discarded + round.song)
         }
-        // The namer gets a veto (a vetoer: their veto back), up to the max (feedback round 19).
+        // The namer gets a veto (a vetoer: their veto back), up to the max.
         val namer = round.namedById
         if (tl.namingBonus && namer != null) {
             next = updatePlayer(next, namer) {
@@ -566,7 +572,7 @@ private class Reducer(private val s: GameState) {
         if (s.phase != Phase.GUESSING || round == null) return reject(RejectReason.WRONG_PHASE)
         val waiting = round.waitingFor
         if (waiting.isEmpty()) return reject(RejectReason.ALL_GUESSED)
-        // In turn, or with hidden guesses anyone who hasn't guessed (feedback round 36).
+        // In turn, or with hidden guesses anyone who hasn't guessed.
         val guesser = playerId ?: waiting.first()
         if (s.player(guesser) == null) return reject(RejectReason.UNKNOWN_PLAYER)
         if (guesser !in waiting || (!cy.hiddenGuesses && guesser != waiting.first())) return reject(RejectReason.NOT_A_GUESSER)
@@ -580,7 +586,7 @@ private class Reducer(private val s: GameState) {
     }
 
     /**
-     * Closest Year skip (feedback round 11): before anyone guessed, the first guesser spends a skip;
+     * Closest Year skip: before anyone guessed, the first guesser spends a skip;
      * the song leaves the game and the next one takes its place in the same round, same guess order.
      */
     private fun skipClosest(): ReduceResult {
@@ -602,16 +608,16 @@ private class Reducer(private val s: GameState) {
     }
 
     /**
-     * Closest Year: buy a card for [ClosestYearSettings.buyCost] skips (feedback round 27), any time before
+     * Closest Year: buy a card for [ClosestYearSettings.buyCost] skips, any time before
      * the reveal. The next pool song joins the buyer's cards and counts towards the target like a win; in
-     * Rank and Distance it is worth a perfect round's points and only shown (feedback round 36).
+     * Rank and Distance it is worth a perfect round's points and only shown.
      */
     private fun buyClosest(playerId: String): ReduceResult {
         if (s.phase != Phase.AWAITING_DRAW && s.phase != Phase.GUESSING) return reject(RejectReason.WRONG_PHASE)
         val cost = cy.buyCost ?: return reject(RejectReason.FEATURE_DISABLED)
         val player = s.player(playerId) ?: return reject(RejectReason.UNKNOWN_PLAYER)
         if (player.skips < cost) return reject(RejectReason.NOT_ENOUGH_SKIPS)
-        // Rank and Distance: the points of a perfect round, no song; the pool keeps it (feedback round 50).
+        // Rank and Distance: the points of a perfect round, no song; the pool keeps it.
         if (cy.scoring != ClosestScoring.CLOSEST) {
             val points = cy.perfectRound(s.seats)
             val next = updatePlayer(s, playerId) { it.copy(skips = it.skips - cost, points = it.points + points) }
@@ -632,13 +638,13 @@ private class Reducer(private val s: GameState) {
         if (s.phase != Phase.REVEALED || round == null) return reject(RejectReason.WRONG_PHASE)
         if (!cy.namingEarnsSkip) return reject(RejectReason.FEATURE_DISABLED)
         if (s.player(playerId) == null) return reject(RejectReason.UNKNOWN_PLAYER)
-        // A round ended early by an exact guess: only those who guessed had a turn (feedback round 13).
+        // A round ended early by an exact guess: only those who guessed had a turn.
         if (named && round.guesses.none { it.playerId == playerId }) return reject(RejectReason.NOT_A_GUESSER)
         val namedById = if (named) playerId else round.namedById.takeIf { it != playerId }
         return ok(s.copy(round = round.copy(namedById = namedById)))
     }
 
-    /** Manual correction from the scoreboard, like vetoes (feedback round 12), within the max held (round 13). */
+    /** Manual correction from the scoreboard, like vetoes, within the max held (round 13). */
     private fun adjustSkips(playerId: String, delta: Int): ReduceResult {
         val player = s.player(playerId) ?: return reject(RejectReason.UNKNOWN_PLAYER)
         val target = player.skips + delta
@@ -658,13 +664,13 @@ private class Reducer(private val s: GameState) {
     private fun commitClosest(round: RoundState): GameState {
         var next = s
         if (cy.scoring == ClosestScoring.CLOSEST && round.winnerIds.isNotEmpty()) {
-            // On a tie that both score, each winner gets the win and the song (feedback round 36).
+            // On a tie that both score, each winner gets the win and the song.
             round.winnerIds.forEach { id -> next = updatePlayer(next, id) { it.copy(wins = it.wins + 1, collection = it.collection + round.song) } }
         } else {
             next = next.copy(discarded = next.discarded + round.song)
             round.points.forEach { (id, points) -> next = updatePlayer(next, id) { it.copy(points = it.points + points) } }
         }
-        // Naming song and artist earns a skip, whoever won the round (feedback rounds 11 and 12).
+        // Naming song and artist earns a skip, whoever won the round.
         if (cy.namingEarnsSkip) {
             val max = cy.maxSkips ?: Int.MAX_VALUE
             round.namedById?.let { id -> next = updatePlayer(next, id) { it.copy(skips = minOf(it.skips + 1, max)) } }

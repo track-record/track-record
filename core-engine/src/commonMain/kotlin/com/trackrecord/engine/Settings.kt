@@ -11,7 +11,7 @@ data class TimelineSettings(
     val maxVetoes: Int = 2,
     val vetoesPerPlayerPerSong: Int = 1,
     val namingBonus: Boolean = false,
-    /** Who may call out song and artist for the naming bonus (feedback round 19). */
+    /** Who may call out song and artist for the naming bonus. */
     val namingCallers: NamingCallers = NamingCallers.ACTIVE,
     val skipCost: Int? = null,
     val buyCost: Int? = null,
@@ -54,7 +54,7 @@ data class TimelineSettings(
 }
 
 /**
- * Who may call out song and artist in Timeline (feedback round 19). One player gets the mark: +1 veto,
+ * Who may call out song and artist in Timeline. One player gets the mark: +1 veto,
  * up to the max held; for a vetoer this refunds the veto they spent.
  * - [ACTIVE]: only the active player (the classic rule).
  * - [VETOERS]: also the players who vetoed, in veto order.
@@ -70,7 +70,7 @@ enum class TimelinePreset(val settings: TimelineSettings?) {
 }
 
 /**
- * How a Closest Year round scores (feedback round 36):
+ * How a Closest Year round scores:
  * - [CLOSEST]: the closest guess wins the round and the song (a card towards the target).
  * - [RANK]: points by rank; with n players the closest gets n − 1, the farthest 0.
  * - [DISTANCE]: [ClosestYearSettings.distancePoints] minus the years off, never below 0.
@@ -81,7 +81,7 @@ enum class TimelinePreset(val settings: TimelineSettings?) {
 enum class ClosestScoring { CLOSEST, RANK, DISTANCE }
 
 /**
- * Equally close guesses (feedback round 36): [BOTH_SCORE] gives each the better place; [FIRST_SCORES]
+ * Equally close guesses: [BOTH_SCORE] gives each the better place; [FIRST_SCORES]
  * puts the earlier guess ahead (with hidden guesses: the one locked in first).
  */
 @Serializable
@@ -99,13 +99,13 @@ data class ClosestYearSettings(
     val startingSkips: Int = 1,
     /** +1 skip for the player who named song and artist during their turn (marked at reveal). */
     val namingEarnsSkip: Boolean = true,
-    /** Most skips a player can hold; null = no limit (feedback round 13). */
+    /** Most skips a player can hold; null = no limit. */
     val maxSkips: Int? = 5,
-    /** Skips for buying a card, worth a perfect round; null = off (feedback rounds 27, 36). */
+    /** Skips for buying a card, worth a perfect round; null = off. */
     val buyCost: Int? = 3,
     /**
      * Nobody sees the others' guesses before the reveal; everyone guesses at once and the same year may
-     * be guessed twice (feedback round 36). Not part of a preset.
+     * be guessed twice. Not part of a preset.
      */
     val hiddenGuesses: Boolean = false,
     val tieBreaker: TieBreaker = TieBreaker.BOTH_SCORE,
@@ -129,8 +129,14 @@ data class ClosestYearSettings(
     /** Every guess a different year: only when guesses are seen. */
     val guessesDistinct: Boolean get() = distinctGuesses && !hiddenGuesses
 
-    /** An exact guess ends the round: only in Closest scoring with guesses in turn (feedback round 36). */
+    /** An exact guess ends the round: only in Closest scoring with guesses in turn. */
     val exactEndsRound: Boolean get() = exactGuessEndsRound && scoring == ClosestScoring.CLOSEST && !hiddenGuesses
+
+    /** These rules for one player alone (D-380): scored by distance, the guess seen (there is nobody to hide it from). */
+    fun forSolo(): ClosestYearSettings = copy(scoring = ClosestScoring.DISTANCE, hiddenGuesses = false)
+
+    /** Whether one player can play by these rules: [forSolo] changes nothing. */
+    val soloReady: Boolean get() = scoring == ClosestScoring.DISTANCE && !hiddenGuesses
 
     /** The tie breaker matters: Distance scores every guess on its own. */
     val usesTieBreaker: Boolean get() = scoring != ClosestScoring.DISTANCE
@@ -142,7 +148,7 @@ data class ClosestYearSettings(
         ClosestScoring.DISTANCE -> distancePoints
     }
 
-    /** The score to reach: [winsToWin] perfect rounds; [seats] counts removed players too (feedback round 36). */
+    /** The score to reach: [winsToWin] perfect rounds; [seats] counts removed players too. */
     fun target(seats: Int): Int = winsToWin * perfectRound(seats)
 
     /** The preset these values match; only the values a preset sets are compared. */
@@ -154,7 +160,7 @@ data class ClosestYearSettings(
 
     /**
      * The values a preset sets (built in or saved, feedback round 27); the others are fixed or follow the
-     * songs, and hidden guesses are chosen apart (feedback round 36). Values the scoring ignores don't count.
+     * songs, and hidden guesses are chosen apart. Values the scoring ignores don't count.
      */
     fun sameRules(other: ClosestYearSettings): Boolean =
         winsToWin == other.winsToWin && startingSkips == other.startingSkips && namingEarnsSkip == other.namingEarnsSkip &&
@@ -175,19 +181,19 @@ data class ClosestYearSettings(
     )
 
     companion object {
-        /** Skips, holding up to 5, and buying a card for 3 skips (feedback rounds 27, 36). */
+        /** Skips, holding up to 5, and buying a card for 3 skips. */
         val CLOSEST = ClosestYearSettings(startingSkips = 1, namingEarnsSkip = true, maxSkips = 5, buyCost = 3)
 
-        /** Like Closest, scored by rank (feedback round 36). */
+        /** Like Closest, scored by rank. */
         val RANKING = CLOSEST.copy(scoring = ClosestScoring.RANK)
 
-        /** Like Closest, scored by distance: 5 points for an exact guess (feedback round 36). */
+        /** Like Closest, scored by distance: 5 points for an exact guess. */
         val DISTANCE = CLOSEST.copy(scoring = ClosestScoring.DISTANCE, distancePoints = 5)
     }
 }
 
 /**
- * Closest Year presets (Felix, feedback rounds 11, 36); changing a value turns the preset into Custom.
+ * Closest Year presets; changing a value turns the preset into Custom.
  * The skip-only presets of round 11 are gone; a stored one reads as the default.
  */
 enum class ClosestYearPreset(val settings: ClosestYearSettings?) {
@@ -235,6 +241,15 @@ data class GameSettings(
             GameMode.TIMELINE -> timeline.validate()
             GameMode.CLOSEST_YEAR -> closestYear.validate()
         }
+
+    /**
+     * These settings for one player alone (D-380): Timeline scored by distance with the guess seen, and Song Order with
+     * jokers to use: Fixed vetoes, where they can't be spent alone, becomes Classic.
+     */
+    fun forSolo(): GameSettings = copy(
+        timeline = if (timeline == TimelineSettings.FIXED_VETOES) TimelineSettings.CLASSIC else timeline,
+        closestYear = closestYear.forSolo(),
+    )
 
     /** Costs that could never be paid lowered, e.g. in a setup stored before D-267. */
     fun withCostsWithinMax(): GameSettings = copy(timeline = timeline.withCostsWithinMax(), closestYear = closestYear.withCostsWithinMax())

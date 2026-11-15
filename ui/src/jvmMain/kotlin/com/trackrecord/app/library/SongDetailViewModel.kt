@@ -25,8 +25,19 @@ sealed interface LookupUi {
 
     data object Offline : LookupUi
 
-    /** [service] kept refusing: try again later (feedback round 47). */
+    /** [service] kept refusing: try again later. */
     data class Refused(val service: LookupService) : LookupUi
+
+    companion object {
+        /** What "Look up" shows once [result] is in; a match shows in the song's years. */
+        fun of(result: LookupResult): LookupUi = when (result) {
+            is LookupResult.Match -> Idle
+            LookupResult.NoMatch -> NoMatch
+            LookupResult.Skipped -> Off
+            LookupResult.Offline -> Offline
+            is LookupResult.Unavailable -> Refused(result.service)
+        }
+    }
 }
 
 class SongDetailViewModel(
@@ -50,21 +61,13 @@ class SongDetailViewModel(
     val lookup: StateFlow<LookupUi> = _lookup.asStateFlow()
 
     /**
-     * "Look up": asks MusicBrainz now, ignoring the cache; always by fingerprint (and name) when an AcoustID
-     * key works, else by name (feedback round 30).
+     * "Look up": asks MusicBrainz now, ignoring the cache and before other lookups under way (D-382); always by
+     * fingerprint (and name) when an AcoustID key works, else by name.
      */
     fun lookUp() = viewModelScope.launch {
         val entity = repo.songEntity(songId) ?: return@launch
         _lookup.value = LookupUi.Running
-        val byFingerprint = musicBrainz.currentVersion() == MusicBrainzLookup.LOOKUP_VERSION_FINGERPRINT
-        val result = musicBrainz.lookupAll(listOf(entity), force = true, byFingerprint = byFingerprint)[entity.id] ?: LookupResult.Skipped
-        _lookup.value = when (result) {
-            is LookupResult.Match -> LookupUi.Idle
-            LookupResult.NoMatch -> LookupUi.NoMatch
-            LookupResult.Skipped -> LookupUi.Off
-            LookupResult.Offline -> LookupUi.Offline
-            is LookupResult.Unavailable -> LookupUi.Refused(result.service)
-        }
+        _lookup.value = LookupUi.of(musicBrainz.lookUpNow(entity))
     }
 
     fun setExcluded(excluded: Boolean) = viewModelScope.launch { repo.setExcluded(songId, excluded) }

@@ -42,7 +42,11 @@ import com.trackrecord.app.ui.components.TextButton
 import com.trackrecord.engine.GameMode
 import com.trackrecord.engine.Phase
 import com.trackrecord.engine.RejectReason
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.jetbrains.compose.resources.stringResource
 
@@ -62,29 +66,42 @@ fun GameScreen(onExit: () -> Unit) {
     var confirmLeave by rememberSaveable { mutableStateOf(false) }
 
     KeepScreenOn()
-    // In a game the navigation bar is out of the way; the menus keep it (feedback round 31).
+    // In a game the navigation bar is out of the way; the menus keep it.
     HideNavigationBar()
-    // Guests can play only while the host is on the game, not in the menu (feedback round 9); another app in
-    // front doesn't pause them (feedback round 51).
+    // Guests can play only while the host is on the game, not in the menu; another app in
+    // front doesn't pause them.
     DisposableEffect(Unit) {
         container.game.setHostOnGame(true)
         onDispose { container.game.setHostOnGame(false) }
     }
     LaunchedEffect(vm) {
-        // The newest rejection replaces the one shown; the year checks of a guess go after a second (feedback round 49).
+        // The newest rejection replaces the one shown; the year checks of a guess go after a second.
         vm.rejections.collectLatest { reason ->
-            val text = Texts.get(reason.message)
+            val text = Texts.get(reason.messageIn(vm.session.value?.state?.solo == true))
             if (reason in BRIEF_REJECTIONS) withTimeoutOrNull(BRIEF_REJECTION_MS) { snackbar.showSnackbar(text) }
             else snackbar.showSnackbar(text)
         }
     }
     LaunchedEffect(vm) {
-        // Guests' devices coming and going (feedback round 60), apart from the other banners: connected briefly, a lost
-        // connection longer. A newer notice replaces the one shown, e.g. a player back after a lost connection.
-        container.remote.connectionNotices.collectLatest { notice ->
-            val name = vm.session.value?.players?.firstOrNull { it.id == notice.player }?.name ?: return@collectLatest
+        // Guests' devices coming and going, apart from the other banners: connected briefly, a lost
+        // connection longer. One at a time (REVIEW-3 B-22): a newer notice about the player shown replaces it (back after a
+        // lost connection), others wait their turn. Lost connections while the host was elsewhere come first.
+        val waiting = MutableStateFlow(container.remote.missedConnectionNotices())
+        var shown: String? = null
+        launch {
+            container.remote.connectionNotices.collect { notice ->
+                waiting.update { list -> list.filterNot { it.player == notice.player } + notice }
+                if (shown == notice.player) connections.currentSnackbarData?.dismiss()
+            }
+        }
+        while (true) {
+            val notice = waiting.first { it.isNotEmpty() }.first()
+            waiting.update { it.drop(1) }
+            val name = vm.session.value?.players?.firstOrNull { it.id == notice.player }?.name ?: continue
             val text = Texts.get(if (notice.connected) Res.string.remote_player_connected else Res.string.remote_player_lost, name)
+            shown = notice.player
             connections.showSnackbar(ConnectionVisuals(text, lost = !notice.connected))
+            shown = null
         }
     }
     BackHandler { confirmLeave = true }

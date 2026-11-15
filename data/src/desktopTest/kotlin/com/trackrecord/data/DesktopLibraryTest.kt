@@ -100,6 +100,29 @@ class DesktopLibraryTest {
     }
 
     @Test
+    fun `an unreadable subfolder is skipped, and the rest of the folder stays available`() {
+        // REVIEW-3 B-18: one protected subfolder (a drive's "System Volume Information") made the whole folder
+        // unavailable. Windows only: the subfolder is closed to this user with icacls.
+        if (!System.getProperty("os.name").lowercase().startsWith("windows")) return
+        val dir = Files.createTempDirectory("trackrecord-scan").toFile()
+        val closed = File(dir, "closed").apply { mkdirs() }
+        File(dir, "a.mp3").writeText("x")
+        File(closed, "b.mp3").writeText("x")
+        val user = System.getProperty("user.name")
+        fun icacls(vararg args: String) = ProcessBuilder("icacls", closed.path, *args).redirectErrorStream(true)
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD).start().waitFor()
+        try {
+            assertEquals(0, icacls("/deny", "$user:(OI)(CI)(RX)"))
+            val contents = NioFolderScanner().scanContents(NioFolderScanner.uriOf(dir))
+            assertEquals(listOf("a.mp3"), contents.files.map { it.relativePath })
+            assertEquals(listOf(closed.toPath().toUri().toString()), contents.unreadable, "as the songs below it are named")
+        } finally {
+            icacls("/remove:d", user)
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `a folder is scanned into a desktop database`() = runBlocking {
         val folder = Files.createTempDirectory("trackrecord-db").toFile()
         val db = AppDatabase.create(folder)

@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <!-- Only its own scripts and what it needs (REVIEW-3 S-20). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
   <title>Track Record decoder</title>
 </head>
 <body>
-  <!-- Decodes songs for the desktop's fingerprints (feedback round 55). -->
+  <!-- Decodes songs for the desktop's fingerprints. -->
   <script src="bridge.js"></script>
   <script type="module" src="decoder.js"></script>
 </body>

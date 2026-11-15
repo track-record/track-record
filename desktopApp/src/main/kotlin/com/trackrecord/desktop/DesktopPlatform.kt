@@ -37,7 +37,13 @@ import java.net.URI
  * for tags, Chromium for music, fingerprints and the internet room. [onQuit] closes the app, for the update's
  * installer.
  */
-class DesktopPlatform(private val folder: File, private val chromium: Chromium, mute: Boolean, onQuit: () -> Unit = {}) : PlatformServices {
+class DesktopPlatform(
+    private val folder: File,
+    private val chromium: Chromium,
+    mute: Boolean,
+    onQuit: () -> Unit = {},
+    override val updateFailed: Boolean = false,
+) : PlatformServices {
     private val volume = if (mute) 0.0 else 1.0
 
     override val database: AppDatabase = AppDatabase.create(folder)
@@ -85,6 +91,8 @@ class DesktopPlatform(private val folder: File, private val chromium: Chromium, 
         override fun size(file: String): Long? = runCatching { fileOf(file).takeIf { it.isFile }?.length() }.getOrNull()
 
         override fun displayName(file: String): String = fileOf(file).name
+
+        override fun delete(file: String): Boolean = runCatching { fileOf(file).delete() }.getOrDefault(false)
     }
 
     /** Exportify's lists arrive in the user's Downloads folder, which the app may always read. */
@@ -106,9 +114,10 @@ class DesktopPlatform(private val folder: File, private val chromium: Chromium, 
     override fun internetRoom(identity: RoomIdentity, onMessage: (peer: String, text: String) -> Unit, onLeave: (peer: String) -> Unit): RoomHost =
         JcefRoom(chromium, identity, onMessage, onLeave)
 
-    // The update comes as an MSI (PLATFORMS.md phase 8), downloaded into Downloads and started; it replaces this app.
+    // The update comes as an MSI (PLATFORMS.md phase 8), downloaded into the data folder and started; it replaces this
+    // app. The one that installed this version is no longer needed (REVIEW-3 B-20).
     override val updatePackage = ".msi"
-    override val updateInstaller = MsiInstaller(downloads.folder ?: File(folder, "updates"), onQuit)
+    override val updateInstaller = MsiInstaller(File(folder, "updates"), onQuit).apply { removeOldPackages() }
 
     // Windows' firewall asks the first time the guests' server listens (PLATFORMS.md phase 7).
     override val asksForNetworkAccess = System.getProperty("os.name").lowercase().startsWith("windows")

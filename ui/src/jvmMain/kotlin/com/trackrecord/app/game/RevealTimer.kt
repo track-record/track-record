@@ -20,9 +20,9 @@ import kotlinx.coroutines.launch
 data class RevealSettings(
     val autoReveal: AutoReveal = AutoReveal.INSTANT,
     val vetoTimeSeconds: Int = 10,
-    /** After the veto time, undecided remote players no longer hold auto-reveal (feedback round 32). */
+    /** After the veto time, undecided remote players no longer hold auto-reveal. */
     val despiteRemote: Boolean = false,
-    /** Auto-reveal also when everyone may call out song and artist; off, those games wait for Reveal (feedback round 50). */
+    /** Auto-reveal also when everyone may call out song and artist; off, those games wait for Reveal. */
     val whenAllName: Boolean = false,
 ) {
     val vetoWindowMs: Long get() = vetoTimeSeconds * 1000L

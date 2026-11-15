@@ -9,10 +9,12 @@ import com.trackrecord.app.resources.reject_feature_disabled
 import com.trackrecord.app.resources.reject_guesses_incomplete
 import com.trackrecord.app.resources.reject_invalid_settings
 import com.trackrecord.app.resources.reject_invalid_slot
+import com.trackrecord.app.resources.reject_jokers_at_max
 import com.trackrecord.app.resources.reject_no_game
 import com.trackrecord.app.resources.reject_no_slot
 import com.trackrecord.app.resources.reject_not_a_guesser
 import com.trackrecord.app.resources.reject_not_allowed_to_name
+import com.trackrecord.app.resources.reject_not_enough_jokers
 import com.trackrecord.app.resources.reject_not_enough_skips
 import com.trackrecord.app.resources.reject_not_enough_vetoes
 import com.trackrecord.app.resources.reject_not_now
@@ -31,6 +33,13 @@ import com.trackrecord.app.resources.reject_vetoes_at_max
 import com.trackrecord.app.resources.reject_year_out_of_range
 import com.trackrecord.engine.RejectReason
 import org.jetbrains.compose.resources.StringResource
+
+/** User-facing text for engine rejections in a game; alone, Song Order's vetoes are jokers (D-380). */
+fun RejectReason.messageIn(solo: Boolean): StringResource = when {
+    solo && this == RejectReason.NOT_ENOUGH_VETOES -> Res.string.reject_not_enough_jokers
+    solo && this == RejectReason.VETOES_AT_MAX -> Res.string.reject_jokers_at_max
+    else -> message
+}
 
 /** User-facing text for engine rejections. */
 val RejectReason.message: StringResource

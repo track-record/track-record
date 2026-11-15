@@ -50,7 +50,7 @@ class PlaceholderPlayer(player: Player) : ForwardingSimpleBasePlayer(ConsistentL
 /**
  * ExoPlayer can report "loading" for a moment after jumping to the end (a clip shortened below what already
  * played); the session's state may not say so while stopped or finished, or building it throws and the app
- * crashes (feedback round 34).
+ * crashes.
  */
 @OptIn(UnstableApi::class)
 private class ConsistentLoading(player: Player) : ForwardingPlayer(player) {

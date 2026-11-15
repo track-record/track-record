@@ -18,8 +18,8 @@ import com.trackrecord.app.ui.theme.LocalPanels
 /**
  * Bottom action bar of a screen, in the solid panel shade like the guest page's (DESIGN-REVIEW TH-02);
  * its content stays above the navigation bar whenever that is visible. The padding is the same on every
- * screen, and its buttons are [BottomBarButtonHeight] tall, so all bars match (feedback round 50); a row of chips
- * above the buttons takes a smaller [top], to sit as far from it as from the buttons (feedback round 65).
+ * screen, and its buttons are [BottomBarButtonHeight] tall, so all bars match; a row of chips
+ * above the buttons takes a smaller [top], to sit as far from it as from the buttons.
  */
 @Composable
 fun BottomBarSurface(top: Dp = 16.dp, content: @Composable () -> Unit) {
@@ -34,7 +34,7 @@ val BottomBarButtonHeight = 60.dp
 /**
  * Centres [content] in the full height and ignores the navigation bar while it doesn't cover the
  * content, so showing the bar doesn't move everything; when it would cover it, the content moves up
- * just enough (feedback round 21).
+ * just enough.
  */
 @Composable
 fun CenteredAboveNavigationBar(modifier: Modifier = Modifier, content: @Composable () -> Unit) {

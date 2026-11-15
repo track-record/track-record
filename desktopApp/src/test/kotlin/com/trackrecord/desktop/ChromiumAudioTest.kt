@@ -27,7 +27,7 @@ class ChromiumAudioTest {
         audio.stop()
         chromium.close()
         folder.deleteRecursively()
-        // JBR's Chromium has no licensed codecs: AAC (m4a) plays as WAV, decoded by AacToWav (feedback round 55).
+        // JBR's Chromium has no licensed codecs: AAC (m4a) plays as WAV, decoded by AacToWav.
         assertEquals(mapOf("flac" to true, "m4a" to true, "mp3" to true, "ogg" to true, "opus" to true), results.toSortedMap())
     }
 }

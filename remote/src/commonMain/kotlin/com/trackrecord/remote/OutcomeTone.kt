@@ -5,7 +5,7 @@ import com.trackrecord.engine.GameState
 import com.trackrecord.engine.Phase
 import com.trackrecord.engine.TimelineOutcome
 
-/** The reveal's outline (feedback round 19): green won, red lost, yellow/orange someone else's success. */
+/** The reveal's outline: green won, red lost, yellow/orange someone else's success. */
 enum class OutcomeTone { WON, LOST, OTHER }
 
 object OutcomeTones {
@@ -48,7 +48,7 @@ object OutcomeTones {
     /**
      * The host's outline: the one player's view when all others play on guest phones; with several
      * players on the host's phone, green for a normal win, yellow/orange for a steal, none when nobody
-     * gets the card (feedback round 19).
+     * gets the card.
      */
     fun forHost(state: GameState, onGuestPhones: Set<String>): OutcomeTone? {
         val local = state.players.map { it.id }.filter { it !in onGuestPhones }

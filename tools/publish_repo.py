@@ -1,8 +1,8 @@
 """Publishes the app's code to the public repo track-record/track-record, and the release APK and the Windows MSI as a
-GitHub release (feedback round 47; PLATFORMS.md phase 8); both apps' update checks read that release.
+GitHub release (PLATFORMS.md phase 8); both apps' update checks read that release.
 
 The public history is its own: one commit per release on the local branch "public", holding HEAD's files minus
-the development documents in PRIVATE, made under the GitHub account's noreply address. Signs in through Git
+the development documents (PUBLIC_DOCS), made under the GitHub account's noreply address. Signs in through Git
 Credential Manager like publish_pages.py; the token stays in memory.
 
 Build the release first, with a clean working tree: gradlew assembleRelease :desktopApp:packageMsi -Prelease.
@@ -19,8 +19,11 @@ ROOT = os.path.abspath(sys.argv[1])
 MAKE_RELEASE = "--no-release" not in sys.argv
 OWNER, REPO = "track-record", "track-record"
 BRANCH = "public"
-# Development documents: design decisions, reviews, the spec and the instructions for the coding assistant.
-PRIVATE = ["CLAUDE.md", "DECISIONS.md", "SPEC.md", "REVIEW.md", "REVIEW-2.md", "DESIGN-REVIEW.md", "INTERNET_PLAY.md", "PLATFORMS.md"]
+# Development documents stay private: every top-level Markdown file but README.md (the spec, the decisions, the
+# instructions for the coding assistant), and dev-notes/ with the reviews and concepts, which is git-ignored anyway
+# (D-368). A rule, not a list of names, so a new document can't go out by being forgotten.
+PUBLIC_DOCS = {"README.md"}
+NOTES_DIR = "dev-notes"
 APK = os.path.join(ROOT, "androidApp", "build", "outputs", "apk", "release", "androidApp-release.apk")
 MSI_DIR = os.path.join(ROOT, "desktopApp", "build", "compose", "binaries", "main", "msi")
 # What the release page says (it is also where the apps send people to update by hand).
@@ -92,15 +95,23 @@ if status != 200:
 login, uid = user["login"], user["id"]
 log(f"Signed in as {login}")
 
+def private_paths(tree_ish):
+    """The development documents in [tree_ish]: top-level Markdown files other than PUBLIC_DOCS, and dev-notes/."""
+    names = git("ls-tree", "--name-only", tree_ish).splitlines()
+    return [n for n in names if (n.lower().endswith(".md") and n not in PUBLIC_DOCS) or n == NOTES_DIR]
+
+
 # HEAD's files without the private documents, as a tree of its own (a separate index; the real one is untouched).
 with tempfile.TemporaryDirectory() as tmp:
     env = dict(os.environ, GIT_INDEX_FILE=os.path.join(tmp, "index"))
     git("read-tree", "HEAD", env=env)
-    git("rm", "--cached", "--quiet", "--ignore-unmatch", *PRIVATE, env=env)
+    private = private_paths("HEAD")
+    if private:
+        git("rm", "-r", "--cached", "--quiet", "--ignore-unmatch", *private, env=env)
     tree = git("write-tree", env=env)
-for name in PRIVATE:
-    if git("ls-tree", tree, "--", name):
-        raise SystemExit(f"{name} would be published")
+left = private_paths(tree)
+if left:
+    raise SystemExit(f"{', '.join(left)} would be published")
 
 parent = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{BRANCH}"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
 if parent and git("rev-parse", f"{parent}^{{tree}}") == tree:

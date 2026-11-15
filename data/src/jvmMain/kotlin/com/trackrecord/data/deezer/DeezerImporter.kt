@@ -131,7 +131,7 @@ class DeezerImporter(
             )
         }
         val rowOf = standIns.indices.associateBy { standIns[it].id }
-        // Saved chunk by chunk (feedback round 19): a long list fills its playlist while it runs, and an
+        // Saved chunk by chunk: a long list fills its playlist while it runs, and an
         // interruption keeps what was found so far.
         var playlistId: Long? = null
         var added = 0
@@ -202,7 +202,7 @@ class DeezerImporter(
         var playlistId = 0L
         db.inTransaction {
             // Songs picked from the library may be gone by now (a rescan during a long import): only
-            // songs that still exist go into the playlist (feedback round 19, the crash with 3000 rows).
+            // songs that still exist go into the playlist (the crash with 3000 rows).
             val picked = picks.mapNotNull { (it as? ImportPick.Local)?.songId ?: (it as? ImportPick.Existing)?.songId }.distinct()
             val stillThere = picked.chunked(500).flatMap { db.songs().existingIds(it) }.toSet()
             val songIds = picks.map { pick ->

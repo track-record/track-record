@@ -11,7 +11,7 @@ import com.trackrecord.engine.stats.RoundStats
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Player stats per round (feedback rounds 47 and 48): turns, years off, naming chances and rounds won. */
+/** Player stats per round: turns, years off, naming chances and rounds won. */
 class RoundStatsTest {
     /** Anna active (wrong slot), Cara (wrong) then Ben (right) veto; Dan doesn't. */
     private fun songOrder(callers: NamingCallers) = timelineGame(

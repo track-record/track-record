@@ -1,5 +1,5 @@
 # Generates the app icon (res/drawable/ic_launcher_*.xml) and icon.svg; see DECISIONS.md D-172.
-"""Track Record's app icon: a colourful low-poly music note (after Felix's reference picture).
+"""Track Record's app icon: a colourful low-poly music note (after a reference picture).
 
 Writes, in the 108x108 adaptive-icon grid (safe zone: radius 33 around the centre):
   <res>/drawable/ic_launcher_foreground.xml   coloured triangles

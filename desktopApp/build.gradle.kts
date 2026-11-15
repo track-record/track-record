@@ -182,7 +182,7 @@ compose.desktop {
             description = "Track Record, the music party game"
             vendor = "Track Record"
             modules("jcef", "java.net.http", "jdk.crypto.ec", "jdk.unsupported", "java.sql", "java.naming")
-            // A double-clicked library export opens in the app (feedback round 55; the installer registers it).
+            // A double-clicked library export opens in the app (the installer registers it).
             fileAssociation(mimeType = "application/x-trackrecord", extension = "trackrecord", description = "Track Record library")
             windows {
                 iconFile = file("icons/TrackRecord.ico")

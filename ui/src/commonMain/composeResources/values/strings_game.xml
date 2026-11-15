@@ -55,7 +55,7 @@
     <!-- Rejections -->
     <string name="reject_no_game">No game is running.</string>
     <string name="reject_not_now">That isn't possible right now.</string>
-    <string name="reject_too_few_players">At least 2 players are needed.</string>
+    <string name="reject_too_few_players">At least 2 players must stay in the game.</string>
     <string name="reject_too_many_players">At most 10 players can play.</string>
     <string name="reject_duplicate_player">A player is in the game twice.</string>
     <string name="reject_invalid_settings">Some settings are out of range.</string>
@@ -189,7 +189,7 @@
     <string name="game_leave_confirm">Leave</string>
     <string name="scoreboard_title">Scoreboard</string>
     <string name="scoreboard_buy">Buy a card (%1$s)</string>
-    <!-- Rank and Distance: points instead of a card, "Buy 4 points (3 skips)" (feedback round 50). -->
+    <!-- Rank and Distance: points instead of a card, "Buy 4 points (3 skips)". -->
     <string name="scoreboard_buy_points">Buy %1$s (%2$s)</string>
     <string name="scoreboard_no_cards">No cards yet.</string>
     <string name="score_timeline">%1$s · %2$s</string>
@@ -200,6 +200,8 @@
     <string name="playback_pause">Pause</string>
     <string name="playback_replay">Replay from the start</string>
     <string name="playback_error">This song can't be played.</string>
+    <!-- A Wi-Fi guest's browser can't decode the host's file (REVIEW-3 B-25). -->
+    <string name="web_music_unsupported">This phone can't play this song's file. The host's speakers still can.</string>
     <string name="playback_full_preview">Play the whole preview</string>
     <string name="song_unplayable">This song streams from Deezer and can't be played right now (offline?).</string>
     <string name="song_replace">Replace song</string>
@@ -240,7 +242,7 @@
     <string name="section_expand">Show</string>
     <string name="section_collapse">Hide</string>
     <string name="playback_open_deezer">Open in Deezer</string>
-    <!-- Deezer's attribution under the progress of a streamed song (feedback round 50). -->
+    <!-- Deezer's attribution under the progress of a streamed song. -->
     <string name="playback_streamed_deezer">Streamed from Deezer</string>
     <string name="reject_not_allowed_to_name">This player can't call out song and artist with these rules.</string>
     <string name="settings_naming_callers">Who can call out song and artist</string>
@@ -261,7 +263,9 @@
     <string name="timeline_declined">No veto this time.</string>
     <string name="outcome_nobody_won">Nobody wins the round</string>
     <string name="result_corrected">Year corrected</string>
-    <string name="result_sources">Tag %1$s · MusicBrainz %2$s</string>
+    <string name="result_source_tag">Tag %1$s</string>
+    <string name="result_sources_separator"> · </string>
+    <string name="result_source_musicbrainz">MusicBrainz %1$s</string>
     <string name="outcome_kept">%1$s keeps it</string>
     <string name="outcome_stolen">%1$s steals it</string>
     <string name="outcome_discarded">Nobody gets it</string>
@@ -327,7 +331,7 @@
     <string name="scoreboard_remove_veto">Take a veto from %1$s</string>
     <string name="scoreboard_add_veto">Give %1$s a veto</string>
     <string name="scoreboard_card_title">Scoreboard</string>
-    <!-- The reveal's scoreboard with the target, "Scoreboard · first to 20 points" (feedback round 50). -->
+    <!-- The reveal's scoreboard with the target, "Scoreboard · first to 20 points". -->
     <string name="scoreboard_card_target">%1$s · first to %2$s</string>
     <string name="scoreboard_rank">%1$d.</string>
     <string name="scoreboard_gained">+%1$d</string>
@@ -483,7 +487,7 @@
         <item quantity="one">The first to reach %1$d point wins.</item>
         <item quantity="other">The first to reach %1$d points wins.</item>
     </plurals>
-    <!-- The rules in brief on guests' phones (feedback round 51); **bold** parts between double asterisks. -->
+    <!-- The rules in brief on guests' phones; **bold** parts between double asterisks. -->
     <string name="brief_timeline">Try to slot your songs by release year. Veto if others place it wrong.</string>
     <string name="brief_timeline_naming_active">**Only the active player** can name song &amp; artist for an additional veto.</string>
     <string name="brief_timeline_naming_vetoers">**The active player &amp; vetoers** can name song &amp; artist for an additional veto.</string>
@@ -515,16 +519,17 @@
         <item quantity="other">Buy a card for %1$d skips: it counts as much as a perfect round.</item>
     </plurals>
     <string name="rules_closest_buy_points">Buy %1$s for %2$s, as many as a perfect round.</string>
-    <!-- Player stats (feedback round 47) -->
+    <!-- Player stats -->
     <string name="player_stats">Stats</string>
     <string name="player_stats_open">Stats for %1$s</string>
     <string name="player_stats_games">Games</string>
     <string name="player_stats_mode">Mode</string>
     <string name="player_stats_played">Played</string>
+    <string name="player_stats_finished">Finished</string>
     <string name="player_stats_won">Won</string>
     <string name="player_stats_rounds">Rounds</string>
     <string name="player_stats_games_rounds">Games and rounds</string>
-    <string name="player_stats_rounds_hint">Games count when they are finished. Rounds played: turns in Song Order, guesses in Timeline. A round is won when the card went to them in Song Order (also by a veto), or when they won it in Timeline.</string>
+    <string name="player_stats_rounds_hint">Rounds played: turns in Song Order, guesses in Timeline. A round is won when the card went to them in Song Order (also by a veto), or when they won it in Timeline.</string>
     <string name="player_stats_accuracy">Timeline accuracy</string>
     <string name="player_stats_years_off">%1$s years off</string>
     <string name="player_stats_accuracy_hint">On average, from %1$s. Lower is better.</string>
@@ -549,7 +554,7 @@
     <string name="player_stats_naming_none">No chances to name a song yet. Naming counts when the game's rules reward it.</string>
     <string name="player_stats_naming_detail">%1$s: %2$s, %3$d of %4$s</string>
     <string name="player_stats_naming_description">Share of songs named per song year from %1$s to %2$s.</string>
-    <!-- A game's lookups and covers (feedback round 48) -->
+    <!-- A game's lookups and covers -->
     <string name="requests_title">Lookups for this game</string>
     <string name="requests_years">Years: %1$d of %2$d looked up</string>
     <string name="requests_covers">Covers: %1$d of %2$d loaded</string>
@@ -558,4 +563,46 @@
     <string name="requests_stopped">Stopped for the rest of this game.</string>
     <string name="requests_none">Nothing to look up right now.</string>
     <string name="requests_library_title">A game is looking up songs</string>
+    <!-- Solo: one player alone (D-380). Song Order's vetoes are jokers there: nobody can veto. -->
+    <string name="mode_timeline_hint_solo">Place each song among your cards, in year order.</string>
+    <string name="mode_closest_hint_solo">Guess each song's year: the closer, the more points.</string>
+    <plurals name="jokers">
+        <item quantity="one">%1$d joker</item>
+        <item quantity="other">%1$d jokers</item>
+    </plurals>
+    <string name="settings_starting_jokers">Starting jokers</string>
+    <string name="settings_max_jokers">Max jokers held</string>
+    <string name="settings_naming_bonus_solo">+1 joker for naming song and artist</string>
+    <string name="settings_naming_bonus_hint_solo">Even after a wrong placement</string>
+    <string name="settings_joker_costs">Joker costs</string>
+    <string name="settings_joker_costs_hint">How many jokers each option costs; Off turns it off.</string>
+    <plurals name="summary_jokers">
+        <item quantity="one">%1$d joker at the start, max %2$d</item>
+        <item quantity="other">%1$d jokers at the start, max %2$d</item>
+    </plurals>
+    <string name="settings_closest_fixed_rules_solo">Guesses start at the beginning of the decade of the earliest song (at most 2000).</string>
+    <string name="settings_scoring_solo">Every guess scores: points for an exact guess, one less for every year off.</string>
+    <string name="timeline_reveal_hint_solo">Reveal shows whether the year fits.</string>
+    <string name="result_named_hint_solo">+1 joker, even after a wrong placement</string>
+    <string name="reject_not_enough_jokers">Not enough jokers.</string>
+    <string name="reject_jokers_at_max">You already hold the most jokers allowed.</string>
+    <string name="scoreboard_adjust_jokers">Adjust jokers</string>
+    <string name="scoreboard_remove_joker">Take a joker from %1$s</string>
+    <string name="scoreboard_add_joker">Give %1$s a joker</string>
+    <string name="rules_timeline_turn_solo">You hear a song and place it among your cards: before, between or after them, in year order. If its year fits there, you keep the card.</string>
+    <string name="rules_timeline_naming_solo">Name song and artist for +1 joker, up to the most you can hold.</string>
+    <plurals name="rules_timeline_skip_solo">
+        <item quantity="one">Skip a song for %1$d joker.</item>
+        <item quantity="other">Skip a song for %1$d jokers.</item>
+    </plurals>
+    <plurals name="rules_timeline_buy_solo">
+        <item quantity="one">Buy a card for %1$d joker: the next song goes straight into your cards.</item>
+        <item quantity="other">Buy a card for %1$d jokers: the next song goes straight into your cards.</item>
+    </plurals>
+    <string name="rules_closest_solo">You hear the song and guess its year.</string>
+    <string name="rules_closest_skip_solo">You may spend a skip to skip the song before you guess.</string>
+    <string name="brief_timeline_solo">Try to slot your songs by release year.</string>
+    <string name="brief_timeline_naming_solo">Name song &amp; artist for an additional joker.</string>
+    <string name="brief_closest_naming_solo">Name song &amp; artist for an additional skip.</string>
+    <string name="player_stats_solo_header">Solo</string>
 </resources>

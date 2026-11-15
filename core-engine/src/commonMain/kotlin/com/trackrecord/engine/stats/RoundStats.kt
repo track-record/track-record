@@ -9,11 +9,11 @@ import com.trackrecord.engine.TimelineOutcome
 import kotlin.math.abs
 
 /**
- * What one round says about one player, for the player stats (feedback round 47). [played]: their turn in
+ * What one round says about one player, for the player stats. [played]: their turn in
  * Song Order, their guess in Timeline (Closest Year). [yearsOff]: how far their guess was from the song's
  * year (Closest Year only). [namingChance]: the rules let them name the song and no player calling
  * before them did; [named]: they did. [won]: the card went to them in Song Order (their turn, or their veto), or
- * they were among the round's winners in Timeline (feedback round 48).
+ * they were among the round's winners in Timeline.
  */
 data class RoundRecord(
     val playerId: String,

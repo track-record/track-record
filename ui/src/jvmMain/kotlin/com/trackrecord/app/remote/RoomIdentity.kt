@@ -17,7 +17,7 @@ import java.util.Base64
 
 /**
  * What an internet link names: the room, its secret and the host's key (D-260). New for each room, or kept
- * for every game with "Keep the same internet link" (feedback round 50).
+ * for every game with "Keep the same internet link".
  */
 class RoomIdentity(val roomId: String, val secret: String, val key: KeyPair) {
     companion object {

@@ -44,6 +44,7 @@ import com.trackrecord.app.newgame.TIMELINE_PRESET_ORDER
 import com.trackrecord.app.newgame.label
 import com.trackrecord.app.resources.Res
 import com.trackrecord.app.resources.action_back
+import com.trackrecord.app.resources.action_cancel
 import com.trackrecord.app.resources.auto_reveal_10s
 import com.trackrecord.app.resources.auto_reveal_5s
 import com.trackrecord.app.resources.auto_reveal_instant
@@ -112,6 +113,7 @@ import com.trackrecord.app.resources.update_downloading
 import com.trackrecord.app.resources.update_failed
 import com.trackrecord.app.resources.update_install_failed
 import com.trackrecord.app.resources.update_install_version
+import com.trackrecord.app.resources.update_not_installed
 import com.trackrecord.app.resources.update_up_to_date
 import com.trackrecord.app.resources.year_balance_gentle_hint
 import com.trackrecord.app.resources.year_balance_off_hint
@@ -163,7 +165,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         },
     ) { padding ->
         val s = settings ?: return@Scaffold
-        // Each section in its panel (feedback round 58).
+        // Each section in its panel.
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(PanelGap),
@@ -181,7 +183,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         Text(stringResource(preset.label), modifier = Modifier.padding(start = 8.dp))
                     }
                 }
-                // Closest Year has its own default preset (feedback round 13).
+                // Closest Year has its own default preset.
                 Text(stringResource(Res.string.settings_default_closest), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
                 for (preset in ClosestYearPreset.entries.filter { it.settings != null }) {
                     Row(
@@ -217,7 +219,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
 
-            // Playback defaults reuse the game editor; MusicBrainz has its own section (feedback round 12).
+            // Playback defaults reuse the game editor; MusicBrainz has its own section.
             PlaybackEditor(
                 CommonSettings(autoPlay = s.autoPlay, startOffsetSeconds = s.startOffsetSeconds, clipLimitSeconds = s.clipLimitSeconds),
                 includeMusicBrainz = false,
@@ -232,7 +234,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     { on -> update { it.copy(musicBrainzEnabled = on) } },
                     hint = stringResource(Res.string.settings_musicbrainz_hint),
                 )
-                // When tags and MusicBrainz name different years (feedback round 28).
+                // When tags and MusicBrainz name different years.
                 Text(stringResource(Res.string.settings_year_preference), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp))
                 for (preference in YearPreference.entries) {
                     Row(
@@ -283,7 +285,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
 }
 
-/** The app's version, the check at start and "Check now" (feedback round 47). */
+/** The app's version, the check at start and "Check now". */
 @Composable
 private fun UpdatesSection(s: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit) {
     val updates = LocalAppContainer.current.updates
@@ -308,7 +310,8 @@ private fun UpdatesSection(s: AppSettings, update: ((AppSettings) -> AppSettings
                 }
                 note?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
-            TextButton(onClick = updates::check, enabled = status != UpdateStatus.Checking) { Text(stringResource(Res.string.settings_check_now)) }
+            val downloading = (status as? UpdateStatus.Available)?.progress != null
+            TextButton(onClick = updates::check, enabled = status != UpdateStatus.Checking && !downloading) { Text(stringResource(Res.string.settings_check_now)) }
         }
         (status as? UpdateStatus.Available)?.let { available ->
             val release = available.release
@@ -319,21 +322,25 @@ private fun UpdatesSection(s: AppSettings, update: ((AppSettings) -> AppSettings
             ) {
                 Text(stringResource(if (updates.installsItself(release)) Res.string.update_install_version else Res.string.update_download_version, release.versionName))
             }
-            UpdateProgress(available, Modifier.padding(top = 8.dp))
+            UpdateProgress(available, updates::cancelDownload, Modifier.padding(top = 8.dp))
         }
     }
 }
 
-/** The update's download while the app installs it itself (the desktop), or that it failed. */
+/** The update's download while the app installs it itself (the desktop), with [onCancel], or that it failed. */
 @Composable
-fun UpdateProgress(available: UpdateStatus.Available, modifier: Modifier = Modifier) {
+fun UpdateProgress(available: UpdateStatus.Available, onCancel: () -> Unit, modifier: Modifier = Modifier) {
     val progress = available.progress
     when {
-        progress != null -> Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(Res.string.update_downloading), style = MaterialTheme.typography.bodySmall)
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), drawStopIndicator = {})
+        progress != null -> Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(Res.string.update_downloading), style = MaterialTheme.typography.bodySmall)
+                LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth(), drawStopIndicator = {})
+            }
+            TextButton(onClick = onCancel, modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(Res.string.action_cancel)) }
         }
         available.failed -> Text(stringResource(Res.string.update_install_failed), style = MaterialTheme.typography.bodySmall, modifier = modifier)
+        available.installFailed -> Text(stringResource(Res.string.update_not_installed), style = MaterialTheme.typography.bodySmall, modifier = modifier)
     }
 }
 
@@ -393,7 +400,7 @@ private fun ContactEmailField(saved: String, onSave: (String) -> Unit) {
 @Composable
 private fun RevealSection(s: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit) {
     SectionCard(stringResource(Res.string.settings_reveal), spacing = 4.dp) {
-        // − and + like the other values (feedback round 12).
+        // − and + like the other values.
         val options = AutoReveal.entries
         Stepper(
             stringResource(Res.string.settings_auto_reveal),
@@ -427,7 +434,7 @@ private fun RevealSection(s: AppSettings, update: ((AppSettings) -> AppSettings)
     }
 }
 
-/** Internet play: one link for every game when wanted (feedback round 50). */
+/** Internet play: one link for every game when wanted. */
 @Composable
 private fun InternetSection(s: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit) {
     SectionCard(stringResource(Res.string.settings_internet), spacing = 4.dp) {
@@ -448,7 +455,7 @@ private val AutoReveal.label: StringResource
         AutoReveal.AFTER_10S -> Res.string.auto_reveal_10s
     }
 
-/** Theme and, under "Advanced", the corner radius of all components (feedback round 6). */
+/** Theme and, under "Advanced", the corner radius of all components. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppearanceSection(s: AppSettings, update: ((AppSettings) -> AppSettings) -> Unit) {

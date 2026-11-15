@@ -2,8 +2,8 @@ package com.trackrecord.data.deezer
 
 import com.trackrecord.data.musicbrainz.NetLog
 import com.trackrecord.data.net.Http
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.trackrecord.data.net.await
+import kotlinx.coroutines.CancellationException
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
@@ -15,9 +15,13 @@ class OkHttpLinkResolver : LinkResolver {
         .callTimeout(20, TimeUnit.SECONDS)
         .build()
 
-    override suspend fun finalUrl(url: String): String? = withContext(Dispatchers.IO) {
-        runCatching {
-            client.newCall(Request.Builder().url(url).header("User-Agent", "TrackRecord").build()).execute().use { it.request.url.toString() }
-        }.onFailure { NetLog.w("link $url failed: $it") }.getOrNull()?.also { NetLog.i("link $url -> $it") }
+    override suspend fun finalUrl(url: String): String? = try {
+        client.newCall(Request.Builder().url(url).header("User-Agent", "TrackRecord").build()).await { it.request.url.toString() }
+            .also { NetLog.i("link $url -> $it") }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        NetLog.w("link $url failed: $e")
+        null
     }
 }

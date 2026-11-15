@@ -107,9 +107,10 @@
     <string name="web_volume">Music volume</string>
     <string name="web_sound_turn_on">Play the music on this phone too</string>
     <string name="web_sound_turn_off">Stop the music on this phone</string>
+    <string name="web_sound_mute">Mute the music</string>
+    <string name="web_sound_unmute">Unmute the music</string>
     <string name="web_local_sound">Music on this phone</string>
     <string name="web_local_sound_hint">Usually off, as the host's speaker plays it. Both together can echo.</string>
-    <string name="web_volume_open">Open volume control</string>
     <string name="web_brief_ok">Got it</string>
     <string name="web_host_more">Add one for %1$s</string>
     <string name="web_host_less">Take one from %1$s</string>

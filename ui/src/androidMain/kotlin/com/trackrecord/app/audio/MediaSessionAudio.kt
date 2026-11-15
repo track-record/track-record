@@ -81,7 +81,7 @@ class MediaSessionAudio(private val context: Context) : GameAudio {
         val playing = c.isPlaying
         val window = ClipPlanner.window(request.startOffsetMs, clipLimitMs, request.durationMs)
         val length = window.endMs?.let { it - window.startMs }
-        // Already past the new end: the clip is over, as if it had played to its end (feedback round 34).
+        // Already past the new end: the clip is over, as if it had played to its end.
         val over = length != null && position >= length
         c.setMediaItem(itemFor(lastRequest!!, clipped = true), if (over) length!! else position)
         c.prepare()

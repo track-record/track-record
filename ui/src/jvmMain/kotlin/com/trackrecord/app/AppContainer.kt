@@ -121,10 +121,10 @@ class AppContainer(val platform: PlatformServices) {
     val audioResolver: AudioResolver = DeezerAudioResolver(deezer)
     /** Players controlled from a guest's phone (SPEC v3); kept by the remote play server. */
     val remotePlayers = MutableStateFlow<Set<String>>(emptySet())
-    /** Newer releases on GitHub (feedback round 47). */
-    val updates = AppUpdates(appScope, settings, platform.updatePackage, platform.updateInstaller)
+    /** Newer releases on GitHub. */
+    val updates = AppUpdates(appScope, settings, platform.updatePackage, platform.updateInstaller, installFailed = platform.updateFailed)
 
-    /** Saved players' stats (feedback round 47). */
+    /** Saved players' stats. */
     val playerStats = PlayerStatsRepository(database)
     val playlists = PlaylistRepository(database)
     val game = GameController(
@@ -135,7 +135,7 @@ class AppContainer(val platform: PlatformServices) {
         stats = playerStats,
     )
     /** Remote play: guests' phones as remote controls (SPEC v3); off until a QR code is generated. */
-    val remote = RemotePlay(platform, game, settings.appSettings, remotePlayers, covers, playlists)
+    val remote = RemotePlay(platform, game, settings.appSettings, remotePlayers, covers, playlists, fingerprints.keyStatus)
     val verifier = LibraryVerifier(library, musicBrainz, coverArt, covers::invalidate)
     val setups = SetupStore(settings)
 
@@ -161,11 +161,11 @@ class AppContainer(val platform: PlatformServices) {
      */
     var bringToFront: () -> Unit = {}
 
-    /** Exportify's downloads, imported by themselves with the file permission (feedback round 32); null without a downloads folder. */
+    /** Exportify's downloads, imported by themselves with the file permission; null without a downloads folder. */
     val exportify = platform.downloads?.let { downloads ->
         ExportifyWatcher(downloads, appScope, busy = { deezerImports.busy }, import = { lists ->
             deezerImports.importLists(lists)
-            // Back to the app on the library (feedback round 34), as "Open" in the download message does.
+            // Back to the app on the library, as "Open" in the download message does.
             openLibrary.tryEmit(Unit)
             bringToFront()
         })

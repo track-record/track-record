@@ -70,7 +70,7 @@ fun BackupSection() {
     val open = ui.rememberFileOpener(transfer::offer)
     SectionCard(stringResource(Res.string.settings_backup), spacing = 4.dp) {
         Text(stringResource(Res.string.settings_backup_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-        // Filled, so they read on the theme's scene (feedback round 55).
+        // Filled, so they read on the theme's scene.
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val idle = state !is TransferState.Running
             FilledTonalButton(onClick = { save(transfer.suggestedName()) }, enabled = idle, modifier = Modifier.weight(1f)) {

@@ -132,7 +132,7 @@ fun GameTopBar(title: String, session: GameSession, onLeave: () -> Unit, onScore
         },
         actions = {
             IconButton(onClick = { remoteOpen = true }) { Icon(painterResource(Res.drawable.ic_qr_code), stringResource(Res.string.remote_title)) }
-            // The rules, settings and playlists of this game (feedback round 36).
+            // The rules, settings and playlists of this game.
             IconButton(onClick = { infoOpen = true }) { Icon(Icons.Outlined.Info, stringResource(Res.string.info_title)) }
             IconButton(onClick = onScoreboard) { Icon(painterResource(Res.drawable.ic_scoreboard), stringResource(Res.string.scoreboard_title)) }
             IconButton(onClick = { settingsOpen = true }) { Icon(Icons.Default.Settings, stringResource(Res.string.settings_title)) }
@@ -144,7 +144,7 @@ fun GameTopBar(title: String, session: GameSession, onLeave: () -> Unit, onScore
 }
 
 /**
- * Settings during a game (feedback round 26): the clip length, also for the song playing now (D-191),
+ * Settings during a game: the clip length, also for the song playing now (D-191),
  * and "Tap a gap twice to confirm". Guests have the same on their phones; cover art, being cosmetic,
  * stays in Settings (and in the guests' player menu).
  */
@@ -168,7 +168,7 @@ fun GameSettingsSheet(session: GameSession, onDismiss: () -> Unit, onAction: (Ga
                     step = 5,
                     unit = { pluralStringResource(Res.plurals.seconds, it, it) },
                 )
-                // From the next song: the one playing now keeps its place (feedback round 34).
+                // From the next song: the one playing now keeps its place.
                 Stepper(
                     stringResource(Res.string.settings_start_offset),
                     state.settings.common.startOffsetSeconds,
@@ -209,7 +209,7 @@ fun PlaybackControls(
     onFullSong: (() -> Unit)? = null,
     /** v2: a Deezer preview plays ("full song" = the whole preview). */
     preview: Boolean = false,
-    /** A streamed song: open the whole track in Deezer (feedback round 21). */
+    /** A streamed song: open the whole track in Deezer. */
     onOpenInDeezer: (() -> Unit)? = null,
 ) {
     // Space plays and pauses (PLATFORMS.md phase 7).
@@ -226,7 +226,7 @@ fun PlaybackControls(
         BarBesideButtons(
             buttons = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Play and replay stay round whatever the button radius (feedback round 7).
+                    // Play and replay stay round whatever the button radius.
                     FilledIconButton(onClick = onToggle, modifier = Modifier.size(64.dp), enabled = audio.loaded, shape = CircleShape) {
                         if (audio.isPlaying) Icon(painterResource(Res.drawable.ic_pause), stringResource(Res.string.playback_pause), Modifier.size(36.dp))
                         else Icon(Icons.Default.PlayArrow, stringResource(Res.string.playback_play), Modifier.size(36.dp))
@@ -247,8 +247,8 @@ fun PlaybackControls(
                             dragging = null
                         },
                         modifier = Modifier.semantics { contentDescription = seekLabel },
-                        // No stop dot at the end of the track (feedback round 3); half the default gap
-                        // around the thumb, which looked like a thick outline (feedback round 8).
+                        // No stop dot at the end of the track; half the default gap
+                        // around the thumb, which looked like a thick outline.
                         track = { state -> SliderDefaults.Track(sliderState = state, drawStopIndicator = null, thumbTrackGapSize = 3.dp) },
                     )
                 } else {
@@ -264,9 +264,9 @@ fun PlaybackControls(
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    // Only when it can't play: "Clip finished" and "Preview from Deezer" were noise (feedback round 43).
+                    // Only when it can't play: "Clip finished" and "Preview from Deezer" were noise.
                     if (audio.error) Text(stringResource(Res.string.playback_error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    // Deezer's terms: name Deezer with its logo where its music plays (feedback round 50).
+                    // Deezer's terms: name Deezer with its logo where its music plays.
                     if (preview) StreamedFromDeezer(Modifier.padding(top = 4.dp))
                 }
             },
@@ -282,7 +282,7 @@ fun PlaybackControls(
 }
 
 /**
- * The turn's player [chip] with Skip and Buy (feedback rounds 43, 51, 52): beside the chip when every button
+ * The turn's player [chip] with Skip and Buy: beside the chip when every button
  * the game can offer fits there next to [widestChip] (the chip of the longest name), else on a row of their
  * own below it. Decided by all those buttons, Skip included while it isn't offered, so they never switch rows
  * between turns. [buttons] is called with `all` = true to measure that, false for the buttons shown now; null
@@ -322,7 +322,7 @@ fun TurnRow(
 
 /**
  * The play buttons with the progress [bar] beside them, centred on the buttons, and [notes] (time, error, "Streamed from
- * Deezer") right below the bar, so they never move it (feedback round 63). Taller than the buttons only when the bar and
+ * Deezer") right below the bar, so they never move it. Taller than the buttons only when the bar and
  * notes need it.
  */
 @Composable
@@ -401,8 +401,8 @@ fun TimelineCard(card: EngineCard, info: SongInfo?, modifier: Modifier = Modifie
 }
 
 /**
- * A bought card, or a skipped song (feedback round 27), is shown to everyone until dismissed; bought points
- * (Rank and Distance) without a card (feedback round 50).
+ * A bought card, or a skipped song, is shown to everyone until dismissed; bought points
+ * (Rank and Distance) without a card.
  */
 @Composable
 fun SongEventDialogs(session: GameSession) {
@@ -436,24 +436,24 @@ private fun SongDialog(session: GameSession, title: String, card: EngineCard?) {
 @Composable
 fun rememberCover(info: SongInfo?): ImageBitmap? = rememberSongCover(info?.songId)
 
-/** The game's banners: a tap dismisses one (feedback round 49). */
+/** The game's banners: a tap dismisses one. */
 @Composable
 fun GameSnackbarHost(state: SnackbarHostState) {
     SnackbarHost(state) { data -> Snackbar(data, Modifier.clickable { data.dismiss() }) }
 }
 
-/** A popup about a guest's device (feedback round 60): connected briefly, a [lost] connection longer and in red. */
+/** A popup about a guest's device: connected briefly, a [lost] connection longer and in red. */
 class ConnectionVisuals(override val message: String, val lost: Boolean) : SnackbarVisuals {
     override val actionLabel: String? = null
     override val withDismissAction = false
     override val duration = if (lost) SnackbarDuration.Long else SnackbarDuration.Short
 }
 
-/** A lost connection's popup: a mild red, the same in every theme, so it is noticed (feedback round 60). */
+/** A lost connection's popup: a mild red, the same in every theme, so it is noticed. */
 private val LostContainer = Color(0xFFF6CDC9)
 private val OnLost = Color(0xFF5C1712)
 
-/** The popups about guests' devices, at the top of the screen (feedback round 60); a tap dismisses one. */
+/** The popups about guests' devices, at the top of the screen; a tap dismisses one. */
 @Composable
 fun ConnectionNoticeHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
     SnackbarHost(state, modifier) { data ->

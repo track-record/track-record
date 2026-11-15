@@ -5,7 +5,6 @@ import com.trackrecord.data.db.MbCacheEntity
 import com.trackrecord.data.db.SongEntity
 import com.trackrecord.data.db.SongOverrideEntity
 import com.trackrecord.data.db.SongSource
-import com.trackrecord.data.db.searchedByName
 import com.trackrecord.data.musicbrainz.MusicBrainzLookup
 import com.trackrecord.data.playlists.BuiltInPlaylists
 import com.trackrecord.engine.year.ResolvedYear
@@ -19,7 +18,7 @@ data class LibrarySong(
     val override: SongOverrideEntity?,
     val resolved: ResolvedYear,
     val folderAvailable: Boolean,
-    /** MusicBrainz year used for resolution: any accepted match (feedback round 30: no confirmation step). */
+    /** MusicBrainz year used for resolution: any accepted match (no confirmation step). */
     val musicBrainzYear: Int? = null,
     /** Cached lookup, if any (also an unconfirmed match for a missing-year song). */
     val lookup: MbCacheEntity? = null,
@@ -28,15 +27,15 @@ data class LibrarySong(
 ) {
     val id: Long get() = song.id
     val manualYear: Int? get() = override?.manualYear
-    /** On "Excluded songs" (feedback round 28). */
+    /** On "Excluded songs". */
     val excluded: Boolean get() = BuiltInPlaylists.EXCLUDED in playlistIds
     val edited: Boolean get() = manualYear != null
     val missingYear: Boolean get() = resolved.year == null
 
     /**
-     * How MusicBrainz checked this song (feedback round 30); a fingerprint check includes the name search.
+     * How MusicBrainz checked this song; a fingerprint check includes the name search.
      * A streamed song is never fingerprinted, so it counts as checked by name (D-276). A result without the
-     * name search counts as not verified: it may hold a remaster's year (feedback round 47).
+     * name search counts as not verified: it may hold a remaster's year.
      */
     val verification: Verification
         get() = when {
@@ -47,15 +46,18 @@ data class LibrarySong(
 
     /**
      * Left for "Verify by name": never looked up, or never searched by artist and title, which alone finds the
-     * original release (feedback round 47).
+     * original release. A song without an artist has no name search to make (REVIEW-3 B-16).
      */
-    val needsNameCheck: Boolean get() = lookup == null || lookup.lookupVersion < MusicBrainzLookup.LOOKUP_VERSION || !lookup.searchedByName
+    val needsNameCheck: Boolean get() = lookup == null || !MusicBrainzLookup.isCurrent(lookup, song)
 
-    /** Looked up before, but under older rules (or without the name search): "Verify" brings it up to date (feedback round 62). */
+    /** Looked up before, but under older rules (or without the name search): "Verify" brings it up to date. */
     val checkedByOldRules: Boolean get() = lookup != null && needsNameCheck
 
+    /** Looked up under an older version of the lookup: its year still counts, and "Verify" redoes it. */
+    val checkedByOldVersion: Boolean get() = lookup != null && MusicBrainzLookup.outdated(lookup, song)
+
     /**
-     * Left for "Verify by fingerprint", which does everything "Verify by name" does and more (feedback round 62):
+     * Left for "Verify by fingerprint", which does everything "Verify by name" does and more:
      * every song left for that, and a local file not fingerprinted yet. A streamed song has no file; its check
      * there (ISRC and name, D-276) is the one "Verify by name" makes, so it is left only while that is (feedback
      * round 47: a fingerprint run after a name run checked 3000 streamed songs again).
@@ -125,7 +127,7 @@ data class LibrarySong(
             lookup: MbCacheEntity? = null,
             preference: YearPreference = YearPreference.MUSICBRAINZ,
         ): LibrarySong {
-            // Every accepted match counts, also for songs without a tag year (feedback round 30).
+            // Every accepted match counts, also for songs without a tag year.
             val mbYear = lookup?.year
             val resolved = YearResolver.resolve(
                 YearInputs(
@@ -142,10 +144,10 @@ data class LibrarySong(
     }
 }
 
-/** How MusicBrainz checked a song (feedback round 30): not at all, by name, or by audio fingerprint (and name). */
+/** How MusicBrainz checked a song: not at all, by name, or by audio fingerprint (and name). */
 enum class Verification { NONE, NAME, FINGERPRINT }
 
-/** Groups of song states in the filter pane (feedback round 5). */
+/** Groups of song states in the filter pane. */
 enum class StatusCategory { PLAYABILITY, DATA_QUALITY, VERIFICATION }
 
 /** Every state a song can be in, for the library's filter pane. */
@@ -172,7 +174,7 @@ enum class SongStatus(val category: StatusCategory?) {
         EXCLUDED -> s.excluded
         SOURCES_DISAGREE -> s.resolved.sourcesDisagree
         NOT_CHECKED -> s.verification == Verification.NONE
-        // A fingerprint check searches by name too, so those songs count here as well (feedback round 30).
+        // A fingerprint check searches by name too, so those songs count here as well.
         VERIFIED_BY_NAME -> s.verification != Verification.NONE
         VERIFIED_BY_FINGERPRINT -> s.verification == Verification.FINGERPRINT
         NO_MATCH -> s.lookup != null && s.lookup.year == null

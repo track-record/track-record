@@ -13,3 +13,5 @@ secrets.properties
 keystore.properties
 *.jks
 *.keystore
+# Reviews and concepts: kept on this machine only, never committed or published (code review 3, S-16).
+dev-notes/

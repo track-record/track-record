@@ -6,7 +6,7 @@ import androidx.compose.runtime.Composable
 // What the screens do differently on each platform (PLATFORMS.md, PlatformActions): Android's system bars, back
 // gesture and screen timeout; nothing or the keyboard on the desktop.
 
-/** Hides the navigation bar while this is in the composition (the game screens; feedback round 31). */
+/** Hides the navigation bar while this is in the composition (the game screens). */
 @Composable
 expect fun HideNavigationBar()
 

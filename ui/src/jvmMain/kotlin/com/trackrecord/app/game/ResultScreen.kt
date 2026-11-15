@@ -51,11 +51,16 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trackrecord.app.LocalAppContainer
+import com.trackrecord.app.library.LookupSection
+import com.trackrecord.app.library.LookupUi
 import com.trackrecord.app.library.YearSourcesTable
 import com.trackrecord.app.remote.RemoteState
 import com.trackrecord.app.resources.Res
@@ -83,10 +88,13 @@ import com.trackrecord.app.resources.result_guesses
 import com.trackrecord.app.resources.result_named
 import com.trackrecord.app.resources.result_named_hint
 import com.trackrecord.app.resources.result_named_hint_all
+import com.trackrecord.app.resources.result_named_hint_solo
 import com.trackrecord.app.resources.result_named_hint_vetoers
 import com.trackrecord.app.resources.result_named_skip_hint
 import com.trackrecord.app.resources.result_named_who
-import com.trackrecord.app.resources.result_sources
+import com.trackrecord.app.resources.result_source_musicbrainz
+import com.trackrecord.app.resources.result_source_tag
+import com.trackrecord.app.resources.result_sources_separator
 import com.trackrecord.app.resources.result_year_details
 import com.trackrecord.app.resources.round_title
 import com.trackrecord.app.resources.scoreboard_gained
@@ -105,6 +113,8 @@ import com.trackrecord.app.ui.components.SectionCard
 import com.trackrecord.app.ui.components.YearEditorInline
 import com.trackrecord.app.ui.components.formatYear
 import com.trackrecord.app.ui.theme.LocalComponentShape
+import com.trackrecord.app.ui.theme.caution
+import com.trackrecord.data.library.LibrarySong
 import com.trackrecord.engine.GameAction
 import com.trackrecord.engine.GameEngine
 import com.trackrecord.engine.GameMode
@@ -129,8 +139,12 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
     var scoreboard by rememberSaveable { mutableStateOf(false) }
     val cover = rememberCover(info)
     val uriHandler = LocalUriHandler.current
+    // The song as the library has it now: how MusicBrainz checked it, and "Look up" at the reveal (D-382).
+    val revealYear by vm.revealYear.collectAsStateWithLifecycle()
+    val librarySong = revealYear?.song?.takeIf { it.id == round.song.songId }
+    val lookup = revealYear?.lookup ?: LookupUi.Idle
     // Timeline: the guesses section starts open unless the scoreboard then no longer fits on screen; decided
-    // once per round after the first layout, while the screen is still invisible (feedback round 21).
+    // once per round after the first layout, while the screen is still invisible.
     val timelineMode = state.mode == GameMode.TIMELINE
     var guessesOpen by rememberSaveable(round.number) { mutableStateOf<Boolean?>(null) }
     var viewportBottom by remember { mutableStateOf<Float?>(null) }
@@ -153,7 +167,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
             }
         },
     ) { padding ->
-        // No scrollbar on the reveal (feedback round 57): it scrolls as on a phone.
+        // No scrollbar on the reveal: it scrolls as on a phone.
         Column(
             Modifier.fillMaxSize().padding(padding).imePadding()
                 .onGloballyPositioned { viewportBottom = it.boundsInRoot().bottom }
@@ -162,7 +176,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // One card like the guests' reveal: cover, year, song, outcome (feedback round 16). Outlined from the
+            // One card like the guests' reveal: cover, year, song, outcome. Outlined from the
             // view of the one player on this phone when all others play on guest phones; else not at all.
             val remoteState by LocalAppContainer.current.remote.state.collectAsStateWithLifecycle()
             val onGuestPhones = (remoteState as? RemoteState.On)?.clients?.claimed.orEmpty().filterValues { it }.keys
@@ -173,7 +187,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
                     if (cover != null) {
                         Image(cover, contentDescription = stringResource(Res.string.result_cover), contentScale = ContentScale.Crop, modifier = Modifier.size(160.dp).clip(LocalComponentShape.current))
                     }
-                    // The year is centred on its own; the pencil sits to its right (feedback round 6).
+                    // The year is centred on its own; the pencil sits to its right.
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Spacer(Modifier.weight(1f))
                         Text(formatYear(round.song.year), style = MaterialTheme.typography.displayLarge)
@@ -183,7 +197,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
                             }
                         }
                     }
-                    SourcesLine(info, round.song.year, round.yearCorrected)
+                    SourcesLine(info, round.song.year, round.yearCorrected, outdated = librarySong?.checkedByOldRules == true)
                     Text(info?.title.orEmpty(), style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
                     Text(info?.artist ?: stringResource(Res.string.unknown_artist), style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
                     info?.album?.let { Text(it, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center) }
@@ -197,12 +211,14 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
                 }
             }
             if (yearSheet) {
-                // In the screen itself, not a bottom sheet: on Felix's phone the sheet window stuck
+                // In the screen itself, not a bottom sheet: on a test phone the sheet window stuck
                 // halfway behind the system bars (D-091).
                 YearDetailsCard(
-                    songId = round.song.songId,
+                    song = librarySong,
                     roundYear = round.song.year,
                     currentYear = state.currentYear,
+                    lookup = lookup,
+                    onLookUp = { vm.lookUp(round.song.songId) },
                     onClose = { yearSheet = false },
                     onSave = { y -> vm.correctYear(y); yearSheet = false },
                 )
@@ -213,8 +229,8 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
             if (naming) Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.mode == GameMode.TIMELINE && state.settings.timeline.namingBonus) {
-                        // Part of the outcome card instead of a separate switch row (feedback round 6).
-                        // Everyone allowed to call out, in calling order; one can be marked (feedback round 19).
+                        // Part of the outcome card instead of a separate switch row.
+                        // Everyone allowed to call out, in calling order; one can be marked.
                         val namer = round.namedById
                         val candidates = GameEngine.namingCandidates(state)
                         if (candidates.size > 1) Text(stringResource(Res.string.result_named_who), style = MaterialTheme.typography.titleSmall)
@@ -224,7 +240,8 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
                         }
                         Text(
                             stringResource(
-                                when (state.settings.timeline.namingCallers) {
+                                // Alone, the jokers' name (D-380).
+                                if (state.solo) Res.string.result_named_hint_solo else when (state.settings.timeline.namingCallers) {
                                     NamingCallers.ACTIVE -> Res.string.result_named_hint
                                     NamingCallers.VETOERS -> Res.string.result_named_hint_vetoers
                                     NamingCallers.ALL -> Res.string.result_named_hint_all
@@ -234,7 +251,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
                         )
                     }
                     if (state.mode == GameMode.CLOSEST_YEAR && state.settings.closestYear.namingEarnsSkip) {
-                        // One toggle per player in guessing order; only one can have named it (feedback rounds 11, 12).
+                        // One toggle per player in guessing order; only one can have named it.
                         Text(stringResource(Res.string.result_named_who), style = MaterialTheme.typography.titleSmall)
                         for (id in round.guesses.map { it.playerId }) {
                             val named = round.namedById == id
@@ -256,13 +273,13 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
                     }
                 },
             )
-            // Timeline: the active player's timeline with the guess, the vetoes and where the song fits (feedback round 21).
+            // Timeline: the active player's timeline with the guess, the vetoes and where the song fits.
             if (timelineMode) {
                 SectionCard(stringResource(Res.string.result_guesses), expanded = guessesOpen != false, onToggle = { guessesOpen = guessesOpen == false }) {
                     RevealedTimeline(session)
                 }
             }
-            // Closest Year: the guesses on the axis with the song's year, then the list (as on the guests' phones), below playback (feedback round 17).
+            // Closest Year: the guesses on the axis with the song's year, then the list (as on the guests' phones), below playback.
             if (state.mode == GameMode.CLOSEST_YEAR) {
                 GuessAxis(session, state.settings.closestYear.lowestGuessableYear, state.currentYear, revealedYear = round.song.year)
                 SectionCard(stringResource(Res.string.result_guesses)) { ClosestOutcomeView(session) }
@@ -277,7 +294,7 @@ fun ResultScreen(session: GameSession, vm: GameViewModel, snackbar: SnackbarHost
 
 /**
  * The active player's timeline as it was revealed: the gap they chose, each veto, and in green the
- * gap(s) where the song fits. Gaps nobody chose are left out to keep it short (feedback round 21).
+ * gap(s) where the song fits. Gaps nobody chose are left out to keep it short.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -330,7 +347,7 @@ private fun GuessChip(player: GamePlayer, label: String) {
 
 /**
  * "<player> named song and artist": full width, the text centred and the check mark on the right,
- * so toggling doesn't move the text (feedback round 8).
+ * so toggling doesn't move the text.
  */
 @Composable
 private fun NamedToggle(label: String, selected: Boolean, onToggle: () -> Unit) {
@@ -357,9 +374,15 @@ private fun NamedToggle(label: String, selected: Boolean, onToggle: () -> Unit) 
 
 /** All year sources of the revealed song (as in the library), with "Edit year" for a correction. */
 @Composable
-private fun YearDetailsCard(songId: Long, roundYear: Int, currentYear: Int, onClose: () -> Unit, onSave: (Int) -> Unit) {
-    val library = LocalAppContainer.current.library
-    val song by library.song(songId).collectAsStateWithLifecycle(initialValue = null)
+private fun YearDetailsCard(
+    song: LibrarySong?,
+    roundYear: Int,
+    currentYear: Int,
+    lookup: LookupUi,
+    onLookUp: () -> Unit,
+    onClose: () -> Unit,
+    onSave: (Int) -> Unit,
+) {
     var editing by rememberSaveable { mutableStateOf(false) }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -369,9 +392,15 @@ private fun YearDetailsCard(songId: Long, roundYear: Int, currentYear: Int, onCl
             }
             Text(stringResource(Res.string.year_sheet_round, formatYear(roundYear)), style = MaterialTheme.typography.bodyLarge)
             if (editing) {
-                YearEditorInline(initialYear = roundYear, currentYear = currentYear, onCancel = { editing = false }, onConfirm = onSave)
+                // Starts at the library's year, which a lookup here may have changed.
+                YearEditorInline(initialYear = song?.resolved?.year ?: roundYear, currentYear = currentYear, onCancel = { editing = false }, onConfirm = onSave)
             } else {
                 song?.let { YearSourcesTable(it) }
+                // Not verified under the current rules: MusicBrainz can be asked now, before the other lookups (D-382).
+                if (song != null && (song.needsNameCheck || lookup != LookupUi.Idle)) {
+                    val keyStatus by LocalAppContainer.current.fingerprints.keyStatus.collectAsStateWithLifecycle()
+                    LookupSection(lookup, keyStatus, onLookUp)
+                }
                 Button(onClick = { editing = true }, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Icon(Icons.Default.Edit, contentDescription = null)
                     Text(stringResource(Res.string.song_edit_year), modifier = Modifier.padding(start = 8.dp))
@@ -381,9 +410,12 @@ private fun YearDetailsCard(songId: Long, roundYear: Int, currentYear: Int, onCl
     }
 }
 
-/** When tags and MusicBrainz disagree, both appear under the big year ("Tag 2011 · MusicBrainz 1975"). */
+/**
+ * When tags and MusicBrainz disagree, both appear under the big year ("Tag 2011 · MusicBrainz 1975"); MusicBrainz's
+ * in yellow when it is [outdated]: checked under older rules (D-382).
+ */
 @Composable
-private fun SourcesLine(info: SongInfo?, year: Int, corrected: Boolean) {
+private fun SourcesLine(info: SongInfo?, year: Int, corrected: Boolean, outdated: Boolean) {
     if (corrected) {
         Text(stringResource(Res.string.result_corrected), style = MaterialTheme.typography.bodySmall)
         return
@@ -391,7 +423,16 @@ private fun SourcesLine(info: SongInfo?, year: Int, corrected: Boolean) {
     val base = info?.baseYear
     val mb = info?.musicBrainzYear
     if (base != null && mb != null && base != mb) {
-        Text(stringResource(Res.string.result_sources, formatYear(base), formatYear(mb)), style = MaterialTheme.typography.bodyMedium)
+        val tag = stringResource(Res.string.result_source_tag, formatYear(base))
+        val separator = stringResource(Res.string.result_sources_separator)
+        val musicBrainz = stringResource(Res.string.result_source_musicbrainz, formatYear(mb))
+        val caution = MaterialTheme.colorScheme.caution
+        val line = buildAnnotatedString {
+            append(tag)
+            append(separator)
+            if (outdated) withStyle(SpanStyle(color = caution)) { append(musicBrainz) } else append(musicBrainz)
+        }
+        Text(line, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
     }
 }
 
@@ -408,7 +449,7 @@ private fun TimelineOutcomeView(session: GameSession) {
     }
 }
 
-/** Closest Year: who won the round; several on a tie that both score (feedback round 36). */
+/** Closest Year: who won the round; several on a tie that both score. */
 @Composable
 private fun RoundWinners(session: GameSession) {
     val winners = session.state.round?.winnerIds.orEmpty().map(session::player)
@@ -434,7 +475,7 @@ private fun ClosestOutcomeView(session: GameSession) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PlayerAvatar(p, 32.dp)
             Text(p.name, modifier = Modifier.weight(1f))
-            // A fixed-width column for "x years off", so the years line up (feedback round 15).
+            // A fixed-width column for "x years off", so the years line up.
             Text(formatYear(g.year), style = MaterialTheme.typography.titleMedium)
             Text(
                 abs(g.year - round.song.year).let { d -> pluralStringResource(Res.plurals.years_off, d, d) },
@@ -443,7 +484,7 @@ private fun ClosestOutcomeView(session: GameSession) {
                 maxLines = 1,
                 modifier = Modifier.width(96.dp),
             )
-            // Rank and Distance: the points this guess earns (feedback round 36).
+            // Rank and Distance: the points this guess earns.
             round.points[g.playerId]?.let { points ->
                 Text(
                     stringResource(Res.string.scoreboard_gained, points),
@@ -473,7 +514,7 @@ private val OutcomeTone.color: Color
         OutcomeTone.LOST -> Color(0xFFE53935)
     }
 
-/** Stars the revealed song into Favorites, or takes it out again (feedback round 52). */
+/** Stars the revealed song into Favorites, or takes it out again. */
 @Composable
 private fun FavoriteStar(songId: Long, modifier: Modifier = Modifier) {
     val playlists = LocalAppContainer.current.playlists

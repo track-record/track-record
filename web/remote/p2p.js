@@ -34,7 +34,7 @@ export function p2pTransport({ strategy, roomId, secret, hostKey, clientId, onIm
   const proven = new Map();
   /**
    * A peer's audio stream that came before it proved the host key: a guest joining while a local song
-   * plays gets the stream at once (feedback round 51).
+   * plays gets the stream at once.
    */
   const streams = new Map();
   /** Peer id → the answer to our challenge, while waiting for it. */

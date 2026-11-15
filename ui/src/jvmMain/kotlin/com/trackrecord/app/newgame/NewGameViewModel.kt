@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
-/** New game's steps in order: players, songs, mode, rules (feedback round 32). */
+/** New game's steps in order: players, songs, mode, rules. */
 enum class SetupStep { PLAYERS, POOL, MODE, SETTINGS }
 
 data class NewGameState(
@@ -45,10 +45,19 @@ data class NewGameState(
     val canAddPlayer: Boolean get() = players.size < GameEngine.MAX_PLAYERS
     val enoughPlayers: Boolean get() = players.size >= GameEngine.MIN_PLAYERS
 
+    /** One player alone (D-380). */
+    val solo: Boolean get() = players.size == 1
+
+    /**
+     * The rules the game starts with and the rules step shows: alone, only those that apply ([GameSettings.forSolo]).
+     * [settings] keeps the choices for a game with others, so adding a second player brings them back.
+     */
+    val gameSettings: GameSettings get() = if (solo) settings.forSolo() else settings
+
     /** Songs a game needs to start (DECISIONS.md D-005). */
     val songsNeeded: Int
         get() = when (mode) {
-            GameMode.TIMELINE -> players.size * settings.timeline.startingCards + 1
+            GameMode.TIMELINE -> players.size * gameSettings.timeline.startingCards + 1
             GameMode.CLOSEST_YEAR -> 1
         }
 }
@@ -74,7 +83,7 @@ class NewGameViewModel(
     val state: StateFlow<NewGameState> = _state.asStateFlow()
 
     init {
-        // Guests on the remote page can pick their player while this setup is open (feedback round 32).
+        // Guests on the remote page can pick their player while this setup is open.
         viewModelScope.launch { _state.map { it.players }.distinctUntilChanged().collect(controller::setLobby) }
     }
 
@@ -177,7 +186,7 @@ class NewGameViewModel(
         if (s.starting) return
         _state.update { it.copy(starting = true, error = null) }
         viewModelScope.launch {
-            when (val r = controller.start(s.mode, s.players, s.settings)) {
+            when (val r = controller.start(s.mode, s.players, s.gameSettings)) {
                 StartResult.Started -> {
                     setups.saveLastSetup(SetupMemory(s.mode, s.players, s.settings))
                     _state.update { it.copy(starting = false) }

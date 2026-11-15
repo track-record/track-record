@@ -51,7 +51,7 @@ import com.trackrecord.app.ui.components.SectionCard
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * The library's info button (feedback round 45). [highlight] after the first visit's explanation: a
+ * The library's info button. [highlight] after the first visit's explanation: a
  * pulsing circle in the primary colour shows where to find it again.
  */
 @Composable
@@ -78,7 +78,7 @@ fun LibraryInfoButton(highlight: Boolean, onClick: () -> Unit) {
 
 private const val PULSE_MS = 900
 
-/** How songs get into the library: own files, Deezer and Spotify, years and verification, playlists (feedback round 45). */
+/** How songs get into the library: own files, Deezer and Spotify, years and verification, playlists. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryInfoSheet(onDismiss: () -> Unit, defaultsMissing: Boolean = true, importing: Boolean = false, onGetDefaults: () -> Unit = {}) {
@@ -88,7 +88,7 @@ fun LibraryInfoSheet(onDismiss: () -> Unit, defaultsMissing: Boolean = true, imp
         Res.string.library_info_years to listOf(Res.string.library_info_years_1, Res.string.library_info_years_2, Res.string.library_info_years_3),
         Res.string.library_info_playlists to listOf(Res.string.library_info_playlists_1, Res.string.library_info_playlists_2),
     )
-    // Fully open at a fixed height, like the game's info sheet (feedback rounds 37 to 39).
+    // Fully open at a fixed height, like the game's info sheet.
     AppSheet(stringResource(Res.string.library_info_title), onDismiss = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             sheetBody().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -97,7 +97,7 @@ fun LibraryInfoSheet(onDismiss: () -> Unit, defaultsMissing: Boolean = true, imp
             for ((title, paragraphs) in sections) {
                 SectionCard(stringResource(title)) {
                     paragraphs.forEach { Text(stringResource(it), style = MaterialTheme.typography.bodyMedium) }
-                    // One playlist of hits per decade from Deezer, for a library to start with (feedback round 48).
+                    // One playlist of hits per decade from Deezer, for a library to start with.
                     if (title == Res.string.library_info_playlists) {
                         Button(onClick = onGetDefaults, enabled = defaultsMissing && !importing, modifier = Modifier.fillMaxWidth()) {
                             Text(stringResource(if (defaultsMissing) Res.string.library_get_defaults else Res.string.library_defaults_added))

@@ -10,12 +10,13 @@ import kotlinx.serialization.Serializable
  * until both are done and the new shape is recorded.
  */
 object RemoteProtocol {
-    const val VERSION = 10
+    const val VERSION = 12
 
     /** Every action type a page may send to POST /api/action. */
     val ACTIONS: Set<String> = setOf(
         "select", "dragSelect", "lockIn", "vetoStart", "vetoCancel", "veto", "decline", "guess", "skip", "buy", "togglePlay", "replay",
         "hostReveal", "hostNext", "hostUndo", "hostNamed", "hostYear", "hostAdjust", "hostClip", "hostOffset", "hostWhole", "hostRemove", "hostSeek", "hostStopLookups", "hostFavorite",
+        "hostLookUp",
     )
 }
 
@@ -25,22 +26,22 @@ object RemoteProtocol {
 data class HostSnapshot(
     val game: HostGame?,
     val theme: ThemeInfo,
-    /** The host is in the menu (not on a game screen): guests wait and can't act (feedback round 9). */
+    /** The host is in the menu (not on a game screen): guests wait and can't act. */
     val paused: Boolean = false,
-    /** The host's "tap a gap twice to confirm"; each guest phone may change it (feedback round 11). */
+    /** The host's "tap a gap twice to confirm"; each guest phone may change it. */
     val confirmTwice: Boolean = false,
-    /** The host's "show cover art"; each guest phone may change it (feedback round 12). */
+    /** The host's "show cover art"; each guest phone may change it. */
     val showCovers: Boolean = true,
     /**
-     * The players of the game the host is setting up in New game, or null (feedback round 32): guests
+     * The players of the game the host is setting up in New game, or null: guests
      * pick theirs before it starts. While set, it stands in for any earlier game.
      */
     val lobby: List<PlayerInfo>? = null,
-    /** The game's lookups and covers, for the co-host's settings (feedback round 48). */
+    /** The game's lookups and covers, for the co-host's settings. */
     val requests: RequestsView? = null,
 )
 
-/** A game's requests (feedback round 48): years and covers, done of total, and whether they were stopped. */
+/** A game's requests: years and covers, done of total, and whether they were stopped. */
 @Serializable
 data class RequestsView(val yearsDone: Int, val yearsTotal: Int, val coversDone: Int, val coversTotal: Int, val stopped: Boolean)
 
@@ -55,14 +56,16 @@ data class HostGame(
     val audio: AudioInfo = AudioInfo(),
     /** What internet guests play themselves (SPEC v4), or null when nothing is loaded. */
     val listen: ListenInfo? = null,
-    /** The info sheet, in the host's language (feedback round 36). */
+    /** The info sheet, in the host's language. */
     val info: InfoView? = null,
-    /** The revealed song is in Favorites (feedback round 52). */
+    /** The revealed song is in Favorites. */
     val favorite: Boolean = false,
+    /** The revealed song's year card, worded by the host app (D-385); null outside the reveal. */
+    val yearDetails: YearDetailsView? = null,
 )
 
 /**
- * The game's info sheet (feedback round 36), worded by the host app: how the mode being played works,
+ * The game's info sheet, worded by the host app: how the mode being played works,
  * its settings, and the playlists the songs come from.
  */
 @Serializable
@@ -72,8 +75,8 @@ data class InfoView(
     val included: List<String>,
     val excluded: List<String>,
     /**
-     * The rules in brief, for the popup under a guest's info button when a game starts or the guest joins
-     * (feedback round 51). **Bold** parts are marked with double asterisks.
+     * The rules in brief, for the popup under a guest's info button when a game starts or the guest joins.
+     * **Bold** parts are marked with double asterisks.
      */
     val brief: List<String> = emptyList(),
 )
@@ -84,7 +87,7 @@ data class InfoLine(val label: String, val value: String)
 /**
  * What a guest may play (SPEC v4; D-181): a Deezer preview from [url], or a local file, at file position [positionMs]
  * as of the host's wall clock [atMs], playing or not. Internet guests hear a local file as the room's stream; Wi-Fi
- * guests, who hear the host's speaker unless they turn the sound on, load it by [file] (feedback round 59).
+ * guests, who hear the host's speaker unless they turn the sound on, load it by [file].
  */
 @Serializable
 data class ListenInfo(
@@ -100,7 +103,7 @@ data class ListenInfo(
 
 /**
  * The host's player. [positionMs] is where it was when this was sent; the page moves the progress bar
- * on by itself while [playing], so the host only sends changes (feedback round 11). [error] gives the
+ * on by itself while [playing], so the host only sends changes. [error] gives the
  * same note under the bar as on the host (DESIGN-REVIEW LY-05).
  */
 @Serializable
@@ -118,7 +121,7 @@ data class AudioInfo(
 )
 
 /**
- * [link]: the song's page on Deezer for streamed songs, shown to guests after reveal (feedback round 21).
+ * [link]: the song's page on Deezer for streamed songs, shown to guests after reveal.
  * [album], [tagYear] and [musicBrainzYear] fill the reveal card as on the host (DESIGN-REVIEW IF-01).
  */
 data class SongText(
@@ -212,7 +215,7 @@ data class Takeover(val client: String, val player: String, val device: String? 
 data class ClientView(
     val theme: ThemeInfo,
     val game: GameView?,
-    /** No game yet, the host is setting one up: its players, to pick one (feedback round 32). */
+    /** No game yet, the host is setting one up: its players, to pick one. */
     val lobby: List<LobbyPlayer>? = null,
     /** The player this phone controls, if it is in the current game. */
     val me: String?,
@@ -226,7 +229,7 @@ data class ClientView(
     val confirmTwice: Boolean = false,
     /** The host's default for showing album covers. */
     val showCovers: Boolean = true,
-    /** After reveal: this phone's outline, "WON", "LOST", "OTHER" or null (feedback rounds 15, 16, 19). */
+    /** After reveal: this phone's outline, "WON", "LOST", "OTHER" or null. */
     val tone: String? = null,
     /** Internet guests only: what to play (SPEC v4). */
     val listen: ListenInfo? = null,
@@ -238,9 +241,9 @@ data class ClientView(
     val blocked: Boolean = false,
     /** This phone has the host controls (co-host, D-189). */
     val coHost: Boolean = false,
-    /** Co-host only: the game's lookups and covers, which it can stop (feedback round 48). */
+    /** Co-host only: the game's lookups and covers, which it can stop. */
     val requests: RequestsView? = null,
-    /** This phone's player was removed from the game: it watches (feedback round 36). */
+    /** This phone's player was removed from the game: it watches. */
     val left: Boolean = false,
 )
 
@@ -253,7 +256,7 @@ data class GameView(
     val round: Int?,
     val target: Int,
     val players: List<PlayerView>,
-    /** Players removed mid-game, greyed out after the others (feedback round 36). */
+    /** Players removed mid-game, greyed out after the others. */
     val removed: List<PlayerView> = emptyList(),
     val activeId: String?,
     /** Timeline: every player's revealed cards; Closest Year: every player's collection (removed players' too). */
@@ -267,14 +270,14 @@ data class GameView(
     val vetoEligible: List<String>,
     val vetoWindow: RevealInfo?,
     val guessOrder: List<String>,
-    /** With hidden guesses, other players' years are left out before the reveal (feedback round 36). */
+    /** With hidden guesses, other players' years are left out before the reveal. */
     val guesses: List<GuessView>,
     val currentGuesser: String?,
     /** Closest Year: who hasn't guessed yet; with hidden guesses any of them may guess now. */
     val waitingFor: List<String> = emptyList(),
-    /** Closest Year: everyone guesses at once without seeing the others' years (feedback round 36). */
+    /** Closest Year: everyone guesses at once without seeing the others' years. */
     val hiddenGuesses: Boolean = false,
-    /** Closest Year scoring: "CLOSEST", "RANK" or "DISTANCE" (feedback round 36). */
+    /** Closest Year scoring: "CLOSEST", "RANK" or "DISTANCE". */
     val scoring: String = "CLOSEST",
     val minYear: Int,
     val maxYear: Int,
@@ -286,11 +289,11 @@ data class GameView(
     val skipCost: Int?,
     /** Buying a card: vetoes (Timeline) or skips (Closest Year, feedback round 27); null when off. */
     val buyCost: Int?,
-    /** Rank and Distance buy these points instead of a card: "Buy 4 points" (feedback round 50). */
+    /** Rank and Distance buy these points instead of a card: "Buy 4 points". */
     val buyPoints: Int? = null,
     /** A card just bought, shown to everyone (it is revealed on the host too). */
     val purchase: PurchaseView?,
-    /** A song just skipped, shown to everyone like a bought card (feedback round 27). */
+    /** A song just skipped, shown to everyone like a bought card. */
     val skipped: PurchaseView? = null,
     /** Closest Year skips are part of this game (players start with some or can earn them). */
     val closestSkips: Boolean = false,
@@ -302,13 +305,15 @@ data class GameView(
     val startOffset: Int = 0,
     /** After reveal, when the naming bonus is on: who may be marked, and who is (for the co-host, D-189). */
     val naming: NamingView? = null,
-    /** After reveal: the scores after this round (feedback round 12). */
+    /** After reveal: the scores after this round. */
     val scoreboard: List<ScoreView> = emptyList(),
     val winners: List<String>,
     /** Closest Year after reveal: the round's winners and, in Rank and Distance, each guess's points. */
     val roundWinners: List<String> = emptyList(),
     val roundPoints: Map<String, Int> = emptyMap(),
     val info: InfoView? = null,
+    /** One player alone (D-380): nobody vetoes, and Song Order's vetoes are called jokers. */
+    val solo: Boolean = false,
 )
 
 @Serializable
@@ -325,7 +330,7 @@ data class PlayerView(
     val remote: Boolean,
     /** Closest Year skips left. */
     val skips: Int = 0,
-    /** Rank and Distance points (feedback round 36). */
+    /** Rank and Distance points. */
     val points: Int = 0,
     /** What counts towards the target: cards, wins or points. */
     val score: Int = 0,
@@ -335,16 +340,16 @@ data class PlayerView(
 
 /**
  * [callers]: Timeline's "who may call out" (ACTIVE, VETOERS, ALL) for the host's hint below the marks,
- * null in Closest Year (feedback round 26).
+ * null in Closest Year.
  */
-/** A player of the game being set up (feedback round 32). */
+/** A player of the game being set up. */
 @Serializable
 data class LobbyPlayer(val id: String, val name: String, val initials: String, val color: String, val onColor: String, val photo: Boolean, val photoKey: String? = null)
 
 @Serializable
 data class NamingView(val candidates: List<String>, val namedBy: String?, val callers: String? = null)
 
-/** A bought or skipped card; a purchase in Rank and Distance has [points] and no card (feedback round 50). */
+/** A bought or skipped card; a purchase in Rank and Distance has [points] and no card. */
 @Serializable
 data class PurchaseView(val playerId: String, val card: CardView?, val points: Int = 0)
 
@@ -359,7 +364,7 @@ data class ScoreView(val playerId: String, val score: Int, val gained: Int, val 
 @Serializable
 data class VetoView(val playerId: String, val slot: Int)
 
-/** [year] is null for another player's hidden guess (feedback round 36). */
+/** [year] is null for another player's hidden guess. */
 @Serializable
 data class GuessView(val playerId: String, val year: Int?)
 
@@ -374,7 +379,7 @@ data class RevealedView(
     /** Closest Year: every round winner (several on a tie that both score, feedback round 36). */
     val outcomePlayers: List<String> = emptyList(),
     val songId: Long? = null,
-    /** "Open in Deezer" for streamed songs (feedback round 21). */
+    /** "Open in Deezer" for streamed songs. */
     val link: String? = null,
     /** The reveal card's details, as on the host (DESIGN-REVIEW IF-01): the album, and both years when they differ. */
     val album: String? = null,
@@ -382,9 +387,44 @@ data class RevealedView(
     val musicBrainzYear: Int? = null,
     /** The year was corrected this round ("Year corrected"). */
     val corrected: Boolean = false,
-    /** The song is in Favorites; the host and a co-host can star it (feedback round 52). */
+    /** The song is in Favorites; the host and a co-host can star it. */
     val favorite: Boolean = false,
+    /** The year card, as on the host (D-385); it doesn't move the view's version. */
+    val details: YearDetailsView? = null,
 )
+
+/**
+ * The revealed song's year sources as the host's year card shows them, worded by the host app (D-385): the library's
+ * year now with its source, how MusicBrainz checked the song, every year source, and Look up.
+ */
+@Serializable
+data class YearDetailsView(
+    /** The library's year now, or "Missing year" ([missing]). */
+    val year: String,
+    val missing: Boolean = false,
+    /** "Source: MusicBrainz". */
+    val source: String? = null,
+    /** How MusicBrainz checked the song; [outdated] (in yellow) when under older rules. */
+    val verification: String,
+    val outdated: Boolean = false,
+    val lines: List<YearSourceLine> = emptyList(),
+    /** "Matched by audio fingerprint (AcoustID)", when it was. */
+    val note: String? = null,
+    /** Look up is offered: not verified under the current rules, or a Look up ran here. */
+    val lookUp: Boolean = false,
+    val lookingUp: Boolean = false,
+    /** How the last Look up went; [lookupError] in the error colour. */
+    val lookupText: String? = null,
+    val lookupError: Boolean = false,
+    /** AcoustID rejects the key: fingerprints are off. */
+    val warning: String? = null,
+    /** Edit year starts here: the library's year, which a Look up may have changed. */
+    val editYear: Int? = null,
+)
+
+/** One year source in [YearDetailsView]: its name and year; [caution] in yellow. */
+@Serializable
+data class YearSourceLine(val label: String, val value: String, val caution: Boolean = false)
 
 // ---- What the guest page sends ----
 
@@ -408,7 +448,7 @@ data class ActionRequest(
     val delta: Int? = null,
     /** "hostSeek": where in the clip to jump to. */
     val positionMs: Long? = null,
-    /** "hostFavorite": the revealed song, starred or not (feedback round 52). */
+    /** "hostFavorite": the revealed song, starred or not. */
     val song: Long? = null,
     val favorite: Boolean? = null,
     /** The round the phone saw, for actions that only depend on the round ("decline", "vetoStart"). */
@@ -429,7 +469,7 @@ sealed interface HostCommand {
     /** The clip length limit in seconds, or null for none (D-191). */
     data class ClipLimit(val seconds: Int?) : HostCommand
 
-    /** The start offset in seconds, from the next song (feedback round 34). */
+    /** The start offset in seconds, from the next song. */
     data class StartOffset(val seconds: Int) : HostCommand
 
     /** After the reveal: the whole song (or Deezer preview) instead of the clip. */
@@ -438,14 +478,17 @@ sealed interface HostCommand {
     /** After the reveal: jumps to [positionMs] in what plays, like dragging the host's bar. */
     data class Seek(val positionMs: Long) : HostCommand
 
-    /** Takes a player out of the game, as from the host's scoreboard (feedback round 36). */
+    /** Takes a player out of the game, as from the host's scoreboard. */
     data class Remove(val playerId: String) : HostCommand
 
-    /** Stops the game's lookups and covers for the rest of the game (feedback round 48). */
+    /** Stops the game's lookups and covers for the rest of the game. */
     data object StopLookups : HostCommand
 
-    /** Stars or unstars the revealed song [songId] (feedback round 52). */
+    /** Stars or unstars the revealed song [songId]. */
     data class Favorite(val songId: Long, val favorite: Boolean) : HostCommand
+
+    /** Look up the revealed song [songId] on MusicBrainz now (D-385). */
+    data class LookUp(val songId: Long) : HostCommand
 }
 
 @Serializable

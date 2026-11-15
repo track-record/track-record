@@ -70,7 +70,7 @@ class GameFlowTest {
             assertIs<ReduceResult.Rejected>(r)
             return r.reason
         }
-        assertEquals(RejectReason.TOO_FEW_PLAYERS, reason(listOf("A"), 10))
+        assertEquals(RejectReason.TOO_FEW_PLAYERS, reason(emptyList(), 10))
         assertEquals(RejectReason.TOO_MANY_PLAYERS, reason((1..11).map { "P$it" }, 100))
         assertEquals(RejectReason.DUPLICATE_PLAYER, reason(listOf("A", "A"), 10))
         assertEquals(RejectReason.POOL_TOO_SMALL, reason(listOf("A", "B"), 2))

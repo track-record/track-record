@@ -40,13 +40,13 @@ import java.io.File
 
 /**
  * Circle in the player's color with their initials, or their photo ringed in their color. Never color
- * alone: the photo identifies the player, so it shows no initials (feedback round 11). On a fill of the
+ * alone: the photo identifies the player, so it shows no initials. On a fill of the
  * player's own colour, [ring] outlines it so it doesn't vanish (DESIGN-REVIEW UX-02).
  */
 @Composable
 fun PlayerAvatar(player: GamePlayer, size: Dp = 40.dp, modifier: Modifier = Modifier, ring: Color? = null) {
     // Decoded once per photo for every chip, and off the main thread (REVIEW.md P-04).
-    // Keyed by the path: a chip that changes player (the next guesser) shows the new photo (feedback round 49).
+    // Keyed by the path: a chip that changes player (the next guesser) shows the new photo.
     val path = player.photoPath
     val images = LocalAppContainer.current.platform.images
     val photo = remember(path) { mutableStateOf(path?.let(Avatars::cached)) }

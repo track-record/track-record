@@ -4,13 +4,14 @@ import com.trackrecord.data.db.PlayerGameEntity
 import com.trackrecord.data.db.PlayerRoundEntity
 import com.trackrecord.data.stats.ModeStats
 import com.trackrecord.data.stats.PlayerStats
+import com.trackrecord.data.stats.StatsKey
 import com.trackrecord.data.stats.YearBar
 import com.trackrecord.engine.GameMode
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Player stats from the recorded rounds and games (feedback round 47). */
+/** Player stats from the recorded rounds and games. */
 class PlayerStatsTest {
     private fun round(mode: GameMode, year: Int, played: Boolean = true, off: Int? = null, chance: Boolean = false, named: Boolean = false, won: Boolean = false) =
         PlayerRoundEntity(profileId = 1, game = 1, round = 1, mode = mode.name, year = year, played = played, yearsOff = off, namingChance = chance, named = named, won = won)
@@ -30,6 +31,25 @@ class PlayerStatsTest {
         )
         assertEquals(ModeStats(games = 2, wins = 1, rounds = 1, roundsWon = 2), stats.modes[GameMode.TIMELINE])
         assertEquals(ModeStats(games = 1, wins = 0, rounds = 1), stats.modes[GameMode.CLOSEST_YEAR])
+    }
+
+    @Test
+    fun `solo games have their own line without wins, and their guesses count for accuracy`() {
+        // D-380.
+        val solo = StatsKey.of(GameMode.CLOSEST_YEAR, solo = true)
+        val stats = PlayerStats.of(
+            listOf(
+                round(GameMode.CLOSEST_YEAR, 1990, off = 2, won = true).copy(mode = solo),
+                round(GameMode.CLOSEST_YEAR, 1991, off = 6).copy(mode = solo),
+                round(GameMode.CLOSEST_YEAR, 1992, off = 4),
+            ),
+            listOf(game(GameMode.CLOSEST_YEAR, true).copy(mode = solo), game(GameMode.CLOSEST_YEAR, false)),
+        )
+        assertEquals(ModeStats(games = 1, wins = 0, rounds = 1), stats.modes[GameMode.CLOSEST_YEAR], "untouched by solo games")
+        assertEquals(ModeStats(games = 1, wins = 0, rounds = 2, roundsWon = 1), stats.solo[GameMode.CLOSEST_YEAR])
+        assertEquals(3, stats.guesses)
+        assertEquals(4.0, stats.meanYearsOff)
+        assertEquals(GameMode.TIMELINE, StatsKey.modeOf(StatsKey.of(GameMode.TIMELINE, solo = true)))
     }
 
     @Test

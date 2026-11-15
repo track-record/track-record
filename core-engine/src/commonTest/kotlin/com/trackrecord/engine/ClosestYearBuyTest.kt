@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Closest Year buys, the Skips & Buys preset and the skipped song's info (feedback round 27). */
+/** Closest Year buys, the Skips & Buys preset and the skipped song's info. */
 class ClosestYearBuyTest {
     private val three = listOf("Anna", "Ben", "Cara")
 

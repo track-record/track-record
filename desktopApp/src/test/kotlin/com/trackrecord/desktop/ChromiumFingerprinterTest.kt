@@ -10,7 +10,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * The desktop's fingerprints (feedback round 55) must be what AcoustID expects: Chromium's decoding and the Kotlin
+ * The desktop's fingerprints must be what AcoustID expects: Chromium's decoding and the Kotlin
  * Chromaprint, compared with `fpcalc` 1.6.1 on the same files, as the Android test does (:fingerprint,
  * AudioFingerprinterTest). Decoders and resamplers differ slightly, so the raw values are compared bit by bit: both
  * come within 0.1% of fpcalc's (MP3 0.01%, AAC 0.07%), so more than 2% means something broke.

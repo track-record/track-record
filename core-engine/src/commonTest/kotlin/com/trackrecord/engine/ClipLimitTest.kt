@@ -5,7 +5,7 @@ import com.trackrecord.engine.GameAction.SetStartOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Changing the clip length mid-game (feedback round 25; D-191). */
+/** Changing the clip length mid-game (D-191). */
 class ClipLimitTest {
     private val game = timelineGame(listOf("Anna" to listOf(1970), "Ben" to listOf(1990)), song = 1985)
 
@@ -15,7 +15,7 @@ class ClipLimitTest {
         assertEquals(null, game.act(SetClipLimit(30)).act(SetClipLimit(null)).settings.common.clipLimitSeconds)
         assertEquals(RejectReason.INVALID_SETTINGS, game.rejectReason(SetClipLimit(5)))
         assertEquals(RejectReason.INVALID_SETTINGS, game.rejectReason(SetClipLimit(200)))
-        assertEquals(15, game.act(SetClipLimit(15)).settings.common.clipLimitSeconds, "5 s steps (feedback round 34)")
+        assertEquals(15, game.act(SetClipLimit(15)).settings.common.clipLimitSeconds, "5 s steps")
     }
 
     @Test

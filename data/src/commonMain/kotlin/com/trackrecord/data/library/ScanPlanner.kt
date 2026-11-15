@@ -12,7 +12,8 @@ object ScanPlanner {
         val deletions: List<Long>,
     )
 
-    fun plan(existing: List<SongScanState>, found: List<FoundFile>): Plan {
+    /** [unreadable]: subfolders' URIs (ending in "/") the scan couldn't read; their songs aren't taken as gone. */
+    fun plan(existing: List<SongScanState>, found: List<FoundFile>, unreadable: List<String> = emptyList()): Plan {
         val byUri = existing.associateBy { it.uri }
         val foundUris = found.mapTo(HashSet()) { it.uri }
         var unchanged = 0
@@ -25,7 +26,7 @@ object ScanPlanner {
                 toRead += file to (row?.id ?: 0L)
             }
         }
-        val deletions = existing.filter { it.uri !in foundUris }.map { it.id }
+        val deletions = existing.filter { s -> s.uri !in foundUris && unreadable.none { s.uri.startsWith(it) } }.map { it.id }
         return Plan(toRead, unchanged, deletions)
     }
 }

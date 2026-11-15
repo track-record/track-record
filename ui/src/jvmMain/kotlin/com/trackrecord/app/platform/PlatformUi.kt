@@ -42,7 +42,7 @@ interface PlatformUi {
     val share: ((text: String) -> Unit)?
 
     /**
-     * The buttons that take or choose a player's photo, with the crop dialog (feedback round 16); [onPhoto] gets the
+     * The buttons that take or choose a player's photo, with the crop dialog; [onPhoto] gets the
      * saved photo's path. Null where photos can't be taken (the desktop for now): imported photos still show.
      */
     val photoButtons: (@Composable (onPhoto: (path: String) -> Unit) -> Unit)?

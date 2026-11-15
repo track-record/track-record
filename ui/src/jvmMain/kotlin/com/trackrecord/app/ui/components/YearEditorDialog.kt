@@ -59,7 +59,7 @@ fun YearEditorDialog(
 
 /**
  * The same editor inline, for a bottom sheet (the reveal's year sheet). A dialog opened while the sheet
- * was closing got no working keyboard and let the system bars cover it (feedback round 5, D-088).
+ * was closing got no working keyboard and let the system bars cover it (D-088).
  */
 @Composable
 fun YearEditorInline(initialYear: Int?, currentYear: Int, onCancel: () -> Unit, onConfirm: (Int) -> Unit) {

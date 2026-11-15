@@ -17,6 +17,7 @@ import com.trackrecord.data.musicbrainz.MusicBrainzClient
 import com.trackrecord.data.musicbrainz.MusicBrainzLookup
 import com.trackrecord.data.musicbrainz.RateLimitedQueue
 import com.trackrecord.data.musicbrainz.ServiceUnavailableException
+import com.trackrecord.data.musicbrainz.UrgentRequests
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -114,7 +115,7 @@ class MusicBrainzTest {
         assertEquals("ok", queue.get("https://x").body)
         queue.get("https://x")
         val gaps = fetcher.calls.zipWithNext { a, b -> b.first - a.first }
-        // Another phone on the same network may share the limit: no jump back to 1 s (feedback round 28), but halved per success (round 48).
+        // Another phone on the same network may share the limit: no jump back to 1 s, but halved per success (round 48).
         assertEquals(listOf(2_000L, 4_000L, 8_000L, 4_000L), gaps, "one attempt per call; backoff 2/4/8 s, then half after a success")
     }
 
@@ -128,9 +129,9 @@ class MusicBrainzTest {
         assertEquals(8_000L, queue.currentIntervalMs)
         code = 200
         queue.get("https://x")
-        assertEquals(4_000L, queue.currentIntervalMs, "half after a success (feedback round 48)")
+        assertEquals(4_000L, queue.currentIntervalMs, "half after a success")
         repeat(2) { queue.get("https://x") }
-        assertEquals(1_000L, queue.currentIntervalMs, "back to normal within a few requests (feedback round 47)")
+        assertEquals(1_000L, queue.currentIntervalMs, "back to normal within a few requests")
         repeat(20) { queue.get("https://x") }
         assertEquals(1_000L, queue.currentIntervalMs, "never below the normal spacing")
         code = 503
@@ -138,7 +139,7 @@ class MusicBrainzTest {
         assertEquals(2_000L, queue.currentIntervalMs)
     }
 
-    // --- Requests under way at once (feedback round 48) ---
+    // --- Requests under way at once ---
 
     /** Answers after [latencyMs] of (virtual) time with [code], noting when each request started. */
     private class SlowFetcher(private val clock: () -> Long, private val latencyMs: Long, var code: Int = 200) : HttpFetcher {
@@ -161,6 +162,25 @@ class MusicBrainzTest {
         (1..4).map { async { queue.get("https://x") } }.awaitAll()
         assertEquals(listOf(0L, 1_000L, 2_000L, 3_000L), fetcher.starts, "one start per second; the fourth when the first answer is in")
         assertEquals(3, fetcher.mostAtOnce)
+    }
+
+    @Test
+    fun `an urgent request starts before the others waiting, without a place among those in flight`() = runTest {
+        // D-382: "Look up" at the reveal or in a song's details while a verification fills the queue.
+        val starts = mutableListOf<String>()
+        val fetcher = object : HttpFetcher {
+            override suspend fun get(url: String): HttpResponse {
+                starts += url
+                delay(3_000)
+                return HttpResponse(200, "")
+            }
+        }
+        val queue = RateLimitedQueue(fetcher, { testScheduler.currentTime }, { delay(it) })
+        val ordinary = (1..5).map { n -> async { queue.get("n$n") } }
+        delay(100) // n1 is under way, n2 waits for its start, n3 for its turn, n4 and n5 for a place in flight
+        val urgent = async(UrgentRequests) { queue.get("urgent") }
+        (ordinary + urgent).awaitAll()
+        assertEquals(listOf("n1", "n2", "urgent", "n3", "n4", "n5"), starts, "only n2 was already waiting for its start")
     }
 
     @Test
@@ -212,7 +232,7 @@ class MusicBrainzTest {
         clock.sleep(61_000)
         code = 200
         queue.get("https://x")
-        assertEquals(1_000L, queue.currentIntervalMs, "only slowed down again when something fails (feedback round 29)")
+        assertEquals(1_000L, queue.currentIntervalMs, "only slowed down again when something fails")
     }
 
     @Test
@@ -236,7 +256,7 @@ class MusicBrainzTest {
         val urls = fetcher.calls.map { decoded(it.second) }
         assertEquals(1, urls.count { "rid:(" in it }, "one batched recording-id search")
         assertEquals(1, urls.count { "isrc:(" in it }, "one batched ISRC search")
-        assertTrue(urls.any { "rid:(" !in it && "isrc:(" !in it }, "and the name search, though the id agrees with the tags (feedback round 47)")
+        assertTrue(urls.any { "rid:(" !in it && "isrc:(" !in it }, "and the name search, though the id agrees with the tags")
         assertTrue(cache.map.values.single().nameSearched)
         assertEquals(1975, cache.map.values.single().year)
     }
@@ -282,8 +302,8 @@ class MusicBrainzTest {
         assertEquals(2, fetcher.calls.size, "one search plus one narrowing; the second page is complete")
     }
 
-    private fun recJson(id: String, title: String, artist: String, date: String) =
-        """{"id":"$id","title":"$title","first-release-date":"$date","artist-credit":[{"name":"$artist"}]}"""
+    private fun recJson(id: String, title: String, artist: String, date: String, isrcs: List<String> = emptyList()) =
+        """{"id":"$id","title":"$title","first-release-date":"$date","artist-credit":[{"name":"$artist"}],"isrcs":[${isrcs.joinToString(",") { "\"$it\"" }}]}"""
 
     private fun song(id: Long, title: String, artist: String, mbid: String?, tagYear: Int?, isrc: String? = null) = queen.copy(
         id = id, uri = "u$id", title = title, artist = artist, mbRecordingId = mbid, isrc = isrc, tagYear = tagYear, tagOriginalYear = null,
@@ -387,6 +407,40 @@ class MusicBrainzTest {
     }
 
     @Test
+    fun `a song without an artist counts as checked once looked up, with no name search to make`() = runBlocking {
+        // REVIEW-3 B-16: stored without the name search, it counted as unchecked for ever, and every game redid it.
+        val clock = FakeClock()
+        val cache = MemoryCache()
+        val fetcher = FakeFetcher(clock, respond = ::fixtureResponses)
+        val lookup = lookupWith(clock, fetcher, cache)
+        val song = queen.copy(artist = null)
+        lookup.lookup(song)
+        assertTrue(cache.map.values.single().nameSearched, "its check is complete")
+        assertTrue(lookup.checked(song))
+        val calls = fetcher.calls.size
+        val stored = cache.map.values.single()
+        lookup.lookup(song)
+        assertEquals(calls, fetcher.calls.size)
+        assertEquals(stored, cache.map.values.single(), "not stored again")
+        // Results stored before the fix count too.
+        cache.map[stored.songKey] = stored.copy(nameSearched = false)
+        assertTrue(lookup.checked(song))
+        val withArtist = MusicBrainzLookup.keyOf(queen)
+        cache.map[withArtist] = stored.copy(songKey = withArtist, nameSearched = false)
+        assertTrue(!lookup.checked(queen), "with an artist, the name search is still needed")
+    }
+
+    @Test
+    fun `one answer that can't be read doesn't end the run`() = runBlocking {
+        // REVIEW-3 B-21: it stopped the whole run, and the next run stopped at the same song.
+        val clock = FakeClock()
+        var odd = 1
+        val fetcher = FakeFetcher(clock) { url -> if (odd-- > 0) HttpResponse(200, "<html>maintenance</html>") else fixtureResponses(url) }
+        val lookup = lookupWith(clock, fetcher)
+        assertEquals(LookupResult.Match(1975), lookup.lookup(queen))
+    }
+
+    @Test
     fun `no match is cached and retried after 30 days`() = runBlocking {
         val clock = FakeClock()
         val fetcher = FakeFetcher(clock) { HttpResponse(200, """{"recordings":[]}""") }
@@ -473,7 +527,7 @@ class MusicBrainzTest {
         val cache = MemoryCache()
         // Five search batches (8 songs each) fail in turn until the limit of failures in a row.
         val results = lookupWith(clock, fetcher, cache).lookupAll(titled(1L..40L))
-        assertTrue(results.values.all { it == LookupResult.Unavailable(LookupService.MUSICBRAINZ) }, "the warning to try later (feedback round 47)")
+        assertTrue(results.values.all { it == LookupResult.Unavailable(LookupService.MUSICBRAINZ) }, "the warning to try later")
         assertEquals(40, results.size)
         assertEquals(MusicBrainzLookup.MAX_FAILURES_IN_ROW, fetcher.calls.size)
         assertTrue(cache.map.isEmpty())
@@ -537,7 +591,7 @@ class MusicBrainzTest {
         assertEquals(LookupResult.Match(1971), results[1L])
     }
 
-    // --- Faster searches (feedback round 48) ---
+    // --- Faster searches ---
 
     @Test
     fun `titles and artists are searched without remaster notes and featured artists`() = runBlocking {
@@ -563,6 +617,28 @@ class MusicBrainzTest {
     }
 
     @Test
+    fun `the song's own recording by ISRC needs only loosely fitting names, others in the answer the strict ones`() = runBlocking {
+        // D-381: Deezer's "The Look Of Love, Pt.1" carries the ISRC of ABC's 1982 recording, which MusicBrainz calls
+        // "The Look of Love"; only a recent release had the exact title.
+        val clock = FakeClock()
+        val fetcher = FakeFetcher(clock) { url ->
+            if ("isrc:(" in decoded(url)) {
+                val recordings = listOf(
+                    recJson("a", "The Look of Love", "ABC", "1982-05", isrcs = listOf("GBF088200008")),
+                    recJson("b", "The Look of Love, Parts One & Two", "ABC", "2011-05-20", isrcs = listOf("GBF088200008")),
+                    recJson("c", "The Look Of Love, Pt.1", "ABC", "2023", isrcs = listOf("GBF088200008")),
+                    recJson("d", "The Look of Love", "ABC", "1975", isrcs = listOf("OTHER0000001")),
+                )
+                HttpResponse(200, """{"count":4,"recordings":[${recordings.joinToString(",")}]}""")
+            } else {
+                HttpResponse(200, """{"count":0,"recordings":[]}""")
+            }
+        }
+        val song = song(1, "The Look Of Love, Pt.1", "ABC", null, 1998, isrc = "gbf088200008")
+        assertEquals(LookupResult.Match(1982), lookupWith(clock, fetcher).lookup(song), "not 1975: that recording carries another ISRC")
+    }
+
+    @Test
     fun `a tag year earlier than the known year is retried up to the known year, not openly`() = runBlocking {
         val clock = FakeClock()
         val fetcher = FakeFetcher(clock) { url ->
@@ -578,7 +654,7 @@ class MusicBrainzTest {
         assertTrue(fetcher.calls.none { val q = decoded(it.second); "recording:" in q && "firstreleasedate" !in q }, "no open search")
     }
 
-    // --- No song asked for twice at once (feedback round 48) ---
+    // --- No song asked for twice at once ---
 
     @Test
     fun `a song another run is looking up is waited for, not asked for again`() = runBlocking {
@@ -623,6 +699,26 @@ class MusicBrainzTest {
         first.cancel()
         assertEquals(LookupResult.Match(1971), second.await()[1L])
         assertEquals(2, calls)
+    }
+
+    @Test
+    fun `an urgent lookup asks itself rather than wait for another run that has the song further back`() = runBlocking {
+        var calls = 0
+        val held = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val answer = searches("T1" to "1971")
+        val fetcher = object : HttpFetcher {
+            override suspend fun get(url: String): HttpResponse {
+                if (++calls == 1) held.await() // the verification's request hangs
+                return answer(url)
+            }
+        }
+        val lookup = MusicBrainzLookup(MusicBrainzClient(RateLimitedQueue(fetcher, System::currentTimeMillis, { delay(it) }, minIntervalMs = 0)), MemoryCache(), { true }, { 2026 })
+        val song = titled(1L..1L).single()
+        val verification = async { lookup.lookupAll(listOf(song)) }
+        while (calls == 0) delay(5)
+        assertEquals(LookupResult.Match(1971), lookup.lookupAll(listOf(song), force = true, urgent = true)[1L], "not held up by the verification")
+        held.complete(Unit)
+        assertEquals(LookupResult.Match(1971), verification.await()[1L])
     }
 
     // --- Fingerprint matching (D-075) ---
@@ -755,7 +851,7 @@ class MusicBrainzTest {
         val songs = (1L..300L).map { song(it, "Song", "Band", null, null) }
         var fingerprintedAtFirstResult = -1
         lookup.lookupAll(songs, byFingerprint = true) { _, _ -> if (fingerprintedAtFirstResult < 0) fingerprintedAtFirstResult = fingerprinted.size }
-        // Before: no result until every song was fingerprinted (feedback round 27). Some groups at once and the
+        // Before: no result until every song was fingerprinted. Some groups at once and the
         // fingerprints made ahead come first (round 48).
         assertTrue(fingerprintedAtFirstResult in 1 until 300, "first result after $fingerprintedAtFirstResult fingerprints")
     }
@@ -820,7 +916,7 @@ class MusicBrainzTest {
     @Test
     fun `audio matches accept extra title words and co-credited artists and are marked`() = runBlocking {
         val clock = FakeClock()
-        // Felix's AniMe - Terrordome: AcoustID knows it as "Terrordome #TiH" (D-076).
+        // AniMe - Terrordome from a real library: AcoustID knows it as "Terrordome #TiH" (D-076).
         val acoustId = FakeFetcher(clock, respondPost = batched { fp ->
             if (fp == "fp1") """[{"id":"t","score":0.94,"recordings":[{"id":"t1","title":"Terrordome #TiH","artists":[{"name":"AniMe"}]}]}]"""
             else """[{"id":"t","score":0.62,"recordings":[{"id":"h1","title":"Hardcore Machine","artists":[{"name":"AniMe"},{"name":"DJ Mad Dog"}]}]}]"""
@@ -845,7 +941,7 @@ class MusicBrainzTest {
 
     @Test
     fun `bootlegs give no year, and a co-credited original is found by name`() = runBlocking {
-        // Felix's "Niggas in Paris", listed under Kanye West (feedback round 61): MusicBrainz's real search answer
+        // "Niggas in Paris" from a real library, listed under Kanye West: MusicBrainz's real search answer
         // (2026-11-12). Credited to Kanye West alone are only concert bootlegs (2024, and a 2021 one marked live); the
         // original is by "Jay‐Z & Kanye West", 2011. AcoustID linked the file to a 2024 bootleg recording.
         val clock = FakeClock()

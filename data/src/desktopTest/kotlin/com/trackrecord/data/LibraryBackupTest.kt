@@ -27,10 +27,12 @@ import com.trackrecord.data.settings.ThemeChoice
 import com.trackrecord.data.sources.AudioRef
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -210,6 +212,71 @@ class LibraryBackupTest {
             }
         }.toByteArray()
         assertFailsWith<BackupFormatException> { pc.import(newer) }
+        // A broken library is "not an export", not a failed import (REVIEW-3 B-24).
+        assertFailsWith<BackupFormatException> { pc.import(fileOf("""{"streamed":[{"deezerId":"x""")) }
         runBlocking { assertTrue(pc.db.songs().getAll().isEmpty()) }
+    }
+
+    /** An export made by hand: a manifest and [library] as its library.json. */
+    private fun fileOf(library: String): ByteArray = ByteArrayOutputStream().also { out ->
+        ZipOutputStream(out).use { zip ->
+            zip.putNextEntry(ZipEntry("manifest.json"))
+            zip.write("""{"format":1,"appVersion":"9","exportedAt":1,"device":"x"}""".toByteArray())
+            zip.closeEntry()
+            zip.putNextEntry(ZipEntry("library.json"))
+            zip.write(library.toByteArray())
+            zip.closeEntry()
+        }
+    }.toByteArray()
+
+    @Test
+    fun `the contact address and AcoustID key stay on their device`() = runBlocking {
+        // REVIEW-3 S-18: an export is passed on, also to friends.
+        val phone = phone()
+        phone.settings.update { it.copy(contactEmail = "me@example.com", acoustIdKey = "phone-key") }
+        val file = phone.export()
+        val text = ZipInputStream(file.inputStream()).use { zip ->
+            generateSequence { zip.nextEntry }.first { it.name == "library.json" }
+            zip.readBytes().decodeToString()
+        }
+        assertTrue("me@example.com" !in text && "phone-key" !in text, "not in the file")
+        val pc = device()
+        pc.settings.update { it.copy(contactEmail = "pc@example.com", acoustIdKey = "pc-key") }
+        pc.import(file, withSettings = true)
+        assertEquals("pc@example.com", pc.settings.current().contactEmail)
+        assertEquals("pc-key", pc.settings.current().acoustIdKey)
+        assertEquals(ThemeChoice.DARK, pc.settings.current().theme, "the rest is taken")
+    }
+
+    @Test
+    fun `settings from elsewhere are kept within what Settings allows, and unknown values fall back`() = runBlocking {
+        // REVIEW-3 S-19: out of range, New game refused to start; an unknown theme lost every setting.
+        val settings = """{"theme":"NEON","startOffsetSeconds":500,"clipLimitSeconds":3,"minVetoTimeSeconds":-4,"cornerRadiusDp":99,"autoPlay":false}"""
+        val pc = device()
+        val summary = pc.import(fileOf("""{"settings":${JsonPrimitive(settings)}}"""), withSettings = true)
+        assertTrue(summary.settings)
+        val now = pc.settings.current()
+        assertEquals(ThemeChoice.LOW_POLY, now.theme)
+        assertEquals(false, now.autoPlay, "the known values are taken")
+        assertEquals(60, now.startOffsetSeconds)
+        assertEquals(10, now.clipLimitSeconds)
+        assertEquals(0, now.minVetoTimeSeconds)
+        assertEquals(24, now.cornerRadiusDp)
+        assertTrue(now.defaultGameSettings().common.validate().isEmpty(), "New game starts")
+    }
+
+    @Test
+    fun `a lookup under older rules doesn't replace one under the current rules, however new it is`() = runBlocking {
+        // REVIEW-3 B-24: the newer checkedAt won, whatever its rules.
+        val phone = device()
+        phone.db.mbCache().put(MbCacheEntity("k", 2011, checkedAt = 900, lookupVersion = 3, nameSearched = true))
+        val pc = device()
+        pc.db.mbCache().put(MbCacheEntity("k", 1975, checkedAt = 100, lookupVersion = 4, nameSearched = true))
+        pc.import(phone.export())
+        assertEquals(1975, pc.db.mbCache().get("k")!!.year)
+        val newer = device()
+        newer.db.mbCache().put(MbCacheEntity("k", 1976, checkedAt = 950, lookupVersion = 4, nameSearched = true))
+        pc.import(newer.export())
+        assertEquals(1976, pc.db.mbCache().get("k")!!.year, "same rules: the newer one")
     }
 }

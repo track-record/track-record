@@ -1,10 +1,9 @@
 package com.trackrecord.data.musicbrainz
 
 import com.trackrecord.data.net.Http
-import kotlinx.coroutines.Dispatchers
+import com.trackrecord.data.net.await
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.job
-import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
@@ -30,25 +29,19 @@ class OkHttpFetcher(private val tag: String = "mb", private val userAgent: suspe
 
     private suspend fun execute(url: String, builder: Request.Builder): HttpResponse {
         val ua = userAgent()
-        // Combined searches show how many parts they join (feedback round 48: the line is cut short).
+        // Combined searches show how many parts they join (the line is cut short).
         val terms = url.split("%20OR%20").size
         val label = "$tag ${url.substringAfter("/ws/2/").substringAfter("api.acoustid.org/").take(90)}" + if (terms > 1) " [$terms terms]" else ""
-        return withContext(Dispatchers.IO) {
-            val request = builder.header("User-Agent", ua).header("Accept", "application/json").build()
-            val started = System.currentTimeMillis()
-            val call = client.newCall(request)
-            // A cancelled lookup ends at once instead of after the answer (feedback round 48: Cancel took seconds).
-            val cancelling = coroutineContext.job.invokeOnCompletion { if (it != null) call.cancel() }
-            try {
-                call.execute().use { HttpResponse(it.code, it.body.string()) }
-                    .also { NetLog.i("$label -> ${it.code} in ${System.currentTimeMillis() - started} ms") }
-            } catch (e: Exception) {
-                coroutineContext.ensureActive()
-                NetLog.w("$label failed after ${System.currentTimeMillis() - started} ms: $e")
-                throw e
-            } finally {
-                cancelling.dispose()
-            }
+        val request = builder.header("User-Agent", ua).header("Accept", "application/json").build()
+        val started = System.currentTimeMillis()
+        // Cancelling ends the request under way at once, not after the answer (D-324; REVIEW-3 B-14).
+        return try {
+            client.newCall(request).await { HttpResponse(it.code, it.body.string()) }
+                .also { NetLog.i("$label -> ${it.code} in ${System.currentTimeMillis() - started} ms") }
+        } catch (e: Exception) {
+            currentCoroutineContext().ensureActive()
+            NetLog.w("$label failed after ${System.currentTimeMillis() - started} ms: $e")
+            throw e
         }
     }
 }

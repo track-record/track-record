@@ -68,7 +68,7 @@ fun rememberSongCover(songId: Long?): ImageBitmap? {
     val container = LocalAppContainer.current
     val loader = container.covers
     val version by loader.version.collectAsState()
-    // "Show cover art" off in Settings: no covers anywhere (feedback round 6).
+    // "Show cover art" off in Settings: no covers anywhere.
     val show by remember { container.settings.appSettings.map { it.showCovers } }.collectAsState(initial = true)
     val cover by produceState<ImageBitmap?>(null, songId, version, show) {
         value = if (show) songId?.let { loader.load(it) } else null

@@ -9,12 +9,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -48,6 +51,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -155,9 +159,11 @@ import com.trackrecord.data.library.LibraryStats
 import com.trackrecord.data.library.ScanState
 import com.trackrecord.data.musicbrainz.AcoustIdKeyStatus
 import com.trackrecord.data.musicbrainz.LookupService
+import com.trackrecord.data.settings.AppSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -209,8 +215,9 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
     var removingFrom by rememberSaveable { mutableStateOf(false) }
 
     val listScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
     // First visit: the explanation opens by itself; once closed, the info button is highlighted (and a
-    // message says where it is) until it's tapped, so it's clear where to read it again (feedback round 45).
+    // message says where it is) until it's tapped, so it's clear where to read it again.
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     var infoHighlight by rememberSaveable { mutableStateOf(false) }
     var firstInfo by rememberSaveable { mutableStateOf(false) }
@@ -309,19 +316,21 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        // The list is built in the background: until then a spinner, not an empty library (feedback round 30).
+        // The list is built in the background: until then a spinner, not an empty library.
         if (!state.loaded) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@Scaffold
         }
-        // Every part in a panel, all with the same margins (feedback round 58); the songs' rows make one panel.
+        // Every part in a panel, all with the same margins; the songs' rows make one panel. It ends above the
+        // keyboard, so the songs found stay in sight while searching.
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding(),
             contentPadding = PaddingValues(top = 16.dp - PanelGap / 2, bottom = 24.dp),
         ) {
             item { ScanProgress(state.scan) }
             item { FoldersCard(folders = state.folders, onAdd = { pickFolder() }, onRemove = { removing = it }) }
-            // Requests started elsewhere show here too, with Stop (feedback round 48): a game's lookups and covers.
+            // Requests started elsewhere show here too, with Stop: a game's lookups and covers.
             if (gameRequests.running) {
                 item {
                     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = PanelGap / 2)) {
@@ -359,7 +368,7 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
                     onCancelDeezer = container.deezerImports::cancel,
                     onImportList = { pickList() },
                     onExportify = {
-                        // With the file permission the download is imported by itself; ask first (feedback round 32).
+                        // With the file permission the download is imported by itself; ask first.
                         val watcher = container.exportify
                         when {
                             watcher == null -> ui.openExportify()
@@ -372,7 +381,7 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
                     },
                 )
             }
-            item {
+            item(key = SEARCH_ITEM) {
                 Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = PanelGap / 2)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
@@ -390,13 +399,20 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
                             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                             placeholder = { Text(stringResource(Res.string.library_search)) },
                             singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                            // Searching: the search panel goes to the top, so the songs found show below it, above
+                            // the keyboard (Felix: one song found was hidden behind it).
+                            modifier = Modifier.fillMaxWidth().onFocusChanged { focus ->
+                                if (focus.isFocused) {
+                                    val index = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == SEARCH_ITEM }?.index
+                                    if (index != null) listScope.launch { listState.animateScrollToItem(index) }
+                                }
+                            },
                         )
                     }
                 }
             }
             item { FilterPane(query, state.playlists, state.builtIns, onChange = vm::updateQuery, onReset = vm::resetFilters, onStats = { showingStats = true }) }
-            // The listed songs as one panel: its header row, then a row per song (feedback round 58).
+            // The listed songs as one panel: its header row, then a row per song.
             item {
                 Column(Modifier.padding(start = 16.dp, top = PanelGap / 2, end = 16.dp).panelRow(first = true, last = state.songs.isEmpty())) {
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -455,13 +471,13 @@ fun LibraryScreen(onBack: () -> Unit, onSong: (Long) -> Unit) {
     if (removingFrom) {
         PlaylistPickerDialog(
             title = pluralStringResource(Res.plurals.songs_selected, state.selection.size, state.selection.size),
-            // Only playlists that hold a selected song (feedback round 5).
+            // Only playlists that hold a selected song.
             playlists = state.selectionPlaylists,
             allowNew = false,
             excluded = if (state.selectionExcluded) stringResource(Res.string.excluded_remove) else null,
             playlistsLabel = stringResource(Res.string.remove_from_playlist),
             onDismiss = { removingFrom = false },
-            // A streamed song left on no playlist leaves the library (feedback round 28).
+            // A streamed song left on no playlist leaves the library.
             onPick = { vm.removeSelectionFrom(it) { container.deezerImports.cleanUp() }; removingFrom = false },
         )
     }
@@ -552,7 +568,7 @@ private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel
                         BulkTask.FINGERPRINT_ALL -> Res.string.verify_progress
                     }
                     if (state.total == 0) {
-                        // Picking the songs (feedback round 29): the bar shows right away.
+                        // Picking the songs: the bar shows right away.
                         Text(stringResource(Res.string.verify_preparing))
                         LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 8.dp))
                     } else {
@@ -581,7 +597,7 @@ private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel
                     } else {
                         Text(stringResource(Res.string.verify_intro), style = MaterialTheme.typography.bodySmall)
                     }
-                    // The lookup rules changed since these songs were checked (feedback round 62).
+                    // The lookup rules changed since these songs were checked.
                     if (outdated > 0) {
                         Text(
                             pluralStringResource(Res.plurals.verify_outdated, outdated, outdated),
@@ -590,7 +606,7 @@ private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel
                             modifier = Modifier.padding(top = 4.dp),
                         )
                     }
-                    // In this order (feedback round 30): missing years, covers, then the two verifications.
+                    // In this order: missing years, covers, then the two verifications.
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                         OutlinedButton(onClick = { onStart(BulkTask.FIND_MISSING) }) { Text(stringResource(Res.string.find_missing_start)) }
                         if (coversEnabled) OutlinedButton(onClick = { onStart(BulkTask.LOAD_COVERS) }) { Text(stringResource(Res.string.covers_start)) }
@@ -609,13 +625,13 @@ private fun VerifyCard(state: VerifyState, onStart: (BulkTask) -> Unit, onCancel
 }
 
 /**
- * What a lookup changed (feedback rounds 29, 30): songs checked, new years, earlier years and failures.
+ * What a lookup changed: songs checked, new years, earlier years and failures.
  */
 @Composable
 private fun LookupSummary(state: VerifyState.Finished) {
-    // A service kept refusing even at the slowest pace: say so first (feedback round 47).
+    // A service kept refusing even at the slowest pace: say so first.
     state.unavailable?.let { Text(serviceUnavailableText(it), color = MaterialTheme.colorScheme.error) }
-    // Nothing could be checked at all: say why (feedback round 47: the reason is known, no list of guesses).
+    // Nothing could be checked at all: say why (the reason is known, no list of guesses).
     if (state.unavailable == null && state.total > 0 && state.failed == state.total) {
         Text(if (state.offline) stringResource(Res.string.lookup_offline) else lookupsOffText(), color = MaterialTheme.colorScheme.error)
         return
@@ -639,16 +655,20 @@ private fun LookupSummary(state: VerifyState.Finished) {
 @Composable
 fun lookupsOffText(): String {
     val settings by LocalAppContainer.current.settings.appSettings.collectAsStateWithLifecycle(initialValue = null)
-    val s = settings
-    return stringResource(if (s != null && s.musicBrainzEnabled && s.contactEmailInUse.isBlank()) Res.string.lookup_no_contact else Res.string.lookup_off)
+    return stringResource(lookupsOff(settings))
 }
 
-/** MusicBrainz or AcoustID turned requests away, also at the slowest pace: try again later (feedback round 47). */
+/** [lookupsOffText] outside a screen (a co-host's year card, D-385). */
+fun lookupsOff(s: AppSettings?): StringResource =
+    if (s != null && s.musicBrainzEnabled && s.contactEmailInUse.isBlank()) Res.string.lookup_no_contact else Res.string.lookup_off
+
+/** MusicBrainz or AcoustID turned requests away, also at the slowest pace: try again later. */
 @Composable
-fun serviceUnavailableText(service: LookupService): String = stringResource(
-    Res.string.service_unavailable,
-    stringResource(if (service == LookupService.ACOUSTID) Res.string.service_acoustid else Res.string.service_musicbrainz),
-)
+fun serviceUnavailableText(service: LookupService): String = stringResource(Res.string.service_unavailable, stringResource(service.label))
+
+/** The service's name, as [serviceUnavailableText] says it. */
+val LookupService.label: StringResource
+    get() = if (this == LookupService.ACOUSTID) Res.string.service_acoustid else Res.string.service_musicbrainz
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -687,9 +707,12 @@ private fun SongRow(song: LibrarySong, selecting: Boolean, selected: Boolean, on
     )
 }
 
-/** "Select all listed", or "Deselect all" once everything listed is selected (feedback round 5). */
+/** "Select all listed", or "Deselect all" once everything listed is selected. */
 @Composable
 private fun SelectAllButton(allSelected: Boolean, onSelectAll: () -> Unit, onDeselectAll: () -> Unit, enabled: Boolean = true) {
     if (allSelected) TextButton(onClick = onDeselectAll) { Text(stringResource(Res.string.selection_deselect_all)) }
     else TextButton(onClick = onSelectAll, enabled = enabled) { Text(stringResource(Res.string.selection_all_listed)) }
 }
+
+/** The library list's item with the search field. */
+private const val SEARCH_ITEM = "search"

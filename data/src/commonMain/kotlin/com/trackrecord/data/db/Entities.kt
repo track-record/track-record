@@ -134,7 +134,7 @@ data class MbCacheEntity(
      */
     @ColumnInfo(name = "fingerprint_checked", defaultValue = "0") val fingerprintChecked: Boolean = false,
     /**
-     * The search by artist and title ran (feedback round 47). Only it finds the original release: ids, ISRCs
+     * The search by artist and title ran. Only it finds the original release: ids, ISRCs
      * and fingerprints name one recording, which may be a remaster. Results from before always ran it
      * unless the ids agreed with the tags, so they count as not searched.
      */
@@ -142,7 +142,7 @@ data class MbCacheEntity(
 )
 
 /**
- * The search by artist and title ran for this result (feedback round 47): recorded since then, and always part
+ * The search by artist and title ran for this result: recorded since then, and always part
  * of a fingerprint run before.
  */
 val MbCacheEntity.searchedByName: Boolean get() = nameSearched || fingerprintChecked
@@ -155,14 +155,14 @@ data class PlaylistEntity(
     @ColumnInfo(name = "created_at") val createdAt: Long,
     /** The Deezer playlist this one was imported from ("Update from Deezer"), if any. */
     @ColumnInfo(name = "deezer_playlist_id") val deezerPlaylistId: Long? = null,
-    /** A user playlist, or the app's own "Excluded songs" (feedback round 28). */
+    /** A user playlist, or the app's own "Excluded songs". */
     @ColumnInfo(defaultValue = "USER") val kind: PlaylistKind = PlaylistKind.USER,
 )
 
 /**
- * [EXCLUDED]: the one "Excluded songs" playlist (feedback round 28). Its songs never enter a game; it
+ * [EXCLUDED]: the one "Excluded songs" playlist. Its songs never enter a game; it
  * isn't listed with the user's playlists and doesn't keep a streamed song in the library.
- * [FAVORITES]: the songs starred on a reveal (feedback round 52). Otherwise a user playlist like any other:
+ * [FAVORITES]: the songs starred on a reveal. Otherwise a user playlist like any other:
  * listed, renamed and deleted like them; starring a song creates it again.
  */
 enum class PlaylistKind { USER, EXCLUDED, FAVORITES }
@@ -182,7 +182,7 @@ data class PlaylistSongEntity(
 )
 
 /**
- * One round as it went for a saved player (feedback round 47), recorded when the round is committed. [game]
+ * One round as it went for a saved player, recorded when the round is committed. [game]
  * is the game's seed; [mode] a GameMode name. [played]: their turn (Song Order) or their guess (Timeline);
  * [yearsOff]: how far their guess was; [namingChance] and [named]: see RoundStats.
  */
@@ -206,7 +206,7 @@ data class PlayerRoundEntity(
     @ColumnInfo(defaultValue = "0") val won: Boolean = false,
 )
 
-/** A finished game of a saved player who was still playing at the end (feedback round 47). */
+/** A finished game of a saved player who was still playing at the end. */
 @Entity(
     tableName = "player_games",
     indices = [Index(value = ["game", "profile_id"], unique = true), Index(value = ["profile_id"])],

@@ -70,7 +70,7 @@ class RevealGateTest {
         assertFalse(after.locked)
         assertEquals(emptyList(), after.picking)
 
-        // A player picking on the host's phone holds it too, so a co-host sees "Veto pending" (feedback round 27).
+        // A player picking on the host's phone holds it too, so a co-host sees "Veto pending".
         assertEquals(listOf("Ben"), RevealGate.status(s, emptySet(), picking, window, AutoReveal.OFF, nowMs = 60_000).picking)
     }
 
@@ -161,7 +161,7 @@ class RevealGateTest {
         val remote = setOf("Ben", "Cara")
         val round = VetoRound(1, lockedAtMs = 0)
         assertFalse(RevealGate.ready(s, round, remote, nowMs = 9_000, ignoreRemoteAfterMs = 10_000), "still within the veto time")
-        assertTrue(RevealGate.ready(s, round, remote, nowMs = 10_000, ignoreRemoteAfterMs = 10_000), "the time is over (feedback round 32)")
+        assertTrue(RevealGate.ready(s, round, remote, nowMs = 10_000, ignoreRemoteAfterMs = 10_000), "the time is over")
         assertFalse(RevealGate.ready(s, round, remote, nowMs = 10_000), "off by default")
         assertFalse(RevealGate.ready(s, round.copy(vetoing = setOf("Ben")), remote, nowMs = 60_000, ignoreRemoteAfterMs = 10_000), "a player picking a gap still counts")
         assertFalse(RevealGate.ready(s, round, setOf("Ben"), nowMs = 60_000, ignoreRemoteAfterMs = 10_000), "a player on the host's phone still has to decide")

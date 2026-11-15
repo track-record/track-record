@@ -54,6 +54,18 @@ class LibraryLogicTest {
         assertEquals(listOf(3L), plan.deletions)
     }
 
+    @Test
+    fun `songs in a subfolder the scan couldn't read are kept`() {
+        // REVIEW-3 B-18: skipped, not deleted.
+        val existing = listOf(
+            SongScanState(1, "file:///M/a.mp3", lastModified = 100, sizeBytes = 10),
+            SongScanState(2, "file:///M/closed/b.mp3", lastModified = 100, sizeBytes = 10),
+            SongScanState(3, "file:///M/closed2/c.mp3", lastModified = 100, sizeBytes = 10),
+        )
+        val plan = ScanPlanner.plan(existing, emptyList(), unreadable = listOf("file:///M/closed/"))
+        assertEquals(listOf(1L, 3L), plan.deletions, "a folder named alike is no part of it")
+    }
+
     private fun song(id: Long, uri: String, original: Int? = null, tag: Int? = null, folderId: Long = 1, title: String = "T$id") = SongEntity(
         id = id, folderId = folderId, uri = uri, relativePath = "$title.mp3", lastModified = 0, sizeBytes = 0,
         title = title, artist = "Artist", album = null, durationMs = 200_500, tagOriginalYear = original, tagYear = tag,
@@ -77,7 +89,7 @@ class LibraryLogicTest {
         assertTrue(needs(streamed, byName.copy(nameSearched = false)), "settled by its ISRC without a name search, before feedback round 47")
         assertTrue(needs(streamed, byName.copy(lookupVersion = 0)), "only looked up before verification existed")
         assertFalse(needs(streamed, byName.copy(nameSearched = false, fingerprintChecked = true)), "a fingerprint run always searched by name")
-        // Everything "Verify by name" has left, "Verify by fingerprint" has too (feedback round 62).
+        // Everything "Verify by name" has left, "Verify by fingerprint" has too.
         val oldRules = byName.copy(lookupVersion = 3, fingerprintChecked = true)
         assertTrue(needs(local, oldRules), "fingerprinted under older rules")
         assertTrue(needs(local, null), "never checked")
@@ -94,6 +106,37 @@ class LibraryLogicTest {
         assertFalse(old(current.copy(lookupVersion = MusicBrainzLookup.LOOKUP_VERSION_FINGERPRINT, fingerprintChecked = true)))
         assertTrue(old(current.copy(lookupVersion = 3, fingerprintChecked = true)), "before feedback round 61")
         assertTrue(old(current.copy(nameSearched = false)), "without the name search")
+    }
+
+    @Test
+    fun `the lookup version 6 redoes only songs with an ISRC or recording id, and says so in the song`() {
+        // D-381 changed only how a song's own recording by ISRC or id is judged.
+        val plain = song(1, "u1", tag = 1990)
+        val streamed = plain.copy(isrc = "X1")
+        fun of(s: SongEntity, lookup: MbCacheEntity) =
+            LibrarySong.assemble(listOf(s), emptyList(), listOf(FolderEntity(1, "tree", "Music")), year, lookups = mapOf(MusicBrainzLookup.keyOf(s) to lookup)).single()
+        val fingerprinted = MbCacheEntity(songKey = "k", year = 1990, checkedAt = 0, lookupVersion = 5, fingerprintChecked = true, nameSearched = true)
+        val byName = fingerprinted.copy(lookupVersion = 4, fingerprintChecked = false)
+        assertFalse(of(plain, fingerprinted).checkedByOldVersion)
+        assertFalse(of(plain, fingerprinted).needsFingerprintCheck, "no file fingerprinted again")
+        assertEquals(Verification.FINGERPRINT, of(plain, fingerprinted).verification)
+        assertFalse(of(plain, byName).checkedByOldVersion)
+        assertTrue(of(plain, byName.copy(lookupVersion = 3)).checkedByOldVersion, "older still is older")
+        assertTrue(of(streamed, byName).checkedByOldVersion)
+        assertTrue(of(streamed, byName).needsNameCheck)
+        assertFalse(of(streamed, byName.copy(lookupVersion = MusicBrainzLookup.LOOKUP_VERSION)).checkedByOldVersion)
+    }
+
+    @Test
+    fun `a song without an artist needs no name search, so its hint clears and Verify isn't asked`() {
+        // REVIEW-3 B-16: Verify leaves such songs out, so a hint about them could never go away.
+        val s = song(1, "u1", tag = 1990).copy(artist = null)
+        fun of(lookup: MbCacheEntity?) =
+            LibrarySong.assemble(listOf(s), emptyList(), listOf(FolderEntity(1, "tree", "Music")), year, lookups = listOfNotNull(lookup).associateBy { MusicBrainzLookup.keyOf(s) }).single()
+        val stored = MbCacheEntity(songKey = "k", year = null, checkedAt = 0, lookupVersion = MusicBrainzLookup.LOOKUP_VERSION, nameSearched = false)
+        assertFalse(of(stored).checkedByOldRules)
+        assertFalse(of(stored).needsNameCheck)
+        assertTrue(of(stored.copy(lookupVersion = 3)).checkedByOldRules, "an older version still counts")
     }
 
     @Test

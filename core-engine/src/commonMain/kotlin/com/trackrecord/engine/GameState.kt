@@ -30,7 +30,7 @@ data class PlayerState(
     val collection: List<Card> = emptyList(),
     /** Closest Year mode: skips left. */
     val skips: Int = 0,
-    /** Closest Year, Rank and Distance scoring: points (feedback round 36). */
+    /** Closest Year, Rank and Distance scoring: points. */
     val points: Int = 0,
 )
 
@@ -88,11 +88,11 @@ data class RoundState(
         get() = waitingFor.firstOrNull()
 }
 
-/** A bought card, or in Rank and Distance the [points] of a perfect round without a card (feedback round 50). */
+/** A bought card, or in Rank and Distance the [points] of a perfect round without a card. */
 @Serializable
 data class Purchase(val playerId: String, val card: Card? = null, val points: Int = 0)
 
-/** A song [playerId] skipped, shown to everyone like a bought card (feedback round 27). */
+/** A song [playerId] skipped, shown to everyone like a bought card. */
 @Serializable
 data class Skipped(val playerId: String, val card: Card)
 
@@ -112,7 +112,7 @@ data class GameState(
     /** Players in seating order. */
     val players: List<PlayerState>,
     /**
-     * Players removed mid-game, in removal order (feedback round 36): shown last and greyed out, they no
+     * Players removed mid-game, in removal order: shown last and greyed out, they no
      * longer play; Rank scoring still counts them as places.
      */
     val removed: List<PlayerState> = emptyList(),
@@ -134,9 +134,12 @@ data class GameState(
 ) {
     val activePlayer: PlayerState get() = players[activeSeat]
 
+    /** One player plays alone (D-380); a game with others never becomes one ([GameEngine.MIN_PLAYERS_LEFT]). */
+    val solo: Boolean get() = players.size + removed.size == 1
+
     fun player(id: String): PlayerState? = players.firstOrNull { it.id == id }
 
-    /** A player still playing or removed mid-game (feedback round 36). */
+    /** A player still playing or removed mid-game. */
     fun anyPlayer(id: String): PlayerState? = player(id) ?: removed.firstOrNull { it.id == id }
 
     /** The number of players the game started with, removed ones included. */

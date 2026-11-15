@@ -20,7 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The check at start and "Update" on each platform (feedback round 47; PLATFORMS.md phase 8). */
+/** The check at start and "Update" on each platform (PLATFORMS.md phase 8). */
 class AppUpdatesTest {
     private val folder = Files.createTempDirectory("trackrecord-updates").toFile()
     private val settings = SettingsRepository(folder)
@@ -60,6 +60,42 @@ class AppUpdatesTest {
         val same = updates(".msi", null, newer.copy(versionCode = 100))
         same.check()
         assertEquals(UpdateStatus.UpToDate, withTimeout(5_000) { same.status.first { it != UpdateStatus.Checking && it != UpdateStatus.Unknown } })
+    }
+
+    @Test
+    fun `a failed install is told with the release, even with the check turned off`() = runBlocking {
+        // REVIEW-3 B-20: the update script starts the old version again to say so.
+        settings.update { it.copy(checkForUpdates = false) }
+        val updates = AppUpdates(scope, settings, ".msi", { _, _ -> true }, latest = { newer }, installFailed = true)
+        assertTrue(updates.available().installFailed)
+        updates.update { }
+        assertFalse((updates.status.value as UpdateStatus.Available).installFailed, "trying again")
+    }
+
+    @Test
+    fun `Cancel stops the download, and Check now waits until it has ended`() = runBlocking {
+        // REVIEW-3 B-15: no Cancel, and Check now during a download enabled Update again.
+        val stopped = CompletableDeferred<Unit>()
+        val downloading = CompletableDeferred<Unit>()
+        val updates = updates(".msi", { _, onProgress ->
+            try {
+                onProgress(0.1f)
+                downloading.complete(Unit)
+                kotlinx.coroutines.awaitCancellation()
+            } finally {
+                stopped.complete(Unit)
+            }
+        })
+        updates.available()
+        updates.update { }
+        withTimeout(5_000) { downloading.await() }
+        updates.check()
+        assertEquals(0.1f, (updates.status.value as UpdateStatus.Available).progress, "no check while it downloads")
+        updates.cancelDownload()
+        withTimeout(5_000) { stopped.await() }
+        val after = updates.status.value as UpdateStatus.Available
+        assertEquals(null, after.progress)
+        assertFalse(after.failed)
     }
 
     @Test

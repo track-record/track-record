@@ -35,7 +35,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.jetbrains.skia.Image
 import java.awt.Component
 import java.awt.Dimension
+import java.awt.GraphicsEnvironment
 import java.awt.KeyboardFocusManager
+import java.awt.Rectangle
 import java.io.File
 import java.io.RandomAccessFile
 import java.util.Properties
@@ -61,9 +63,13 @@ fun main(args: Array<String>) {
     val files = args.map(::File).filter { it.isFile }.map { it.toURI().toString() }
     val inbox = Inbox(File(folder, "inbox"))
     // One window per data folder: two would share one database (PLATFORMS.md phase 6). Another start hands its files
-    // to the running app, which comes to the front (feedback round 55).
-    val lock = runCatching { RandomAccessFile(File(folder, "app.lock"), "rw").channel.tryLock() }.getOrNull()
-    if (lock == null) {
+    // to the running app, which comes to the front.
+    // Only a lock held by another start hands over; a lock file that can't be opened at all (the data folder not
+    // writable) doesn't make this start end without a word (REVIEW-3 B-23).
+    val channel = runCatching { RandomAccessFile(File(folder, "app.lock"), "rw").channel }
+        .onFailure { Log.w("The lock file can't be opened, so another start can't be told apart: $it") }.getOrNull()
+    val lock = channel?.let { runCatching { it.tryLock() }.getOrNull() }
+    if (channel != null && lock == null) {
         inbox.send(files)
         exitProcess(0)
     }
@@ -74,7 +80,9 @@ fun main(args: Array<String>) {
     val chromium = Chromium(File(folder, "chromium"), debugPort = if (release) 0 else DEBUG_PORT, mute = mute, verbose = !release)
     // The update's installer closes the app as the window's close button does.
     val quit = MutableStateFlow(false)
-    val container = AppContainer(DesktopPlatform(folder, chromium, mute, onQuit = { quit.value = true }))
+    val updateFailed = MsiInstaller.UPDATE_FAILED in args
+    if (updateFailed) Log.w("Update: the installer failed; started the old version again")
+    val container = AppContainer(DesktopPlatform(folder, chromium, mute, onQuit = { quit.value = true }, updateFailed = updateFailed))
     val placement = WindowPlacement(File(folder, "window.properties"))
     val keys = KeyShortcuts()
     val opened = Channel<List<String>>(Channel.UNLIMITED)
@@ -98,7 +106,7 @@ fun main(args: Array<String>) {
             title = if (release) "Track Record" else "Track Record (development)",
             icon = remember { BitmapPainter(Image.makeFromEncoded(Chromium::class.java.getResourceAsStream("/desktop/icon.png")!!.readBytes()).toComposeImageBitmap()) },
             // The screens' shortcuts get the keys before what has the focus, unless a text field is typed in
-            // (PLATFORMS.md phase 7; feedback round 55).
+            // (PLATFORMS.md phase 7).
             onPreviewKeyEvent = { !typing() && keys.handle(it) },
         ) {
             LaunchedEffect(Unit) { window.minimumSize = Dimension(MIN_WIDTH, MIN_HEIGHT) }
@@ -158,8 +166,15 @@ private class WindowPlacement(private val file: File) {
     private val props = Properties().apply { runCatching { file.inputStream().use { load(it) } } }
 
     val size: DpSize = DpSize(number("width", 1200f).dp, number("height", 850f).dp)
-    val position: WindowPosition =
-        if (props.containsKey("x")) WindowPosition(number("x", 0f).dp, number("y", 0f).dp) else WindowPosition.PlatformDefault
+    /** Where the window was, if its title bar is still on one of the screens (a monitor may be gone; REVIEW-3 B-23). */
+    val position: WindowPosition = run {
+        if (!props.containsKey("x")) return@run WindowPosition.PlatformDefault
+        val x = number("x", 0f)
+        val y = number("y", 0f)
+        val titleBar = Rectangle(x.toInt(), y.toInt(), size.width.value.toInt().coerceAtMost(TITLE_BAR_WIDTH), TITLE_BAR_HEIGHT)
+        val screens = runCatching { GraphicsEnvironment.getLocalGraphicsEnvironment().screenDevices.map { it.defaultConfiguration.bounds } }.getOrDefault(emptyList())
+        if (screens.any { it.contains(titleBar) }) WindowPosition(x.dp, y.dp) else WindowPosition.PlatformDefault
+    }
 
     private fun number(key: String, default: Float) = props.getProperty(key)?.toFloatOrNull() ?: default
 
@@ -171,5 +186,11 @@ private class WindowPlacement(private val file: File) {
             props["y"] = position.y.value.toString()
         }
         runCatching { file.outputStream().use { props.store(it, "Track Record's window") } }
+    }
+
+    private companion object {
+        /** The part of the title bar that must be on a screen to move the window from there. */
+        const val TITLE_BAR_WIDTH = 200
+        const val TITLE_BAR_HEIGHT = 30
     }
 }

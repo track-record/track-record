@@ -73,8 +73,10 @@ import com.trackrecord.app.resources.ic_qr_code
 import com.trackrecord.app.resources.library_songs
 import com.trackrecord.app.resources.mode_closest
 import com.trackrecord.app.resources.mode_closest_hint
+import com.trackrecord.app.resources.mode_closest_hint_solo
 import com.trackrecord.app.resources.mode_timeline
 import com.trackrecord.app.resources.mode_timeline_hint
+import com.trackrecord.app.resources.mode_timeline_hint_solo
 import com.trackrecord.app.resources.name_with_detail
 import com.trackrecord.app.resources.new_game_reset
 import com.trackrecord.app.resources.new_game_start
@@ -161,7 +163,7 @@ fun NewGameScreen(onBack: () -> Unit, onStarted: () -> Unit) {
                         SetupStep.MODE -> true
                         SetupStep.PLAYERS -> state.enoughPlayers
                         SetupStep.POOL -> poolSize != null && poolSize >= state.songsNeeded
-                        SetupStep.SETTINGS -> state.settings.validate(state.mode).isEmpty() && poolSize != null && poolSize >= state.songsNeeded && !state.starting
+                        SetupStep.SETTINGS -> state.gameSettings.validate(state.mode).isEmpty() && poolSize != null && poolSize >= state.songsNeeded && !state.starting
                     }
                     Button(
                         onClick = { if (state.step == SetupStep.SETTINGS) vm.start(onStarted) else vm.goTo(steps[index + 1]) },
@@ -177,7 +179,7 @@ fun NewGameScreen(onBack: () -> Unit, onStarted: () -> Unit) {
             }
         },
     ) { padding ->
-        // The step and everything in it in panels (feedback round 58).
+        // The step and everything in it in panels.
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(PanelGap),
@@ -190,7 +192,7 @@ fun NewGameScreen(onBack: () -> Unit, onStarted: () -> Unit) {
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.weight(1f),
                         )
-                        // Small, next to the title (feedback round 10).
+                        // Small, next to the title.
                         if (state.step == SetupStep.SETTINGS) {
                             OutlinedButton(onClick = { vm.resetToDefaults() }, contentPadding = PaddingValues(horizontal = 12.dp), modifier = Modifier.height(36.dp)) {
                                 Text(stringResource(Res.string.new_game_reset))
@@ -203,10 +205,10 @@ fun NewGameScreen(onBack: () -> Unit, onStarted: () -> Unit) {
                 }
             }
             when (state.step) {
-                SetupStep.MODE -> ModeStep(state.mode, vm::setMode)
+                SetupStep.MODE -> ModeStep(state.mode, state.solo, vm::setMode)
                 SetupStep.PLAYERS -> PlayersStep(state, vm)
                 SetupStep.POOL -> PoolStep(state.settings.common, playlists, pool, state.songsNeeded) { c -> vm.updateSettings { it.copy(common = c) } }
-                SetupStep.SETTINGS -> GameSettingsEditor(state.mode, state.settings, vm::updateSettings)
+                SetupStep.SETTINGS -> GameSettingsEditor(state.mode, state.gameSettings, vm::updateSettings, solo = state.solo)
             }
         }
     }
@@ -220,11 +222,12 @@ private val SetupStep.title: StringResource
         SetupStep.SETTINGS -> Res.string.step_settings
     }
 
+/** The two modes; [solo]: described for one player alone (D-380). */
 @Composable
-private fun ModeStep(mode: GameMode, onSelect: (GameMode) -> Unit) {
+private fun ModeStep(mode: GameMode, solo: Boolean, onSelect: (GameMode) -> Unit) {
     for ((m, title, hint) in listOf(
-        Triple(GameMode.TIMELINE, Res.string.mode_timeline, Res.string.mode_timeline_hint),
-        Triple(GameMode.CLOSEST_YEAR, Res.string.mode_closest, Res.string.mode_closest_hint),
+        Triple(GameMode.TIMELINE, Res.string.mode_timeline, if (solo) Res.string.mode_timeline_hint_solo else Res.string.mode_timeline_hint),
+        Triple(GameMode.CLOSEST_YEAR, Res.string.mode_closest, if (solo) Res.string.mode_closest_hint_solo else Res.string.mode_closest_hint),
     )) {
         Card(Modifier.fillMaxWidth().selectable(selected = m == mode, role = Role.RadioButton, onClick = { onSelect(m) })) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -264,7 +267,7 @@ private fun PlayersStep(state: NewGameState, vm: NewGameViewModel) {
                     }
                 }
             }
-            // Own row, so the button keeps its natural height (feedback round 2).
+            // Own row, so the button keeps its natural height.
             OutlinedButton(onClick = vm::shuffleSeats, enabled = state.players.size > 1) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
@@ -351,7 +354,7 @@ private fun SeatList(players: List<GamePlayer>, onMove: (Int, Int) -> Unit, onEd
                         .clickable { onEdit(player) },
                 ) {
                     Row(Modifier.fillMaxSize().padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        // Drag the handle right away, no long press (feedback round 10); the rest of the
+                        // Drag the handle right away, no long press; the rest of the
                         // row still scrolls the page and opens the editor.
                         Box(
                             Modifier.size(48.dp).pointerInput(player.id) {
@@ -423,7 +426,7 @@ private fun PoolStep(common: CommonSettings, playlists: List<PlaylistWithCount>,
             YearField(stringResource(Res.string.pool_year_to), common.yearTo, Modifier.weight(1f)) { onChange(common.copy(yearTo = it)) }
         }
     }
-    // The songs the game draws from, and what they look like: artists, years and songs per year (feedback round 28).
+    // The songs the game draws from, and what they look like: artists, years and songs per year.
     SectionCard(if (pool == null) stringResource(Res.string.pool_counting) else pluralStringResource(Res.plurals.pool_count, pool.size, pool.size)) {
         if (pool != null) {
             if (pool.size < needed) Text(stringResource(Res.string.pool_too_small, needed), color = MaterialTheme.colorScheme.error)

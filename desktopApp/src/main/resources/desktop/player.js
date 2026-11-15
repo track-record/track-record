@@ -89,7 +89,7 @@ function run(c) {
       state();
       break;
     case "window": {
-      // A new clip limit at the same position (feedback round 25): past the new end, the clip is over.
+      // A new clip limit at the same position: past the new end, the clip is over.
       endMs = c.endMs ?? null;
       const over = endMs != null && startMs + c.positionMs >= endMs;
       audio.currentTime = (over ? endMs : startMs + c.positionMs) / 1000;

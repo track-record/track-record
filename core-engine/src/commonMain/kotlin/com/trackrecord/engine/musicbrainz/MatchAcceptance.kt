@@ -25,7 +25,7 @@ object MatchAcceptance {
     /**
      * A title or artist as searched on MusicBrainz: as written, without the parts [normalize] drops ("(2015
      * Remaster)", "- Radio Edit", "feat. …"). Those notes are rarely in MusicBrainz's titles, so a search with
-     * them found nothing; matches are judged on [normalize]d names anyway (feedback round 48).
+     * them found nothing; matches are judged on [normalize]d names anyway.
      */
     fun searchText(text: String): String {
         var s = text.trim()

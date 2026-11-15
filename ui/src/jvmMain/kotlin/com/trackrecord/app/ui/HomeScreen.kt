@@ -86,7 +86,7 @@ fun HomeScreen(canContinue: Boolean, onNewGame: () -> Unit, onContinue: () -> Un
 }
 
 /**
- * A newer release is out: asked once per app start (feedback round 47); Settings keeps the download. Where the app
+ * A newer release is out: asked once per app start; Settings keeps the download. Where the app
  * installs it itself (the desktop), the dialog stays open with the download's progress.
  */
 @Composable
@@ -105,7 +105,7 @@ private fun UpdateDialog() {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(Res.string.update_text, release.versionName, AppConfig.current.versionName))
-                UpdateProgress(available)
+                UpdateProgress(available, updates::cancelDownload)
             }
         },
         confirmButton = {

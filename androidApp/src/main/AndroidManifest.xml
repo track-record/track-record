@@ -5,7 +5,7 @@
     <!-- Remote play (v3): a Wi-Fi lock keeps the guest page responsive (D-109). -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Exportify's downloads imported by themselves, only if the user allows it (feedback round 32):
+    <!-- Exportify's downloads imported by themselves, only if the user allows it:
          reading Download needs "All files access" from Android 11 on, the storage permission before. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />

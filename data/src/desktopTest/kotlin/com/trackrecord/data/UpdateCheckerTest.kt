@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Reading GitHub's newest release (feedback round 47). */
+/** Reading GitHub's newest release. */
 class UpdateCheckerTest {
     @Test
     fun `the version code is the tag's last part, each platform's package the attached one`() {

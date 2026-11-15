@@ -22,7 +22,7 @@ data class MbRelease(
     /** "Official", "Promotion", "Bootleg" …; null when MusicBrainz doesn't say. */
     val status: String? = null,
 ) {
-    /** Unofficial: often a concert taped years after the song came out, dated when it surfaced (feedback round 61). */
+    /** Unofficial: often a concert taped years after the song came out, dated when it surfaced. */
     val bootleg: Boolean get() = status.equals("Bootleg", ignoreCase = true)
 }
 
@@ -35,9 +35,14 @@ data class MbRecording(
     @SerialName("first-release-date") val firstReleaseDate: String? = null,
     @SerialName("artist-credit") val artistCredit: List<MbArtistCredit> = emptyList(),
     val releases: List<MbRelease> = emptyList(),
+    /** The ISRCs MusicBrainz lists for the recording (searches return them). */
+    val isrcs: List<String> = emptyList(),
 ) {
+    /** Carries [isrc]: this recording is the one the ISRC names. */
+    fun carries(isrc: String): Boolean = isrcs.any { it.equals(isrc, ignoreCase = true) }
+
     /**
-     * The date that counts: [firstReleaseDate], but without bootlegs (feedback round 61): with bootlegs among the
+     * The date that counts: [firstReleaseDate], but without bootlegs: with bootlegs among the
      * releases, the earliest date of the others, and none when only bootlegs are listed.
      */
     val releaseDate: String?

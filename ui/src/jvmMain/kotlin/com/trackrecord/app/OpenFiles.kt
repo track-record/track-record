@@ -20,7 +20,7 @@ suspend fun AppContainer.openFiles(files: List<String>): Boolean {
     }
     val read = withContext(Dispatchers.IO) { files.flatMap { readSongLists(platform.files, it) } }
     if (read.isEmpty()) return false
-    // Already imported from the downloads folder by the watcher: not twice (feedback round 32).
+    // Already imported from the downloads folder by the watcher: not twice.
     val lists = exportify?.notYetImported(read) ?: read
     if (lists.isNotEmpty()) deezerImports.importLists(lists)
     openLibrary.tryEmit(Unit)

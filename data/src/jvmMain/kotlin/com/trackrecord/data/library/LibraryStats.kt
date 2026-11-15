@@ -2,7 +2,7 @@ package com.trackrecord.data.library
 
 import com.trackrecord.engine.musicbrainz.MatchAcceptance
 
-/** Numbers for a set of songs, e.g. a playlist with the library filters applied (feedback round 5). */
+/** Numbers for a set of songs, e.g. a playlist with the library filters applied. */
 data class LibraryStats(
     val songs: Int,
     /** Distinct artists by normalized name ("Queen" and "QUEEN feat. X" count once); songs without an artist are left out. */

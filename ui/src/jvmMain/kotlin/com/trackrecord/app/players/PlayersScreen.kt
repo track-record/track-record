@@ -69,7 +69,7 @@ import com.trackrecord.app.ui.theme.LocalButtonShape
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-/** Saved players; a tap opens their stats (feedback round 47), where they are edited too. */
+/** Saved players; a tap opens their stats, where they are edited too. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayersScreen(onBack: () -> Unit, onEdit: (Long?) -> Unit, onStats: (Long) -> Unit) {
@@ -83,11 +83,11 @@ fun PlayersScreen(onBack: () -> Unit, onEdit: (Long?) -> Unit, onStats: (Long) -
             )
         },
         floatingActionButton = {
-            // The buttons' corner radius, like every other button (feedback round 26).
+            // The buttons' corner radius, like every other button.
             ExtendedFloatingActionButton(onClick = { onEdit(null) }, shape = LocalButtonShape.current, icon = { Icon(Icons.Default.Add, null) }, text = { Text(stringResource(Res.string.profiles_new)) })
         },
     ) { padding ->
-        // The players in one panel, as the other screens' lists (feedback round 58); room at the bottom for the button.
+        // The players in one panel, as the other screens' lists; room at the bottom for the button.
         LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 88.dp)) {
             if (profiles.isEmpty()) {
                 item {
@@ -163,7 +163,7 @@ fun ProfileEditorScreen(profileId: Long?, onDone: () -> Unit) {
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(PanelGap),
         ) {
-            // The player in a panel, Save below it (feedback round 58).
+            // The player in a panel, Save below it.
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {

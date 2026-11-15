@@ -71,7 +71,7 @@ abstract class AppDatabase : RoomDatabase() {
         private const val INSERT_EXCLUDED = "INSERT INTO playlists (name, created_at, kind) VALUES ('', 0, 'EXCLUDED')"
 
         /**
-         * Exclusion becomes the "Excluded songs" playlist (feedback round 28): the playlist is created, every
+         * Exclusion becomes the "Excluded songs" playlist: the playlist is created, every
          * excluded song joins it, and the override's `excluded` column goes (rows left without a year edit too).
          */
         val MIGRATION_10_11 = object : Migration(10, 11) {

@@ -25,8 +25,8 @@ data class VetoRound(
     val declined: Set<String> = emptySet(),
     val readySinceMs: Long? = null,
     /**
-     * Players who tapped "Veto" and are picking a gap (feedback round 10), on a guest phone or on the
-     * host's (feedback round 27).
+     * Players who tapped "Veto" and are picking a gap, on a guest phone or on the
+     * host's.
      */
     val vetoing: Set<String> = emptySet(),
 )
@@ -57,8 +57,8 @@ object RevealGate {
 
     /**
      * Auto-reveal may happen: everyone who could still veto declined, on a guest phone or with the
-     * host's "Don't veto" (feedback round 16); also true when nobody can veto. A veto placed on the
-     * host's phone no longer stops it: there is no Undo veto any more (feedback round 27).
+     * host's "Don't veto"; also true when nobody can veto. A veto placed on the
+     * host's phone no longer stops it: there is no Undo veto any more.
      *
      * With [ignoreRemoteAfterMs] ("Auto-reveal despite outstanding remote vetoes", feedback round 32),
      * remote players still undecided that long after Lock in no longer count; one picking a gap does.
@@ -90,7 +90,7 @@ object RevealGate {
         ignoreRemoteAfterMs: Long? = null,
     ): RevealStatus {
         val waiting = waitingFor(state, remote, round)
-        // Also a player on the host's phone picking a gap: a co-host sees "Veto pending" (feedback round 27).
+        // Also a player on the host's phone picking a gap: a co-host sees "Veto pending".
         val picking = GameEngine.vetoEligible(state).filter { it in round.vetoing && it !in round.declined }
         val lockedFor = if (waiting.isEmpty()) 0L else (round.lockedAtMs + vetoWindowMs - nowMs).coerceAtLeast(0L)
         val delay = auto.delayMs

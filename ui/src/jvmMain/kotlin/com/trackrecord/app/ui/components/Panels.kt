@@ -64,8 +64,8 @@ fun Card(
 ) = androidx.compose.material3.Card(modifier, shape, CardDefaults.cardColors(containerColor = LocalCardFill.current), border = border, content = content)
 
 /**
- * A titled panel: the title close to the top edge with a little room below it (feedback round 21). With [onToggle] the
- * title row opens and closes the card's [content]. Every screen's content sits in these (feedback round 58).
+ * A titled panel: the title close to the top edge with a little room below it. With [onToggle] the
+ * title row opens and closes the card's [content]. Every screen's content sits in these.
  */
 @Composable
 fun SectionCard(
@@ -77,7 +77,7 @@ fun SectionCard(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(modifier.fillMaxWidth()) {
-        // The header's tap area reaches the card's edges, so a closed card is one big button (feedback round 43).
+        // The header's tap area reaches the card's edges, so a closed card is one big button.
         val header = Modifier.fillMaxWidth().then(
             if (onToggle != null) Modifier.clickable(role = Role.Button, onClickLabel = stringResource(if (expanded) Res.string.section_collapse else Res.string.section_expand), onClick = onToggle) else Modifier,
         )
@@ -97,7 +97,7 @@ fun SectionCard(
 
 /**
  * Material's list row on whatever panel holds it: transparent, where Material fills it with the surface colour, which
- * covered a translucent panel and left its title looking fainter than its rows (feedback round 58). Keeps the M3 name
+ * covered a translucent panel and left its title looking fainter than its rows. Keeps the M3 name
  * and parameters, like the button wrappers.
  */
 @Composable
@@ -137,7 +137,7 @@ fun Modifier.panelRow(first: Boolean, last: Boolean): Modifier {
 /** The space between a screen's panels. */
 val PanelGap = 12.dp
 
-/** How wide the content gets: a phone's screen, and the centred column of the desktop's window (feedback round 54). */
+/** How wide the content gets: a phone's screen, and the centred column of the desktop's window. */
 val ContentMaxWidth = 560.dp
 
 /**
@@ -149,20 +149,20 @@ val ContentMaxWidth = 560.dp
 fun AppSheet(
     title: String,
     onDismiss: () -> Unit,
-    // Always fully open: a half-open tall sheet hid its Close button behind the navigation bar (feedback round 43).
+    // Always fully open: a half-open tall sheet hid its Close button behind the navigation bar.
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val panels = LocalPanels.current
-    // Never up to the status bar: a sheet reaching it made room for it, grew and settled again without end
-    // (feedback rounds 37 to 39 and 48). Its body takes what is left (sheetBody()). Measured here, in the
+    // Never up to the status bar: a sheet reaching it made room for it, grew and settled again without end.
+    // Its body takes what is left (sheetBody()). Measured here, in the
     // activity's window: inside the sheet's own window the status bar reads as 0.
     val window = LocalWindowInfo.current.containerSize.height
     val statusBar = WindowInsets.statusBarsAlways.getTop(LocalDensity.current)
     // The sheet's own space ends above the navigation bar, and its content is padded for it once more.
     val navigationBar = WindowInsets.navigationBarsAlways.getBottom(LocalDensity.current)
     val maxHeight = with(LocalDensity.current) { (window - statusBar - navigationBar).toDp() } - SHEET_TOP_GAP - SHEET_HANDLE
-    // No wider than the content beneath it (feedback round 58); Material's own limit is wider.
+    // No wider than the content beneath it; Material's own limit is wider.
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -189,7 +189,7 @@ fun AppSheet(
 /**
  * What a sheet's content is padded by: the bottom only. Material's default also pads the top by the status
  * bar less the sheet's distance from the top, so a sheet near the status bar grew as it rose, moved and
- * settled again without end; on Felix's phones even with the height cap (feedback rounds 37 to 39, 48, 50).
+ * settled again without end; on the test phones even with the height cap.
  */
 private val SheetContentInsets: WindowInsets
     @Composable get() = WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)

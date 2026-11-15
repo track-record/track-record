@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
@@ -56,6 +57,7 @@ import com.trackrecord.app.resources.playback_open_deezer
 import com.trackrecord.app.resources.result_cover
 import com.trackrecord.app.resources.song_checked_fingerprint_no_match
 import com.trackrecord.app.resources.song_checked_name_no_match
+import com.trackrecord.app.resources.song_checked_old_version_no_match
 import com.trackrecord.app.resources.song_deezer_info
 import com.trackrecord.app.resources.song_detail_title
 import com.trackrecord.app.resources.song_edit_year
@@ -74,6 +76,7 @@ import com.trackrecord.app.resources.song_tag_year
 import com.trackrecord.app.resources.song_verification_none
 import com.trackrecord.app.resources.song_verified_fingerprint
 import com.trackrecord.app.resources.song_verified_name
+import com.trackrecord.app.resources.song_verified_old_version
 import com.trackrecord.app.resources.song_via_fingerprint
 import com.trackrecord.app.resources.song_year_source
 import com.trackrecord.app.resources.unknown_artist
@@ -92,6 +95,7 @@ import com.trackrecord.app.ui.components.formatDuration
 import com.trackrecord.app.ui.components.formatYear
 import com.trackrecord.app.ui.components.rememberSongCover
 import com.trackrecord.app.ui.theme.LocalComponentShape
+import com.trackrecord.app.ui.theme.caution
 import com.trackrecord.data.db.SongSource
 import com.trackrecord.data.library.LibrarySong
 import com.trackrecord.data.library.Verification
@@ -135,7 +139,7 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
         val s = song ?: return@Scaffold
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-            // The song, its year and what can be done with it, each in a panel (feedback round 58).
+            // The song, its year and what can be done with it, each in a panel.
             verticalArrangement = Arrangement.spacedBy(PanelGap),
         ) {
             Card(Modifier.fillMaxWidth()) {
@@ -201,11 +205,11 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(if (previewing) Res.string.song_preview_stop else Res.string.song_preview))
                         }
-                        // A streamed song: the whole track in Deezer (feedback round 29), as on the reveal screen.
+                        // A streamed song: the whole track in Deezer, as on the reveal screen.
                         val deezerId = s.song.deezerId
                         if (s.song.source == SongSource.DEEZER && deezerId != null) {
                             val uriHandler = LocalUriHandler.current
-                            // Filled like Preview: an outlined button nearly vanished on the backdrop (feedback round 31).
+                            // Filled like Preview: an outlined button nearly vanished on the backdrop.
                             FilledTonalButton(onClick = {
                                 if (previewing) vm.togglePreview()
                                 runCatching { uriHandler.openUri("https://www.deezer.com/track/$deezerId") }
@@ -218,8 +222,9 @@ fun SongDetailScreen(songId: Long, onBack: () -> Unit) {
     }
 }
 
+/** "Look up" with how the last one went (song details, and the reveal's year card for a song not verified, D-382). */
 @Composable
-private fun LookupSection(state: LookupUi, keyStatus: AcoustIdKeyStatus, onLookUp: () -> Unit) {
+fun LookupSection(state: LookupUi, keyStatus: AcoustIdKeyStatus, onLookUp: () -> Unit) {
     AcoustIdWarning(keyStatus)
     when (state) {
         LookupUi.Running -> Text(
@@ -246,11 +251,14 @@ fun YearSourcesTable(s: LibrarySong) {
         color = if (year == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
     )
     if (year != null) Text(stringResource(Res.string.song_year_source, stringResource(s.resolved.source.label)))
-    // How MusicBrainz checked the song: not yet, by name, or by fingerprint (feedback round 30).
-    Text(stringResource(verificationLabel(s)), style = MaterialTheme.typography.bodySmall)
+    // How MusicBrainz checked the song: not yet, by name, or by fingerprint. Checked under older rules, its year still
+    // counts but may be wrong: in yellow until it is verified again (D-382).
+    val outdated = if (s.checkedByOldRules) MaterialTheme.colorScheme.caution else Color.Unspecified
+    Text(stringResource(verificationLabel(s)), style = MaterialTheme.typography.bodySmall, color = outdated)
     YearLine(stringResource(Res.string.song_tag_original_year), s.song.tagOriginalYear)
     YearLine(stringResource(Res.string.song_tag_year), s.song.tagYear)
-    YearLine(stringResource(Res.string.song_musicbrainz_year), s.musicBrainzYear ?: s.lookup?.year)
+    val mbYear = s.musicBrainzYear ?: s.lookup?.year
+    YearLine(stringResource(Res.string.song_musicbrainz_year), mbYear, if (mbYear != null) outdated else Color.Unspecified)
     if (s.lookup?.let { it.year != null && it.viaFingerprint } == true) {
         Text(stringResource(Res.string.song_via_fingerprint), style = MaterialTheme.typography.bodySmall)
     }
@@ -269,10 +277,10 @@ fun AcoustIdWarning(status: AcoustIdKeyStatus) {
 val AcoustIdKeyStatus.fingerprinting: Boolean get() = key.isNotBlank() && state != AcoustIdKeyState.REJECTED
 
 @Composable
-private fun YearLine(label: String, year: Int?) {
+private fun YearLine(label: String, year: Int?, color: Color = Color.Unspecified) {
     Row(Modifier.fillMaxWidth()) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        Text(year?.let(::formatYear) ?: stringResource(Res.string.year_none), style = MaterialTheme.typography.bodyMedium)
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = color)
+        Text(year?.let(::formatYear) ?: stringResource(Res.string.year_none), style = MaterialTheme.typography.bodyMedium, color = color)
     }
 }
 
@@ -285,8 +293,11 @@ val YearSource.label: StringResource
         YearSource.NONE -> Res.string.year_none
     }
 
-private fun verificationLabel(s: LibrarySong): StringResource {
+/** How MusicBrainz checked [s], as the year details say it (also on a co-host's phone, D-385). */
+fun verificationLabel(s: LibrarySong): StringResource {
     val matched = s.lookup?.year != null
+    // Its year still counts: say so rather than "not verified" (Felix).
+    if (s.checkedByOldVersion) return if (matched) Res.string.song_verified_old_version else Res.string.song_checked_old_version_no_match
     return when (s.verification) {
         Verification.NONE -> Res.string.song_verification_none
         Verification.NAME -> if (matched) Res.string.song_verified_name else Res.string.song_checked_name_no_match

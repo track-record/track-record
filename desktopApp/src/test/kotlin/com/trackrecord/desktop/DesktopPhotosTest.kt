@@ -16,7 +16,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-/** Players' photos on the desktop (feedback round 55): a picture for the crop dialog, and the round avatar it gives. */
+/** Players' photos on the desktop: a picture for the crop dialog, and the round avatar it gives. */
 class DesktopPhotosTest {
     private val folder: File = Files.createTempDirectory("trackrecord-photos").toFile()
     private val photos = DesktopPhotos(folder)

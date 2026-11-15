@@ -53,6 +53,7 @@ class YearBalancingTest {
         val even = YearBalancing.weights((1..100).map { Card(it.toLong(), 1960 + it % 20) }, YearBalance.STRONG, 20)!!
         assertTrue(even.all { abs(it - even.first()) < 1e-9 })
         assertNull(YearBalancing.targets(perYear, perGame = 76, cap = 0.5), "152 songs × 0.5 ≤ 76")
+        assertNull(YearBalancing.targets(perYear, perGame = 0, cap = 0.5), "no game estimate: a plain shuffle (REVIEW-3 C-16)")
     }
 
     @Test

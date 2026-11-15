@@ -28,7 +28,7 @@ import com.trackrecord.data.settings.ThemeChoice
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity(), NavigationBarHost {
-    /** Set by the game screens, which hide the navigation bar; the menus keep it (feedback round 31). */
+    /** Set by the game screens, which hide the navigation bar; the menus keep it. */
     override var hideNavigationBar = false
 
     override fun onCreate(savedInstanceState: Bundle?) {

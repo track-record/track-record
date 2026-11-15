@@ -63,6 +63,9 @@ interface PlatformServices {
     /** Installs a newer release by itself (the desktop); null where the browser downloads it (Android installs the APK). */
     val updateInstaller: UpdateInstaller?
 
+    /** The last update's installer failed, and the old version was started again to say so (the desktop; REVIEW-3 B-20). */
+    val updateFailed: Boolean get() = false
+
     /** Whether the system asks the first time guests may reach the app (Windows' firewall), so the invite sheet explains it. */
     val asksForNetworkAccess: Boolean get() = false
 }
@@ -108,9 +111,12 @@ interface FileAccess {
 
     /** [file]'s name, or null if it can't be found out. */
     fun displayName(file: String): String?
+
+    /** Deletes [file] (one the app wrote, such as a failed export); false if it can't. */
+    fun delete(file: String): Boolean
 }
 
-/** The downloads folder, watched for Exportify's lists (feedback round 32). */
+/** The downloads folder, watched for Exportify's lists. */
 interface Downloads {
     /** The app may read it (Android asks for a permission). */
     fun hasAccess(): Boolean

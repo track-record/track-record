@@ -42,7 +42,7 @@ class GameViewModel(private val controller: GameController) : ViewModel() {
         _pendingVeto.value = null
     }
 
-    /** Who picks a gap on this phone; Reveal waits for them like for a guest phone (feedback round 27). */
+    /** Who picks a gap on this phone; Reveal waits for them like for a guest phone. */
     private fun setVetoer(id: String?) {
         val previous = _vetoer.value
         if (previous == id) return
@@ -76,7 +76,12 @@ class GameViewModel(private val controller: GameController) : ViewModel() {
 
     fun correctYear(year: Int) = controller.correctYear(year)
 
-    /** "Don't veto" for the one player on the host's phone (feedback round 16). */
+    /** The revealed song's years as the library has them, and "Look up" (D-382). */
+    val revealYear: StateFlow<RevealYear?> = controller.revealYear
+
+    fun lookUp(songId: Long) = controller.lookUp(songId)
+
+    /** "Don't veto" for the one player on the host's phone. */
     fun declineVeto(playerId: String) {
         setVetoer(null)
         _pendingVeto.value = null

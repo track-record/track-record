@@ -41,8 +41,10 @@ import com.trackrecord.app.resources.info_rules
 import com.trackrecord.app.resources.info_settings
 import com.trackrecord.app.resources.info_songs
 import com.trackrecord.app.resources.info_title
+import com.trackrecord.app.resources.jokers
 import com.trackrecord.app.resources.keypad_backspace
 import com.trackrecord.app.resources.list_separator
+import com.trackrecord.app.resources.lookup_button
 import com.trackrecord.app.resources.outcome_discarded
 import com.trackrecord.app.resources.outcome_kept
 import com.trackrecord.app.resources.outcome_nobody_won
@@ -79,10 +81,13 @@ import com.trackrecord.app.resources.result_guesses
 import com.trackrecord.app.resources.result_named
 import com.trackrecord.app.resources.result_named_hint
 import com.trackrecord.app.resources.result_named_hint_all
+import com.trackrecord.app.resources.result_named_hint_solo
 import com.trackrecord.app.resources.result_named_hint_vetoers
 import com.trackrecord.app.resources.result_named_skip_hint
 import com.trackrecord.app.resources.result_named_who
-import com.trackrecord.app.resources.result_sources
+import com.trackrecord.app.resources.result_source_musicbrainz
+import com.trackrecord.app.resources.result_source_tag
+import com.trackrecord.app.resources.result_sources_separator
 import com.trackrecord.app.resources.result_year_details
 import com.trackrecord.app.resources.reveal_auto
 import com.trackrecord.app.resources.reveal_locked
@@ -90,6 +95,7 @@ import com.trackrecord.app.resources.reveal_waiting_veto
 import com.trackrecord.app.resources.round_title
 import com.trackrecord.app.resources.score_cards_of
 import com.trackrecord.app.resources.score_points_of
+import com.trackrecord.app.resources.scoreboard_adjust_jokers
 import com.trackrecord.app.resources.scoreboard_adjust_skips
 import com.trackrecord.app.resources.scoreboard_adjust_skips_hint
 import com.trackrecord.app.resources.scoreboard_adjust_vetoes
@@ -113,6 +119,8 @@ import com.trackrecord.app.resources.settings_start_offset
 import com.trackrecord.app.resources.settings_title
 import com.trackrecord.app.resources.skip_title
 import com.trackrecord.app.resources.skips
+import com.trackrecord.app.resources.song_edit_year
+import com.trackrecord.app.resources.song_effective_year
 import com.trackrecord.app.resources.start_offset_next_song
 import com.trackrecord.app.resources.timeline_declined
 import com.trackrecord.app.resources.timeline_lock_in
@@ -146,6 +154,7 @@ import com.trackrecord.app.resources.web_lobby_title
 import com.trackrecord.app.resources.web_local_sound
 import com.trackrecord.app.resources.web_local_sound_hint
 import com.trackrecord.app.resources.web_menu
+import com.trackrecord.app.resources.web_music_unsupported
 import com.trackrecord.app.resources.web_my_cards
 import com.trackrecord.app.resources.web_my_songs
 import com.trackrecord.app.resources.web_no_cards
@@ -157,9 +166,11 @@ import com.trackrecord.app.resources.web_pick_hint
 import com.trackrecord.app.resources.web_pick_title
 import com.trackrecord.app.resources.web_placing
 import com.trackrecord.app.resources.web_reconnecting
+import com.trackrecord.app.resources.web_sound_mute
 import com.trackrecord.app.resources.web_sound_on
 import com.trackrecord.app.resources.web_sound_turn_off
 import com.trackrecord.app.resources.web_sound_turn_on
+import com.trackrecord.app.resources.web_sound_unmute
 import com.trackrecord.app.resources.web_switch_player
 import com.trackrecord.app.resources.web_taken
 import com.trackrecord.app.resources.web_takeover_confirm
@@ -174,7 +185,6 @@ import com.trackrecord.app.resources.web_veto_pick_twice
 import com.trackrecord.app.resources.web_veto_placed
 import com.trackrecord.app.resources.web_veto_question
 import com.trackrecord.app.resources.web_volume
-import com.trackrecord.app.resources.web_volume_open
 import com.trackrecord.app.resources.web_waiting_reveal
 import com.trackrecord.app.resources.web_waiting_text
 import com.trackrecord.app.resources.web_waiting_title
@@ -184,8 +194,10 @@ import com.trackrecord.app.resources.web_you_have
 import com.trackrecord.app.resources.web_your_guess
 import com.trackrecord.app.resources.web_your_turn
 import com.trackrecord.app.resources.web_your_turn_twice
-import com.trackrecord.app.resources.year_editor_title
+import com.trackrecord.app.resources.year_editor_label
+import com.trackrecord.app.resources.year_editor_range
 import com.trackrecord.app.resources.year_sheet_round
+import com.trackrecord.app.resources.year_sheet_title
 import com.trackrecord.app.resources.years_off
 import com.trackrecord.app.ui.Texts
 import com.trackrecord.app.ui.theme.label
@@ -295,9 +307,10 @@ object WebStrings {
         "web_volume" to Res.string.web_volume,
         "web_sound_turn_on" to Res.string.web_sound_turn_on,
         "web_sound_turn_off" to Res.string.web_sound_turn_off,
+        "web_sound_mute" to Res.string.web_sound_mute,
+        "web_sound_unmute" to Res.string.web_sound_unmute,
         "web_local_sound" to Res.string.web_local_sound,
         "web_local_sound_hint" to Res.string.web_local_sound_hint,
-        "web_volume_open" to Res.string.web_volume_open,
         "web_brief_ok" to Res.string.web_brief_ok,
         "web_favorite_add" to Res.string.result_favorite_add,
         "web_favorite_remove" to Res.string.result_favorite_remove,
@@ -324,13 +337,14 @@ object WebStrings {
         "web_host_named_hint_skip" to Res.string.result_named_skip_hint,
         "web_host_year_details" to Res.string.result_year_details,
         "web_host_adjust_vetoes" to Res.string.scoreboard_adjust_vetoes,
+        "web_host_adjust_jokers" to Res.string.scoreboard_adjust_jokers,
+        "web_host_named_hint_solo" to Res.string.result_named_hint_solo,
         "web_host_adjust_vetoes_hint" to Res.string.scoreboard_adjust_vetoes_hint,
         "web_host_adjust_skips" to Res.string.scoreboard_adjust_skips,
         "web_host_adjust_skips_hint" to Res.string.scoreboard_adjust_skips_hint,
         "web_host_next" to Res.string.action_next,
         "web_host_undo_guess" to Res.string.closest_undo_guess,
         "web_host_named" to Res.string.result_named,
-        "web_host_year" to Res.string.year_editor_title,
         "web_host_save" to Res.string.action_save,
         "web_host_more" to Res.string.web_host_more,
         "web_host_less" to Res.string.web_host_less,
@@ -360,12 +374,22 @@ object WebStrings {
         "web_device_unknown" to Res.string.device_unknown,
         "web_confirm_twice_hint" to Res.string.settings_confirm_twice_hint,
         "web_playback_error" to Res.string.playback_error,
-        "web_sources" to Res.string.result_sources,
+        "web_music_unsupported" to Res.string.web_music_unsupported,
         "web_corrected" to Res.string.result_corrected,
         "web_vetoes_lost" to Res.string.outcome_vetoes_lost,
         "web_unknown_artist" to Res.string.unknown_artist,
         "web_ok" to Res.string.action_ok,
         "web_round_counted" to Res.string.year_sheet_round,
+        // The co-host's year card, as the host's (D-385).
+        "web_year_sheet_title" to Res.string.year_sheet_title,
+        "web_effective_year" to Res.string.song_effective_year,
+        "web_edit_year" to Res.string.song_edit_year,
+        "web_look_up" to Res.string.lookup_button,
+        "web_year_label" to Res.string.year_editor_label,
+        "web_year_range" to Res.string.year_editor_range,
+        "web_source_tag" to Res.string.result_source_tag,
+        "web_sources_separator" to Res.string.result_sources_separator,
+        "web_source_musicbrainz" to Res.string.result_source_musicbrainz,
         // Feedback round 43: a co-host plays the whole song and removes players, as on the host.
         "web_full_preview" to Res.string.playback_full_preview,
         "web_full_song" to Res.string.playback_full_song,
@@ -379,7 +403,7 @@ object WebStrings {
         "web_play_time" to Res.string.playback_time,
     )
 
-    private val plurals = mapOf("web_vetoes" to Res.plurals.vetoes, "web_skips" to Res.plurals.skips, "web_years_off" to Res.plurals.years_off, "web_cards" to Res.plurals.cards, "web_points" to Res.plurals.points, "web_seconds" to Res.plurals.seconds)
+    private val plurals = mapOf("web_vetoes" to Res.plurals.vetoes, "web_jokers" to Res.plurals.jokers, "web_skips" to Res.plurals.skips, "web_years_off" to Res.plurals.years_off, "web_cards" to Res.plurals.cards, "web_points" to Res.plurals.points, "web_seconds" to Res.plurals.seconds)
 
     /** Every key [build] sends; WebStringsTest checks the guest page against them (REVIEW.md T-02). */
     val keys: Set<String>

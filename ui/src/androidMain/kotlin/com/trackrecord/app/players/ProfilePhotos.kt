@@ -27,8 +27,7 @@ object ProfilePhotos {
     fun dir(context: Context) = File(context.filesDir, "profile_photos").apply { mkdirs() }
 
     /**
-     * A gallery picture, upright and downsampled to keep enough detail for zooming in the crop dialog
-     * (feedback round 16).
+     * A gallery picture, upright and downsampled to keep enough detail for zooming in the crop dialog.
      */
     suspend fun decode(context: Context, uri: Uri): Bitmap? = withContext(Dispatchers.IO) {
         runCatching {

@@ -67,7 +67,7 @@ class DesktopPlatformUi(private val chromium: Chromium, private val photos: Desk
 
     override val photoButtons: @Composable (onPhoto: (path: String) -> Unit) -> Unit = { onPhoto ->
         var camera by remember { mutableStateOf(false) }
-        // A new photo first goes through the crop dialog (feedback round 16).
+        // A new photo first goes through the crop dialog.
         var cropping by remember { mutableStateOf<ImageBitmap?>(null) }
         if (camera) {
             CameraDialog(chromium, onCancel = { camera = false }) { photo ->

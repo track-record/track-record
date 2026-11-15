@@ -1,4 +1,4 @@
-// Decodes songs for the desktop's AcoustID fingerprints (feedback round 55): Chromium's own decoders, resampled to the
+// Decodes songs for the desktop's AcoustID fingerprints: Chromium's own decoders, resampled to the
 // rate Chromaprint works at and mixed to mono, as Chromaprint's own resampler and downmix do. The first seconds go
 // back to the app as 16-bit samples, base64-encoded, in parts.
 // Command: decode {id, src, rate, seconds}. Answers: pcm {id, part, last, data} or failed {id}.

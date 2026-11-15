@@ -3,7 +3,7 @@ package com.trackrecord.data.deezer
 /** A public Deezer playlist the library offers to everyone. */
 data class DefaultPlaylist(val name: String, val deezerId: Long)
 
-/** One playlist of hits per decade, from the 70s on (feedback round 48: the ones Felix picked). */
+/** One playlist of hits per decade, from the 70s on. */
 object DefaultPlaylists {
     val ALL = listOf(
         DefaultPlaylist("70s Hits", 1470022445),

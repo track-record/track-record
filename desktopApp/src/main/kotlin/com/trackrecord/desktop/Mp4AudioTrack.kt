@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 
 /**
  * The first AAC track of an MP4 file (m4a), read from the few boxes a decoder needs: JAAD's own reader gives up on the
- * iTunes tags that FFmpeg and others write (feedback round 55). [config] is the decoder's AudioSpecificConfig (from
+ * iTunes tags that FFmpeg and others write. [config] is the decoder's AudioSpecificConfig (from
  * esds); [offsets] and [sizes] place each frame in the file (stco or co64, stsc, stsz). The decoder leaves out the
  * encoder's priming itself.
  */

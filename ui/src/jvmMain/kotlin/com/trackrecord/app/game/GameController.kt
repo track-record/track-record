@@ -2,6 +2,7 @@ package com.trackrecord.app.game
 
 import com.trackrecord.app.audio.GameAudio
 import com.trackrecord.app.audio.TrackRequest
+import com.trackrecord.app.library.LookupUi
 import com.trackrecord.app.platform.monotonicMs
 import com.trackrecord.app.resources.Res
 import com.trackrecord.app.resources.placeholder_round
@@ -38,16 +39,23 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 /**
- * A game's own requests (feedback round 48): years looked up for its next songs and for songs on its playlists
+ * A game's own requests: years looked up for its next songs and for songs on its playlists
  * that lack one (D-064), and covers for its cards. Shown with Stop in the game's settings, to the co-host and in
  * the library; [stopped] keeps them off for the rest of the game.
  */
@@ -82,9 +90,9 @@ class GameController(
     revealSettings: StateFlow<RevealSettings> = MutableStateFlow(RevealSettings()),
     /** Players controlled from a guest's phone (SPEC v3). */
     val remotePlayers: StateFlow<Set<String>> = MutableStateFlow(emptySet()),
-    /** The user's playlists by id, for the info sheet (feedback round 36). */
+    /** The user's playlists by id, for the info sheet. */
     private val playlistNames: suspend () -> Map<Long, String> = { emptyMap() },
-    /** Saved players' stats (feedback round 47); null records nothing. */
+    /** Saved players' stats; null records nothing. */
     private val stats: PlayerStatsRepository? = null,
     clock: () -> Long = ::monotonicMs,
 ) {
@@ -106,12 +114,32 @@ class GameController(
     private val _session = MutableStateFlow<GameSession?>(null)
     val session: StateFlow<GameSession?> = _session.asStateFlow()
 
+    /** "Look up" at the reveal (D-382): the song asked about and how it went. */
+    private val revealLookup = MutableStateFlow<Pair<Long, LookupUi>?>(null)
+
+    /**
+     * The revealed song as the library has it now, with Look up's state: the reveal's year card, on the host and on a
+     * co-host's phone (D-382, D-385). Null outside the reveal.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val revealYear: StateFlow<RevealYear?> = _session
+        .map { s -> s?.state?.takeIf { it.phase == Phase.REVEALED }?.round?.song?.songId }
+        .distinctUntilChanged()
+        .flatMapLatest { id ->
+            if (id == null) {
+                flowOf(null)
+            } else {
+                combine(library.song(id), revealLookup) { song, lookup -> song?.let { RevealYear(it, lookup?.takeIf { l -> l.first == id }?.second ?: LookupUi.Idle) } }
+            }
+        }
+        .stateIn(scope, SharingStarted.Eagerly, null)
+
     /** Veto window and auto-reveal of the current Timeline round. */
     private val revealTimer = RevealTimer(scope, revealSettings, remotePlayers, clock, reveal = { dispatch(GameAction.Reveal) })
 
     /**
      * Whether the host has a game screen open (and the app in front). Guests can only play while it
-     * is; otherwise they see "Game paused" (feedback round 9).
+     * is; otherwise they see "Game paused".
      */
     private val _hostOnGame = MutableStateFlow(false)
     val hostOnGame: StateFlow<Boolean> = _hostOnGame.asStateFlow()
@@ -221,7 +249,7 @@ class GameController(
                 r.reason
             }
             is ReduceResult.Accepted -> {
-                // A placed veto ends that player's gap picking (feedback round 10).
+                // A placed veto ends that player's gap picking.
                 if (action is GameAction.PlaceVeto) revealTimer.vetoPlaced(action.playerId)
                 _session.value = s.copy(state = r.state)
                 // A gap chosen while dragging isn't worth a save; the next action saves it anyway (REVIEW-2 P-06).
@@ -252,6 +280,32 @@ class GameController(
         return rejected
     }
 
+    /**
+     * "Look up" at the reveal (D-382), from the host or a co-host (D-385): asks MusicBrainz now about [songId], before
+     * the other lookups, so the host doesn't wait behind a library verification or the game's own lookups. The round
+     * keeps its year (scores stand; "Edit year" corrects it), but the card shows MusicBrainz's new year.
+     */
+    fun lookUp(songId: Long) {
+        if (revealLookup.value == songId to LookupUi.Running) return
+        revealLookup.value = songId to LookupUi.Running
+        scope.launch {
+            val result = LookupUi.of(lookUpNow(songId))
+            if (revealLookup.value?.first == songId) revealLookup.value = songId to result
+        }
+    }
+
+    private suspend fun lookUpNow(songId: Long): LookupResult {
+        val entity = library.songEntity(songId) ?: return LookupResult.Skipped
+        val result = musicBrainz.lookUpNow(entity)
+        val s = _session.value
+        val info = s?.song(songId)
+        if (result is LookupResult.Match && info != null && info.musicBrainzYear != result.year) {
+            _session.value = s.copy(songs = s.songs + (songId to info.copy(musicBrainzYear = result.year)))
+            persist()
+        }
+        return result
+    }
+
     /** The whole song (or Deezer preview) instead of the clip; only after the reveal, so the notification may name it (D-110). */
     suspend fun playFullSong() {
         val session = _session.value ?: return
@@ -262,7 +316,7 @@ class GameController(
 
     suspend fun playAgain(): StartResult {
         val s = _session.value ?: return StartResult.Rejected(RejectReason.NO_GAME)
-        // Players removed mid-game stay out (feedback round 36).
+        // Players removed mid-game stay out.
         return start(s.state.mode, s.playing, s.state.settings)
     }
 
@@ -322,7 +376,7 @@ class GameController(
     }
 
     /**
-     * Saved players' stats (feedback round 47): a round when Next commits it, as it stood revealed (year
+     * Saved players' stats: a round when Next commits it, as it stood revealed (year
      * corrections and naming marks included); a game when it ends. Recording again replaces, so a restored game
      * doesn't count twice.
      */
@@ -331,8 +385,8 @@ class GameController(
         val step = StatsStep.after(before, after) ?: return
         scope.launch(Dispatchers.IO) {
             runCatching {
-                step.round?.let { repo.recordRound(step.game, it, step.mode, step.rounds) }
-                repo.recordGame(step.game, step.mode, step.games)
+                step.round?.let { repo.recordRound(step.game, it, step.mode, step.rounds, step.solo) }
+                repo.recordGame(step.game, step.mode, step.games, step.solo)
             }
         }
     }
@@ -464,7 +518,7 @@ class GameController(
         if (gen == generation) _requests.update(change)
     }
 
-    /** Stops the game's lookups and covers, those under way too, for the rest of this game (feedback round 48). */
+    /** Stops the game's lookups and covers, those under way too, for the rest of this game. */
     fun stopRequests() = resetRequests(stopped = true)
 
     private fun resetRequests(stopped: Boolean) {
@@ -542,17 +596,21 @@ class GameController(
         fetchCover(song)
     }
 
-    private fun applyLookup(songId: Long, mbYear: Int) {
+    /**
+     * A MusicBrainz year found during the game: the card's year becomes what the library would resolve, by the "When
+     * sources disagree" setting (MusicBrainz, the tags or the lower one; REVIEW-3 B-17).
+     */
+    private suspend fun applyLookup(songId: Long, mbYear: Int) {
+        val preference = library.yearPreferenceNow()
         val s = _session.value ?: return
         val info = s.song(songId) ?: return
-        val base = info.baseYear
-        if (info.manualYear != null || base == null || info.musicBrainzYear == mbYear) return
+        if (info.musicBrainzYear == mbYear) return
+        val year = info.yearWithLookup(mbYear, currentYear(), preference) ?: return
         val state = s.state
         val round = state.round
         val inPool = state.pool.any { it.songId == songId }
         val current = round != null && round.song.songId == songId && state.phase != Phase.REVEALED && state.phase != Phase.GAME_OVER
         if (!inPool && !current) return
-        val year = mbYear // MusicBrainz wins over the tags (DECISIONS.md D-055)
         val updatedSongs = s.songs + (songId to info.copy(musicBrainzYear = mbYear))
         val newState = when (val r = GameEngine.reduce(state, GameAction.ApplyLookupYear(songId, year))) {
             is ReduceResult.Accepted -> r.state
@@ -563,7 +621,7 @@ class GameController(
     }
 }
 
-/** New game's pool: [streamed] songs need internet; [stats] for the overview below (feedback round 28). */
+/** New game's pool: [streamed] songs need internet; [stats] for the overview below. */
 data class PoolInfo(val size: Int, val streamed: Int, val stats: LibraryStats)
 
 /** What the app does by itself after an accepted action; pure, so it is tested without a phone (REVIEW.md T-03). */
@@ -571,7 +629,7 @@ internal object AutoStep {
     /** The next action, or null. [revealNow]: the reveal timer says auto-reveal is due (D-057, D-105). */
     fun after(state: GameState, revealNow: Boolean): GameAction? = when {
         state.phase == Phase.AWAITING_DRAW -> GameAction.Draw
-        // Closest Year: once everyone has guessed, straight to the reveal (feedback round 11).
+        // Closest Year: once everyone has guessed, straight to the reveal.
         state.mode == GameMode.CLOSEST_YEAR && state.phase == Phase.GUESSING && state.round?.currentGuesserId == null -> GameAction.Reveal
         // Auto-reveal: nobody (or only remote players who declined) can veto.
         state.phase == Phase.VETOING && revealNow -> GameAction.Reveal
@@ -580,7 +638,7 @@ internal object AutoStep {
 }
 
 /**
- * What an accepted action adds to the saved players' stats (feedback round 47): [rounds] of round [round] when
+ * What an accepted action adds to the saved players' stats: [rounds] of round [round] when
  * Next committed it, [games] (profile id, won) when the game ended. Pure, so it is tested without a phone.
  */
 internal data class StatsStep(
@@ -589,6 +647,8 @@ internal data class StatsStep(
     val round: Int?,
     val rounds: List<Pair<Long, RoundRecord>>,
     val games: List<Pair<Long, Boolean>>,
+    /** One player alone: filed apart (D-380). */
+    val solo: Boolean = false,
 ) {
     companion object {
         fun after(before: GameSession, after: GameState): StatsStep? {
@@ -601,7 +661,7 @@ internal data class StatsStep(
             val result = after.result.takeIf { old.phase != Phase.GAME_OVER }
             val games = result?.let { res -> after.players.mapNotNull { p -> profileOf[p.id]?.let { it to (p.id in res.winnerIds) } } }.orEmpty()
             if (rounds.isEmpty() && games.isEmpty()) return null
-            return StatsStep(old.seed, old.mode, round?.number?.takeIf { rounds.isNotEmpty() }, rounds, games)
+            return StatsStep(old.seed, old.mode, round?.number?.takeIf { rounds.isNotEmpty() }, rounds, games, old.solo)
         }
     }
 }
